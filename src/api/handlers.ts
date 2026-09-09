@@ -6,7 +6,7 @@
 
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
-import { autoFormatFilter, SEARCH_FIELDS } from '../utils/helpers/filters.js';
+import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
 
@@ -131,12 +131,7 @@ export class LogicMonitorHandlers {
         // Resource Management
         case 'list_resources': {
           // Handle query parameter - convert to filter
-          let filter = args.filter;
-          if (args.query) {
-            const queryFilter = autoFormatFilter(args.query, SEARCH_FIELDS.devices);
-            // Combine with existing filter using AND logic
-            filter = filter ? `${queryFilter},${filter}` : queryFilter;
-          }
+          const filter = this.combineQueryAndFilter(args.query, args.filter, SEARCH_FIELDS.devices, name);
 
           const result = await this.client.listResources({
             size: args.size,
@@ -853,12 +848,7 @@ export class LogicMonitorHandlers {
         // Audit Logs
         case 'list_audit_logs': {
           // Handle query parameter - convert to filter
-          let filter = args.filter;
-          if (args.query) {
-            const queryFilter = autoFormatFilter(args.query, SEARCH_FIELDS.auditLogs);
-            // Combine with existing filter using AND logic
-            filter = filter ? `${queryFilter},${filter}` : queryFilter;
-          }
+          const filter = this.combineQueryAndFilter(args.query, args.filter, SEARCH_FIELDS.auditLogs, name);
 
           const result = await this.client.listAuditLogs({
             size: args.size,
@@ -1416,6 +1406,51 @@ export class LogicMonitorHandlers {
       }
       throw error;
     }
+  }
+
+  /**
+   * Combine a free-text "query" search with an explicit "filter" into a single
+   * filter string for the LogicMonitor API.
+   *
+   * LogicMonitor's documented filter syntax only supports comma-separated AND
+   * logic - there is no operator precedence or grouping (no parentheses), and
+   * mixing OR with AND in one filter is rejected by the API with a 400.
+   * When "query" expands across more than one field in `searchFields`, it
+   * becomes an OR expression, so it cannot be safely combined with an
+   * additional "filter" (AND) in a single request. In that case, this throws
+   * an MCPError explaining how to get equivalent results via separate calls
+   * instead of sending a request that is guaranteed to fail.
+   */
+  private combineQueryAndFilter(
+    query: string | undefined,
+    filter: string | undefined,
+    searchFields: string[],
+    toolName: string,
+  ): string | undefined {
+    if (!query) return filter;
+
+    if (filter && searchFields.length > 1) {
+      const escapedQuery = escapeFilterValue(query.trim());
+      const perFieldFilters = searchFields.map(
+        (field) => `${field}~"*${escapedQuery}*",${filter}`,
+      );
+      throw new MCPError(
+        `Cannot combine "query" with "filter" in a single "${toolName}" call here. ` +
+          `LogicMonitor's filter API only supports comma-separated AND logic (no OR+AND mixing, ` +
+          `no parentheses/grouping - see LogicMonitor's REST API Developer's Guide). Searching ` +
+          `"${query}" across multiple fields (${searchFields.join(', ')}) requires OR logic, which ` +
+          `cannot be combined with your additional "filter" in one request.`,
+        ErrorCodes.INVALID_PARAMETERS,
+        { toolName, query, filter, searchFields },
+        [
+          `To get equivalent results, make ${searchFields.length} separate "${toolName}" calls instead (one per field), each combined with your filter via AND, then merge/dedupe the results yourself:`,
+          ...perFieldFilters.map((f, i) => `${i + 1}. filter: ${f}`),
+        ],
+      );
+    }
+
+    const queryFilter = autoFormatFilter(query, searchFields);
+    return filter ? `${queryFilter},${filter}` : queryFilter;
   }
 
   /**

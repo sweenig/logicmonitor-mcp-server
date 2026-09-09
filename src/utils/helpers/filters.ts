@@ -4,7 +4,8 @@
  * Based on LogicMonitor REST API documentation:
  * - Pattern: <field name><operator><values>
  * - Operators: : (equal), !: (not equal), > < >: <: (comparison), ~ (contain), !~ (not contain)
- * - String values need double quotes: name:"value"
+ * - ALL values must be double-quoted, even integers/decimals/booleans: name:"value", id>:"100", disableAlerting:"true"
+ *   (unquoted numeric/boolean-looking values are silently ignored by the API instead of erroring)
  * - Multiple values use | (OR): status:"active"|"suspend"
  * - Multiple conditions use , (AND): name:"test",status:"active"
  * - Logical OR between conditions use || (OR): name:"aaa"||status:"suspend"
@@ -12,7 +13,7 @@
  * Examples:
  * - displayName:"*villa*"
  * - hostStatus:"alive"
- * - id>:100
+ * - id>:"100"
  * - displayName:"prod*",hostStatus:"alive" (AND)
  * - name:"web*"||name:"app*" (OR)
  */
@@ -96,22 +97,11 @@ function needsQuoting(value: string): boolean {
     return false;
   }
 
-  // Don't quote pure integers
-  if (/^\d+$/.test(value)) {
-    return false;
-  }
-
-  // Don't quote pure decimals
-  if (/^\d+\.\d+$/.test(value)) {
-    return false;
-  }
-
-  // Don't quote boolean values
-  if (value === 'true' || value === 'false') {
-    return false;
-  }
-
-  // Quote ALL string values - LogicMonitor API requires string values to be quoted
+  // LogicMonitor's filter API requires ALL values to be quoted strings,
+  // even when the value looks like an integer, decimal, or boolean
+  // (e.g. resourceId:"98907", id>:"100", disableAlerting:"true").
+  // Unquoted numeric/boolean-looking values are silently ignored by the
+  // API instead of erroring, which makes this easy to miss.
   return true;
 }
 
@@ -191,21 +181,21 @@ export const FILTER_EXAMPLES = {
     'hostStatus:"alive"',
     'displayName:"web*",hostStatus:"alive"', // AND with comma
     'name:"web*"||name:"app*"', // OR with ||
-    'id>:100', // Greater than or equal
-    'disableAlerting:false',
+    'id>:"100"', // Greater than or equal
+    'disableAlerting:"false"',
     'hostStatus:"active"|"pending"', // Multiple values with |
   ],
   deviceGroups: [
     'name:"*servers*"',
-    'parentId:1',
+    'parentId:"1"',
     'name:"production*"',
     'name~"test"', // Contains
   ],
   alerts: [
     'severity:"critical"',
     'resourceTemplateName~"*cpu*"',
-    'acked:false',
-    'startEpoch>:1640000000000',
+    'acked:"false"',
+    'startEpoch>:"1640000000000"',
   ],
   websites: [
     'type:"webcheck"',

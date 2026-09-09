@@ -70,6 +70,7 @@ export async function startStdioTransport(config: StdioConfig): Promise<void> {
     tools,
     lmClient,
     lmHandlers,
+    readOnly,
   });
 
   console.error(`✅ Server initialized with ${tools.length} tools${readOnly ? ' (read-only mode)' : ''}`);

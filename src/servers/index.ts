@@ -122,6 +122,7 @@ if (TRANSPORT === 'stdio') {
     lmClient,
     lmHandlers,
     enablePeriodicUpdates: false, // Disable periodic updates for STDIO
+    readOnly: ONLY_READONLY_TOOLS,
   });
 
   // Start the STDIO server
@@ -745,6 +746,7 @@ if (TRANSPORT === 'stdio') {
       sessionId,
       userScope,
       enablePeriodicUpdates: false, // Disable for network transports
+      readOnly: ONLY_READONLY_TOOLS,
     });
 
     // Store cleanup function
@@ -758,6 +760,30 @@ if (TRANSPORT === 'stdio') {
       const progressToken = _meta?.progressToken;
 
       try {
+        // Enforce read-only mode server-side, regardless of whether this tool
+        // was advertised to the caller. Filtering the tools/list response alone
+        // only stops well-behaved clients that only call what they were told
+        // about - it does not stop a call that names a write tool directly.
+        if (ONLY_READONLY_TOOLS) {
+          const toolDefinition = getLogicMonitorTools().find(t => t.name === name);
+          if (toolDefinition && toolDefinition.annotations?.readOnlyHint !== true) {
+            log('warn', 'Blocked write tool call while server is in read-only mode', { tool: name });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    error: 'read_only_mode',
+                    error_description: `Tool "${name}" is a write operation and this server is running in read-only mode (MCP_READ_ONLY=true). This is enforced regardless of whether the tool was advertised to the client.`,
+                    tool: name,
+                  }, null, 2),
+                },
+              ],
+              isError: true,
+            };
+          }
+        }
+
         const scopeValidation = ScopeManager.validateToolScopes(name, userScope);
 
         if (!scopeValidation.valid) {
@@ -1425,6 +1451,34 @@ if (TRANSPORT === 'stdio') {
             // Handle tool execution
             (async () => {
               try {
+                // Enforce read-only mode server-side, regardless of whether this
+                // tool was advertised to the caller via tools/list. Filtering the
+                // tools/list response alone only stops well-behaved clients that
+                // only call what they were told about - it does not stop a call
+                // that names a write tool directly.
+                if (ONLY_READONLY_TOOLS) {
+                  const toolDefinition = getLogicMonitorTools().find(t => t.name === params.name);
+                  if (toolDefinition && toolDefinition.annotations?.readOnlyHint !== true) {
+                    log('warn', 'Blocked write tool call while server is in read-only mode', { tool: params.name });
+                    resolve({
+                      jsonrpc: '2.0',
+                      result: {
+                        content: [{
+                          type: 'text',
+                          text: JSON.stringify({
+                            error: 'read_only_mode',
+                            error_description: `Tool "${params.name}" is a write operation and this server is running in read-only mode (MCP_READ_ONLY=true). This is enforced regardless of whether the tool was advertised to the client.`,
+                            tool: params.name,
+                          }, null, 2),
+                        }],
+                        isError: true,
+                      },
+                      id: messageId,
+                    });
+                    return;
+                  }
+                }
+
                 if (!lmHandlers) {
                   resolve({
                     jsonrpc: '2.0',

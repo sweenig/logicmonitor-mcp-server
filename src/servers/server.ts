@@ -23,6 +23,7 @@ import { LogicMonitorClient } from '../api/client.js';
 import { LogicMonitorHandlers } from '../api/handlers.js';
 import { listLMResources, readLMResource } from '../api/resources.js';
 import { listLMPrompts, getLMPrompt, generatePromptMessages } from '../api/prompts.js';
+import { getLogicMonitorTools } from '../api/tools.js';
 
 export interface ServerConfig {
   version: string;
@@ -32,6 +33,8 @@ export interface ServerConfig {
   sessionId?: string;
   userScope?: string;
   enablePeriodicUpdates?: boolean;
+  /** When true, blocks execution of any tool whose readOnlyHint isn't true, regardless of whether it was advertised in `tools`. */
+  readOnly?: boolean;
 }
 
 export interface ServerInstance {
@@ -54,6 +57,7 @@ export function createServer(config: ServerConfig): ServerInstance {
     lmHandlers,
     sessionId,
     userScope = 'mcp:tools',
+    readOnly = false,
   } = config;
 
   const instructions = `
@@ -196,6 +200,30 @@ export function createServer(config: ServerConfig): ServerInstance {
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args, _meta } = request.params;
     const progressToken = _meta?.progressToken;
+
+    // Enforce read-only mode server-side, regardless of whether this tool was
+    // advertised to the caller. Filtering the tools/list response alone only
+    // stops well-behaved clients that only call what they were told about -
+    // it does not stop a call that names a write tool directly.
+    if (readOnly) {
+      const toolDefinition = getLogicMonitorTools().find(t => t.name === name);
+      if (toolDefinition && toolDefinition.annotations?.readOnlyHint !== true) {
+        console.error(`[LogicMonitor MCP] Blocked write tool call while server is in read-only mode: ${name}`);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                error: 'read_only_mode',
+                error_description: `Tool "${name}" is a write operation and this server is running in read-only mode (MCP_READ_ONLY=true). This is enforced regardless of whether the tool was advertised to the client.`,
+                tool: name,
+              }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
 
     if (!lmHandlers) {
       throw new Error('LogicMonitor credentials not configured. Please set LM_COMPANY and LM_BEARER_TOKEN environment variables.');

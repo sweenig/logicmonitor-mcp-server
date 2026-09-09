@@ -17,9 +17,9 @@ describe('formatLogicMonitorFilter', () => {
     expect(formatLogicMonitorFilter('displayName:myserver')).toBe('displayName:"myserver"');
   });
 
-  it('should not quote numeric values', () => {
-    expect(formatLogicMonitorFilter('id>100')).toBe('id>100');
-    expect(formatLogicMonitorFilter('count:42')).toBe('count:42');
+  it('should quote numeric values (LM API requires all filter values to be quoted strings)', () => {
+    expect(formatLogicMonitorFilter('id>100')).toBe('id>"100"');
+    expect(formatLogicMonitorFilter('count:42')).toBe('count:"42"');
   });
 
   it('should handle filters with wildcards', () => {
@@ -44,7 +44,7 @@ describe('formatLogicMonitorFilter', () => {
 
   it('should handle complex filters', () => {
     const filter = 'displayName~*server*,hostStatus:normal,id>100';
-    expect(formatLogicMonitorFilter(filter)).toBe('displayName~"*server*",hostStatus:"normal",id>100');
+    expect(formatLogicMonitorFilter(filter)).toBe('displayName~"*server*",hostStatus:"normal",id>"100"');
   });
 
   it('should trim whitespace from values', () => {
@@ -57,13 +57,20 @@ describe('formatLogicMonitorFilter', () => {
     expect(formatLogicMonitorFilter('name:test,status:active')).toBe('name:"test",status:"active"');
   });
 
-  it('should handle boolean values', () => {
-    expect(formatLogicMonitorFilter('disableAlerting:false')).toBe('disableAlerting:false');
-    expect(formatLogicMonitorFilter('active:true')).toBe('active:true');
+  it('should quote boolean values', () => {
+    expect(formatLogicMonitorFilter('disableAlerting:false')).toBe('disableAlerting:"false"');
+    expect(formatLogicMonitorFilter('active:true')).toBe('active:"true"');
   });
 
   it('should handle multiple values with pipe (OR within field)', () => {
     expect(formatLogicMonitorFilter('status:active|pending')).toBe('status:"active"|"pending"');
+  });
+
+  it('should quote numeric values used with comparison operators', () => {
+    expect(formatLogicMonitorFilter('resourceId:98907')).toBe('resourceId:"98907"');
+    expect(formatLogicMonitorFilter('monitorObjectId:6412')).toBe('monitorObjectId:"6412"');
+    expect(formatLogicMonitorFilter('startEpoch>1730851200')).toBe('startEpoch>"1730851200"');
+    expect(formatLogicMonitorFilter('id>:100')).toBe('id>:"100"');
   });
 });
 

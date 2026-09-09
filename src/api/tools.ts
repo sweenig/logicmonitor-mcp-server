@@ -71,8 +71,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Query vs Filter:** ' +
       '\n- query: Simplified search across displayName, description, name (OR logic). Use for quick lookups: query:"prod-web-01"' +
       '\n- filter: Precise LM filter syntax with any field. Use for complex conditions: filter:"hostStatus:alive,displayName~\\*prod\\*"' +
-      '\n- If both provided, query is converted to filter and combined with provided filter using AND logic' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n- **query and filter cannot be combined in one call:** LogicMonitor\'s filter API only supports comma-separated AND logic (no OR+AND mixing, no parentheses/grouping), so a multi-field "query" search (OR across displayName/description/name) cannot be AND-combined with an additional "filter". Passing both together throws an error with the exact per-field filter strings to use instead - make one call per field (e.g. displayName~"*value*",<filter>), then merge/dedupe the results yourself.' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Performance tips:** Use autoPaginate:false for large environments (>1000 resources/devices) and paginate manually to avoid timeouts. ' +
       '\n\n**Related tools:** "get\\_resource" (details), "generate\\_resource\\_link" (get UI link).',
     annotations: {
@@ -446,10 +446,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Function: "Web Servers", "Database Servers", "Network resources/Devices"' +
       '\n\n**Common filter patterns:** ' +
       '\n- By name: filter:"name\\~\\*Production\\*"' +
-      '\n- Root groups: filter:"parentId:1"' +
+      '\n- Root groups: filter:parentId:"1"' +
       '\n- Non-empty: filter:"numOfDirectDevices>0"' +
       '\n\n**Groups inherit properties:** Custom properties set on group are inherited by all resource/device in that group (useful for credentials, location tags). ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_resource\\_group" (details), "create\\_resource\\_group" (create new), "list\\_resource\\_group\\_properties" (group properties).',
     annotations: {
       title: 'List resource/device groups',
@@ -745,7 +745,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- filter: Precise LM filter syntax with any alert field. Use for severity, acked status, etc.' +
       '\n- If both provided, query is converted to filter and combined with provided filter using AND logic' +
       '\n\n**Important:** Alert API does NOT support OR operator (||). Use comma for AND only. For complex queries, make multiple calls. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**Important - resourceId is NOT the device ID:** Each alert includes a "resourceId" field that looks like a device ID but is not - it is the deviceDataSourceId (the ID of the specific device+DataSource/logicmodule pairing that generated the alert, same ID used by "get\\_resource\\_datasource"). The actual device ID is the "monitorObjectId" field - use it with "get\\_resource" to look up the device. Additionally, filtering by "resourceId" or "monitorObjectId" on this endpoint does not appear to work (confirmed against the raw LogicMonitor API, independent of this tool) - to scope alerts to a specific device, filter or search by "monitorObjectName" instead, or filter by "monitorObjectGroups" to scope to a device group. ' +
       '\n\n**Related tools:** "get\\_alert" (full details), "acknowledge\\_alert" (acknowledge), "add\\_alert\\_note" (add notes), "generate\\_alert\\_link" (get URL).',
     annotations: {
       title: 'List alerts',
@@ -780,6 +781,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Review alert history and escalation' +
       '\n- Get context before acknowledging' +
       '\n\n**Workflow:** First use "list\\_alerts" to find the alertId, then use this tool for complete investigation details. ' +
+      '\n\n**Important - resourceId is NOT the device ID:** The "resourceId" field returned on the alert looks like a device ID but is not - it is the deviceDataSourceId (the ID of the specific device+DataSource/logicmodule pairing, same ID used by "get\\_resource\\_datasource"). The actual device ID is the "monitorObjectId" field - use it with "get\\_resource" to look up the device. ' +
       '\n\n**Related tools:** "acknowledge\\_alert" (acknowledge alert), "add\\_alert\\_note" (document findings), "generate\\_alert\\_link" (share with team).',
     annotations: {
       title: 'Get alert details',
@@ -939,7 +941,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By name: filter:"description\\~\\*prod\\*"' +
       '\n- Low capacity: filter:"numberOfHosts<100"' +
       '\n\n**Before creating resources/devices:** Use this tool to find collectorId for the "preferredCollectorId" parameter in "create\\_resource". ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_collector" (details), "list\\_collector\\_groups" (browse groups), "list\\_collector\\_versions" (check updates).',
     annotations: {
       title: 'List collectors',
@@ -1008,7 +1010,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Database: filter:"name\\~\\*MySQL\\*" or filter:"name\\~\\*SQL\\_Server\\*"' +
       '\n- Network: filter:"name\\~\\*Cisco\\*" or filter:"name\\~\\*SNMP\\*"' +
       '\n\n**Examples:** AWS\\_EC2 (monitors EC2 instances), SNMP\\_Network\\_Interfaces (network stats), WinCPU (Windows CPU), Linux\\_SSH (Linux via SSH). ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_datasource" (details), "list\\_resource\\_datasources" (see what\'s applied to specific resource/device).',
     annotations: {
       title: 'List datasources',
@@ -1082,7 +1084,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Use "list\\_resource\\_datasources" to get deviceDataSourceId' +
       '\n- Use this tool to list instances and get instanceId' +
       '\n- Use "get\\_resource\\_instance\\_data" with instanceId to get actual metrics' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "list\\_resource\\_datasources" (first step), "get\\_resource\\_instance\\_data" (get metrics).',
     annotations: {
       title: 'List datasource instances',
@@ -1187,7 +1189,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By owner: filter:"owner:john.doe"' +
       '\n\n**Next step:** Use "generate\\_dashboard\\_link" with the dashboard ID to get the full clickable URL for sharing. ' +
       '\n\n**Tip:** Dashboards are organized in groups. Use "list\\_dashboard\\_groups" to browse the hierarchy. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_dashboard" (details), "generate\\_dashboard\\_link" (get URL), "list\\_dashboard\\_groups" (browse hierarchy).',
     annotations: {
       title: 'List dashboards',
@@ -1595,7 +1597,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By application: "Web App", "API Services", "Background Jobs"' +
       '\n- By cloud provider: "AWS Dashboards", "Azure Dashboards"' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_dashboards" filtered by groupId to see dashboards in specific folder. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_dashboard\\_group" (details), "list\\_dashboards" (dashboards in group), "create\\_dashboard\\_group" (create folder).',
     annotations: {
       title: 'List dashboard groups',
@@ -1670,7 +1672,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Quarterly: Capacity planning reviews' +
       '\n- On-demand: Generate for specific incidents/audits' +
       '\n\n**Workflow:** Use this tool to find reports, then "get\\_report" for details, or "generate\\_report" to run on-demand. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_report" (details), "list\\_report\\_groups" (organization), "generate\\_report" (run now).',
     annotations: {
       title: 'List reports',
@@ -1742,7 +1744,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By status: filter:"overallAlertStatus:critical" (find down sites)' +
       '\n- By name: filter:"name\\~\\*production\\*"' +
       '\n\n**Use cases:** Monitor public websites, API endpoints, login pages, load balancer health checks, SaaS service availability. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_website" (details), "create\\_website" (add new), "generate\\_website\\_link" (get URL).',
     annotations: {
       title: 'List website monitors',
@@ -2028,7 +2030,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Separate production vs non-production monitoring' +
       '\n- Structure multi-region website monitoring' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_websites" filtered by groupId to see monitors in specific folder. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_website\\_group" (details), "list\\_websites" (websites in group), "create\\_website\\_group" (create folder).',
     annotations: {
       title: 'List website groups',
@@ -2090,7 +2092,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By role: filter:"roles:\\*administrator\\*"' +
       '\n- Recent logins: filter:"lastLoginOn>{epoch}"' +
       '\n- Never logged in: filter:"lastLoginOn:0"' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_user" (details), "list\\_roles" (available roles), "list\\_api\\_tokens" (user\'s API tokens).',
     annotations: {
       title: 'List users',
@@ -2169,7 +2171,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Who can delete resources/devices?" → Check which roles have delete permissions' +
       '\n- "Create read-only user" → Find "readonly" role ID for user creation' +
       '\n\n**Workflow:** Use this tool to discover roles, then "get\\_role" for detailed permissions, then use in "create\\_user" or "update\\_user". ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_role" (detailed permissions), "list\\_users" (see user assignments), "create\\_user" (assign roles to new users).',
     annotations: {
       title: 'List roles',
@@ -2260,7 +2262,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Review lastUsedOn - if >90 days, consider revoking' +
       '\n- Check note field to understand token purpose' +
       '\n\n**Workflow:** Use this tool with userId from "list\\_users" to audit that user\'s API access. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "list\\_users" (find userId), "create\\_api\\_token" (generate new), "delete\\_api\\_token" (revoke access).',
     annotations: {
       title: 'Get API tokens',
@@ -2306,7 +2308,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- DeviceDataSourceSDT: Specific datasource on resource/device' +
       '\n- DeviceDataSourceInstanceSDT: Specific instance only (e.g., C: drive)' +
       '\n\n**Best practice:** Always add meaningful comment explaining maintenance reason for audit trail. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "create\\_resource\\_sdt" (schedule maintenance), "delete\\_sdt" (cancel maintenance), "get\\_sdt" (details).',
     annotations: {
       title: 'Get Scheduled Down Times',
@@ -2486,7 +2488,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- F5\\_LTM\\_Config: F5 load balancer configs' +
       '\n- Palo\\_Alto\\_Config: Palo Alto firewall rules' +
       '\n- Linux\\_Config\\_Files: Monitor /etc files' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_configsource" (details), "list\\_device\\_configs" (see configs for device).',
     annotations: {
       title: 'List ConfigSources',
@@ -2563,7 +2565,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Datasource appliesTo logic uses properties:** ' +
       'Many datasources check properties to decide if they should monitor device. Example: AWS\\_EC2 datasource checks if resource/device has "aws.resourcetype=ec2" property. ' +
       '\n\n**Workflow:** Use "list\\_resources" to find deviceId, then use this tool to see all properties including inherited ones. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "update\\_device\\_property" (modify), "get\\_resource" (see summary), "list\\_datasources" (see how properties affect monitoring).',
     annotations: {
       title: 'List resource/device properties',
@@ -2682,13 +2684,13 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Query vs Filter:** ' +
       '\n- query: Simple text search across username, description, IP (OR logic). Use for quick lookups: query:"john.doe", query:"device"' +
       '\n- filter: Precise LM filter syntax with any field. Use for time ranges, exact matches: filter:"happenedOn>1640995200"' +
-      '\n- If both provided, query is converted to filter and combined with provided filter using AND logic' +
+      '\n- **query and filter cannot be combined in one call:** since audit logs cannot use OR (||), and "query" expands to an OR across username/description/ip, combining it with an additional "filter" would require OR+AND mixing, which this API rejects. Passing both together throws an error with the exact per-field filter strings to use instead - make one call per field (e.g. username~"*value*",<filter>), then merge/dedupe the results yourself.' +
       '\n\n**Critical notes:** ' +
       '\n- Time uses epoch SECONDS (not milliseconds like other LM APIs)' +
       '\n- Cannot use OR operator (||) in audit logs, only AND (comma)' +
       '\n- Use autoPaginate:true for complete history (may take time for large datasets)' +
       `\n\n**Web UI access:** https://${process.env.LM_COMPANY}.logicmonitor.com/santaba/uiv4/settings/access-logs (Settings → Audit Logs) ` +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_audit\\_log" (details of specific entry).',
     annotations: {
       title: 'List audit logs',
@@ -2766,7 +2768,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Access Group "Dev/Test" - Only non-prod resource/device' +
       '\n- Junior staff limited to dev/test access group' +
       '\n\n**Workflow:** Use this tool to find access groups, then assign users to groups via "update\\_user" to control resource visibility. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_access\\_group" (details), "create\\_access\\_group" (create new), "list\\_users" (see user assignments), "list\\_resources" (associate resource/device with groups).',
     annotations: {
       title: 'List access groups',
@@ -3077,7 +3079,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Why no CPU data?" → Check if WinCPU datasource is applied and collecting ' +
       '\n- "Find disk datasource" → Look for datasource with "disk" or "volume" in name ' +
       '\n- "Check datasource errors" → Review status field for error messages ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "list\\_device\\_instances" (next step), "get\\_device\\_instance\\_data" (get metrics), "update\\_device\\_datasource" (enable/disable).',
     annotations: {
       title: 'List resource/device datasources',
@@ -3243,7 +3245,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Alert on ERROR/CRITICAL in application logs ' +
       '\n- Collect network resource/device syslog for troubleshooting ' +
       '\n- Track security events for compliance ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_eventsource" (details), "list\\_device\\_eventsources" (events for device).',
     annotations: {
       title: 'List EventSources',
@@ -3317,7 +3319,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Who gets paged for critical database alerts?" → Check escalation chain ' +
       '\n- "Why didn\'t I get notified?" → Verify you\'re in the escalation chain ' +
       '\n- "Update on-call rotation" → Modify escalation chain recipients ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_escalation\\_chain" (detailed stages), "list\\_alert\\_rules" (see which rules use chain), "list\\_recipients" (available notification targets).',
     annotations: {
       title: 'List escalation chains',
@@ -3635,7 +3637,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Recipients: Individual targets (one email, one phone) ' +
       '\n- Recipient Groups: Collections of recipients (notify entire team at once) ' +
       '\n\n**Workflow:** Use this tool to find available recipients, then use in "create\\_escalation\\_chain" or "update\\_escalation\\_chain" to set up notifications. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_recipient" (details), "list\\_recipient\\_groups" (group management), "list\\_escalation\\_chains" (see who gets notified).',
     annotations: {
       title: 'List alert recipients',
@@ -3913,7 +3915,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Rotate on-call" → Update group members without touching escalation chains ' +
       '\n- "Add new team member" → Add to group, automatically included in alerts ' +
       '\n\n**Workflow:** Use this tool to find groups, then use in escalation chains to notify multiple people at once. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_recipient\\_group" (details), "list\\_recipients" (individual members), "list\\_escalation\\_chains" (see usage).',
     annotations: {
       title: 'List recipient groups',
@@ -4186,7 +4188,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Is matched rule enabled?' +
       '\n- Is escalation chain configured correctly?' +
       '\n' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_alert\\_rule" (detailed conditions), "list\\_escalation\\_chains" (destination chains), "update\\_alert\\_rule" (modify routing).',
     annotations: {
       title: 'List alert rules',
@@ -4531,7 +4533,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By tags: filter:"tags~*deployment*" ' +
       '\n- By device: filter:"monitorObjectName~*prod-web*" ' +
       '\n\n**Displayed on:** Graphs, dashboards, resource/device pages - visible wherever metrics are shown. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_opsnote" (details), "create\\_opsnote" (add new), "create\\_device\\_sdt" (maintenance windows).',
     annotations: {
       title: 'List OpsNotes',
@@ -4816,7 +4818,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By status: filter:"status:normal" or filter:"status:dead" ' +
       '\n- By name: filter:"name~*production*" ' +
       '\n\n**Workflow:** Use this tool to find services, then "get\\_service" for detailed dependency tree and health status. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_service" (details and dependencies), "list\\_service\\_groups" (organization), "create\\_service" (define new business service).',
     annotations: {
       title: 'List services',
@@ -5091,7 +5093,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Separate internal vs customer-facing services ' +
       '\n- Structure multi-tenant service monitoring ' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_services" filtered by groupId to see services in specific folder. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_service\\_group" (details), "list\\_services" (services in group), "create\\_service\\_group" (create folder).',
     annotations: {
       title: 'List service groups',
@@ -5322,7 +5324,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Separate internal vs customer-facing reports ' +
       '\n- Structure reports by delivery schedule ' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_reports" filtered by groupId to see reports in specific folder. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_report\\_group" (details), "list\\_reports" (reports in group), "create\\_report\\_group" (create folder).',
     annotations: {
       title: 'List report groups',
@@ -5508,7 +5510,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Separate production vs non-production collectors ' +
       '\n- Structure multi-datacenter collector deployments ' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_collectors" filtered by groupId to see collectors in specific folder. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_collector\\_group" (details), "list\\_collectors" (collectors in group), "create\\_collector\\_group" (create folder).',
     annotations: {
       title: 'List collector groups',
@@ -5583,7 +5585,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Troubleshoot authentication: Verify credentials applied to resource/device ' +
       '\n- Document configuration: Export group settings ' +
       '\n\n**Workflow:** Use "list\\_resource\\_groups" to find groupId, then use this tool to see properties, then "update\\_device\\_group\\_property" to modify. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "update\\_device\\_group\\_property" (modify property), "get\\_resource\\_group" (group details), "list\\_device\\_properties" (device-level properties).',
     annotations: {
       title: 'List resource/device group properties',
@@ -5695,7 +5697,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "AWS EC2 Discovery" - Query AWS API every hour for new instances ' +
       '\n- "Network resources/Devices" - SNMP walk 10.0.0.0/8 daily for routers/switches ' +
       '\n\n**Workflow:** Use this tool to review netscans, then "get\\_netscan" for detailed configuration including filters and resource/device properties. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_netscan" (configuration details), "create\\_netscan" (set up auto-discovery), "run\\_netscan" (trigger manual scan).',
     annotations: {
       title: 'List NetScans',
@@ -5988,7 +5990,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Inactive: Disabled or authentication failed ' +
       '\n- Test: Verify integration by triggering test notification ' +
       '\n\n**Workflow:** Use this tool to find integrations, then use in escalation chains or as webhook recipients for alert delivery. ' +
-      '\n\n**Important:** A negative "total" value in the response indicates incomplete results. Use pagination (size/offset parameters) or set autoPaginate: true to retrieve all items. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_integration" (configuration details), "test\\_integration" (verify working), "list\\_escalation\\_chains" (see usage).',
     annotations: {
       title: 'List integrations',

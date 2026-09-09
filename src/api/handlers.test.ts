@@ -6,6 +6,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { LogicMonitorHandlers } from './handlers.js';
 import { LogicMonitorClient } from './client.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
+import { MCPError } from '../utils/core/error-handler.js';
 
 // Mock the client
 jest.mock('./client.js');
@@ -220,6 +221,31 @@ describe('LogicMonitorHandlers', () => {
           fields: undefined,
           autoPaginate: undefined,
         });
+      });
+
+      it('should throw when combining query and filter (LM API cannot mix OR-expanded query with AND filter)', async () => {
+        await expect(
+          handlers.handleToolCall('list_resources', {
+            query: 'prod',
+            filter: 'hostStatus:normal',
+          }),
+        ).rejects.toThrow(MCPError);
+
+        try {
+          await handlers.handleToolCall('list_resources', {
+            query: 'prod',
+            filter: 'hostStatus:normal',
+          });
+          throw new Error('expected handleToolCall to throw');
+        } catch (error) {
+          expect(error).toBeInstanceOf(MCPError);
+          const mcpError = error as MCPError;
+          expect(mcpError.suggestions?.join('\n')).toContain('displayName~"*prod*",hostStatus:normal');
+          expect(mcpError.suggestions?.join('\n')).toContain('description~"*prod*",hostStatus:normal');
+          expect(mcpError.suggestions?.join('\n')).toContain('name~"*prod*",hostStatus:normal');
+        }
+
+        expect(mockClient.listResources).not.toHaveBeenCalled();
       });
     });
 
@@ -1226,6 +1252,24 @@ describe('LogicMonitorHandlers', () => {
       });
 
       expect(result).toEqual(mockLog);
+    });
+
+    it('should throw when combining query and filter (LM API cannot mix OR-expanded query with AND filter)', async () => {
+      try {
+        await handlers.handleToolCall('list_audit_logs', {
+          query: 'WEE',
+          filter: 'happenedOn>1730851200',
+        });
+        throw new Error('expected handleToolCall to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MCPError);
+        const mcpError = error as MCPError;
+        expect(mcpError.suggestions?.join('\n')).toContain('username~"*WEE*",happenedOn>1730851200');
+        expect(mcpError.suggestions?.join('\n')).toContain('description~"*WEE*",happenedOn>1730851200');
+        expect(mcpError.suggestions?.join('\n')).toContain('ip~"*WEE*",happenedOn>1730851200');
+      }
+
+      expect(mockClient.listAuditLogs).not.toHaveBeenCalled();
     });
   });
 

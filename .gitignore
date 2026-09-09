@@ -5,7 +5,9 @@ dist/
 .DS_Store
 .env
 .env.local
+portal-manager/portals/
 *.tsbuildinfo
 coverage/
 v4coverage/
 .jest-cache/
+.mcp.json
