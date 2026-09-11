@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Portal Manager</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Portal Manager</h1>
+    <div>
+      <button id="add-portal-btn">+ Add Portal</button>
+      <form method="post" action="/logout" style="display:inline">
+        <button type="submit" class="secondary">Log out</button>
+      </form>
+    </div>
+  </header>
+
+  <main>
+    <table id="portals-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Port</th>
+          <th>Mode</th>
+          <th>Auth</th>
+          <th>Container</th>
+          <th>API Connectivity</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="portals-body">
+        <tr><td colspan="7" class="muted">Loading...</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <!-- Add Portal modal -->
+  <dialog id="add-modal">
+    <form id="add-form">
+      <h2>Add Portal</h2>
+      <label>Name (also used as LM_COMPANY)
+        <input name="name" pattern="[a-z0-9][a-z0-9-]{0,30}[a-z0-9]" required>
+      </label>
+      <label>LM_BEARER_TOKEN
+        <input name="token" type="password" required>
+      </label>
+      <label class="checkbox-row">
+        <input name="readonly" type="checkbox" checked> Read-only
+      </label>
+      <p class="error" id="add-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="document.getElementById('add-modal').close()">Cancel</button>
+        <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- View .mcp.json snippet modal -->
+  <dialog id="json-modal">
+    <h2>.mcp.json entry: <span id="json-name"></span></h2>
+    <pre id="json-snippet" class="code-block"></pre>
+    <div id="json-reveal-row">
+      <label>Admin password, to reveal the real token
+        <input id="json-reveal-password" type="password">
+      </label>
+      <button type="button" id="json-reveal-btn" class="secondary">Reveal token</button>
+    </div>
+    <p class="error" id="json-error"></p>
+    <div class="modal-actions">
+      <button type="button" class="secondary" id="json-copy-btn">Copy</button>
+      <button type="button" onclick="document.getElementById('json-modal').close()">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Edit Portal modal -->
+  <dialog id="edit-modal">
+    <form id="edit-form">
+      <h2>Edit Portal: <span id="edit-name"></span></h2>
+      <label class="checkbox-row">
+        <input name="readonly" type="checkbox"> Read-only
+      </label>
+      <hr class="divider">
+      <label class="checkbox-row">
+        <input type="checkbox" id="rotate-token-check"> Rotate LM_BEARER_TOKEN
+      </label>
+      <input name="rotateTokenValue" type="password" placeholder="New LM_BEARER_TOKEN" class="indent" disabled>
+      <label class="checkbox-row">
+        <input type="checkbox" name="rotateBearerToken"> Rotate MCP auth token (invalidates the current one)
+      </label>
+      <p class="error" id="edit-error"></p>
+      <p class="muted" id="edit-new-token"></p>
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="document.getElementById('edit-modal').close()">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

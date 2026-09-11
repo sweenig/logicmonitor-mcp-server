@@ -21,14 +21,23 @@ rows=()
 for dir in "$PORTALS_DIR"/*/; do
   [[ -d "$dir" ]] || continue
   name="$(basename "$dir")"
-  env="$(env_file "$name")"
+  enc="$(enc_file "$name")"
   compose="$(compose_file "$name")"
-  [[ -f "$env" && -f "$compose" ]] || continue
+  [[ -f "$enc" && -f "$compose" ]] || continue
 
-  readonly_val="$(get_env_var "$env" "MCP_READ_ONLY")"
   port="$(grep -oE '"[0-9]+:3000"' "$compose" | head -1 | grep -oE '^"[0-9]+' | tr -d '"')"
+
+  if ! check_env_readable "$name"; then
+    # Permission denied is reported loudly (check_env_readable already wrote
+    # to stderr) and flagged in its own row - NOT silently shown as
+    # read-write/no-auth, which would be actively misleading.
+    rows+=("$name|$port|ERROR|ERROR|permission denied reading secrets")
+    continue
+  fi
+
+  readonly_val="$(get_encrypted_env_var "$name" "MCP_READ_ONLY")"
   has_bearer="false"
-  [[ -n "$(get_env_var "$env" "MCP_BEARER_TOKEN")" ]] && has_bearer="true"
+  [[ -n "$(get_encrypted_env_var "$name" "MCP_BEARER_TOKEN")" ]] && has_bearer="true"
 
   status="stopped"
   if docker inspect "$(container_name "$name")" > /dev/null 2>&1; then
@@ -50,8 +59,12 @@ if [[ "$JSON" == "true" ]]; then
     IFS='|' read -r name port readonly_val has_bearer status <<< "$row"
     [[ "$first" == "false" ]] && echo ","
     first="false"
-    printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s"}' \
-      "$name" "$port" "$readonly_val" "$has_bearer" "$status"
+    if [[ "$readonly_val" == "ERROR" ]]; then
+      printf '  {"name": "%s", "port": %s, "error": "%s"}' "$name" "$port" "$status"
+    else
+      printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s"}' \
+        "$name" "$port" "$readonly_val" "$has_bearer" "$status"
+    fi
   done
   echo ""
   echo "]"
@@ -63,6 +76,10 @@ else
   printf "%-20s %-6s %-10s %-14s %s\n" "NAME" "PORT" "MODE" "AUTH" "STATUS"
   for row in "${rows[@]}"; do
     IFS='|' read -r name port readonly_val has_bearer status <<< "$row"
+    if [[ "$readonly_val" == "ERROR" ]]; then
+      printf "%-20s %-6s %-10s %-14s %s\n" "$name" "$port" "ERROR" "ERROR" "$status"
+      continue
+    fi
     mode="read-write"
     [[ "$readonly_val" == "true" ]] && mode="read-only"
     auth="none"

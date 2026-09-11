@@ -1,0 +1,44 @@
+# Portal Manager web UI. Talks to the HOST's Docker daemon over the mounted
+# socket (Docker-outside-of-Docker) to run the portal-manager/*.sh scripts on
+# your behalf - see the "gotcha" note below and in the design plan.
+#
+# CRITICAL: the repo must be bind-mounted at the SAME absolute path inside
+# this container as it lives on the host. The scripts compute paths like
+# $REPO_ROOT from their own on-disk location, then hand those paths to
+# `docker build`/`docker compose -f ...` - since those commands are executed
+# against the HOST daemon (not a daemon inside this container), any path
+# handed to them must resolve correctly on the HOST. Mounting at a different
+# path (e.g. /app) would make the daemon look for files that don't exist from
+# its point of view. Same reasoning applies to the vault key mount below.
+#
+# ALSO CRITICAL: network_mode: host. Without it, lib.sh's wait_for_healthy
+# (curl http://localhost:$port/healthz) resolves "localhost" to THIS
+# container's own network namespace, not the host's - so it can never reach
+# a sibling portal container's published port, and every add/edit falsely
+# reports unhealthy even though the portal is actually fine (confirmed: this
+# happened during testing - the sibling container was genuinely healthy from
+# the host, just unreachable from in here without host networking). Since
+# this container already needs host-equivalent reach for the socket and file
+# paths, host networking is the consistent fix, not a separate workaround.
+services:
+  portal-manager-webui:
+    build:
+      context: .
+    container_name: portal-manager-webui
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - /home/sweenig/docker/logicmonitor-mcp-server:/home/sweenig/docker/logicmonitor-mcp-server
+      - /home/sweenig/.config/portal-manager/vault.key:/home/sweenig/.config/portal-manager/vault.key:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      PORTAL_VAULT_KEY_FILE: /home/sweenig/.config/portal-manager/vault.key
+    working_dir: /home/sweenig/docker/logicmonitor-mcp-server/portal-manager/webui
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/login')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

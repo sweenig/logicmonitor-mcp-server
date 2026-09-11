@@ -11,3 +11,4 @@ coverage/
 v4coverage/
 .jest-cache/
 .mcp.json
+portal-manager/webui/__pycache__/*
