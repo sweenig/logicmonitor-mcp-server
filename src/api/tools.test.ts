@@ -563,7 +563,8 @@ describe('getLogicMonitorTools', () => {
 
         // Most get tools should support fields parameter
         if (tool.name !== 'get_resource_instance_data' &&
-            tool.name !== 'get_topology') {
+            tool.name !== 'get_topology' &&
+            tool.name !== 'get_widget_data') {
           expect(properties).toHaveProperty('fields');
         }
       });

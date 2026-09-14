@@ -123,7 +123,7 @@ document.getElementById("edit-form").addEventListener("submit", async (e) => {
     });
     if (result.mcpBearerToken) {
       document.getElementById("edit-new-token").textContent =
-        `New MCP auth token (save this - update .mcp.json): ${result.mcpBearerToken}`;
+        `New MCP auth token (already written to .mcp.json - save it, it won't be shown again): ${result.mcpBearerToken}`;
       return; // let the operator copy the token before closing
     }
     editModal.close();

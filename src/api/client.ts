@@ -568,6 +568,47 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('DELETE', `/dashboard/dashboards/${dashboardId}`);
   }
 
+  // Widgets
+  async listWidgets(params?: {
+    dashboardId?: number;
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { dashboardId, autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+    const path = dashboardId
+      ? `/dashboard/dashboards/${dashboardId}/widgets`
+      : '/dashboard/widgets';
+
+    if (autoPaginate) {
+      return this.paginateAll<any>(path, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', path, undefined, cleanedParams);
+  }
+
+  async getWidget(widgetId: number, params?: { fields?: string }) {
+    return this.request<LMResponse<any>>('GET', `/dashboard/widgets/${widgetId}`, undefined, params);
+  }
+
+  async createWidget(widget: any) {
+    return this.request<LMResponse<any>>('POST', '/dashboard/widgets', widget);
+  }
+
+  async updateWidget(widgetId: number, widget: any) {
+    return this.request<LMResponse<any>>('PATCH', `/dashboard/widgets/${widgetId}`, widget);
+  }
+
+  async deleteWidget(widgetId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/dashboard/widgets/${widgetId}`);
+  }
+
+  async getWidgetData(widgetId: number, params?: { start?: number; end?: number; format?: string }) {
+    return this.request<LMResponse<any>>('GET', `/dashboard/widgets/${widgetId}/data`, undefined, params);
+  }
+
   /**
    * Generate a link URL for a dashboard
    * The URL follows the pattern: https://{company}.logicmonitor.com/santaba/uiv4/dashboards/dashboardGroups-{groupId1},dashboardGroups-{groupId2},...,dashboards-{dashboardId}

@@ -34,8 +34,10 @@ command line where it could land in shell history.
 ```
 
 Builds the shared image if it doesn't exist yet, starts the container, waits
-for it to report healthy, and prints the `.mcp.json` entry to add (including
-the `Authorization` header if a bearer token was generated).
+for it to report healthy, and adds the `logicmonitor-<name>` entry to
+`.mcp.json` automatically (including the `Authorization` header if a bearer
+token was generated). If `jq` is missing or `.mcp.json` isn't valid JSON, it
+falls back to printing the entry for you to add by hand.
 
 ### Edit a portal
 
@@ -46,7 +48,8 @@ the `Authorization` header if a bearer token was generated).
 ./portal-manager/edit-portal.sh --name acme --port 3010
 ```
 
-Recreates the container after applying the change(s).
+Recreates the container after applying the change(s) and re-syncs the
+`.mcp.json` entry (new port and/or bearer token).
 
 ### Remove a portal
 
@@ -54,9 +57,10 @@ Recreates the container after applying the change(s).
 ./portal-manager/remove-portal.sh --name acme
 ```
 
-Stops the container and deletes `portal-manager/portals/acme/` (including its
-credentials). Asks you to type the portal name to confirm unless `--yes` is
-passed. Does not touch anything in LogicMonitor itself.
+Stops the container, deletes `portal-manager/portals/acme/` (including its
+credentials), and removes its entry from `.mcp.json`. Asks you to type the
+portal name to confirm unless `--yes` is passed. Does not touch anything in
+LogicMonitor itself.
 
 ### List portals
 
@@ -70,8 +74,9 @@ passed. Does not touch anything in LogicMonitor itself.
 - The existing top-level `docker-compose.yml`/`.env` (the original
   `logicmonitor-mcp-http` etc. services) are untouched by these scripts -
   portal-manager is purely additive, for portals beyond the first one.
-- `.mcp.json` is never edited automatically; each script prints the snippet
-  to add so you can review it first.
+- `.mcp.json` is kept in sync automatically by add/edit/remove-portal.sh
+  (requires `jq`). If `jq` is missing or the file isn't valid JSON, each
+  script falls back to printing the entry for you to add/remove by hand.
 - These scripts are intentionally the only place the add/edit/remove/list
   logic lives. A future web UI should shell out to them rather than
   reimplementing this logic in another language.

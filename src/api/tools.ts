@@ -1430,6 +1430,249 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
 
+  // Widget Tools
+  {
+    name: 'list_widgets',
+    description: 'List widgets in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** Array of widgets with: id, name, description, type, dashboardId, theme, interval, timescale, lastUpdatedOn, lastUpdatedBy. ' +
+      '\n\n**When to use:** ' +
+      '\n- See all widgets on a specific dashboard (pass dashboardId)' +
+      '\n- Find a specific widget by name/type across the whole account (omit dashboardId)' +
+      '\n- Get widget IDs before calling "get\\_widget", "update\\_widget", or "delete\\_widget"' +
+      '\n\n**Widget types you will see:** alert, batchjob, flash, gmap, ngraph, ograph, cgraph, sgraph, ' +
+      'netflowgraph, groupNetflowGraph, netflow, groupNetflow, html, bigNumber, gauge, pieChart, table, ' +
+      'dynamicTable, deviceSLA, text, statsd, deviceStatus, serviceAlert, noc, websiteOverview, ' +
+      'websiteOverallStatus, websiteIndividualStatus, websiteSLA, savedMap. ' +
+      '\n\n**Common filter patterns:** ' +
+      '\n- By name: filter:"name\\~\\*CPU\\*"' +
+      '\n- By type: filter:"type:html"' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**Related tools:** "get\\_widget" (full definition including type-specific config), "list\\_dashboards" (find dashboardId).',
+    annotations: {
+      title: 'List widgets',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dashboardId: {
+          type: 'number',
+          description: 'Restrict results to widgets on this dashboard only. Omit to list widgets across the entire account.',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_widget',
+    description: 'Get the complete definition of a specific widget by its ID in LogicMonitor (LM) monitoring, including its type-specific configuration (e.g., the HTML/script body of an "html" widget, the datapoints of a "bigNumber" widget, the map settings of a "gmap" widget, etc). ' +
+      '\n\n**Returns:** Full widget object: id, name, description, type, dashboardId, theme, interval, timescale, plus every field specific to that widget\'s type. ' +
+      '\n\n**When to use:** ' +
+      '\n- Inspect exactly what a widget renders and how (e.g., security-reviewing an "html" widget\'s embedded script)' +
+      '\n- Export a widget\'s config before cloning it to another dashboard' +
+      '\n- Debug why a widget shows unexpected data' +
+      '\n\n**Note on schema:** LogicMonitor widgets are polymorphic - the response shape varies by "type". This tool returns the raw object as LM sends it; consult LM\'s API docs for the field list of a specific type if needed. ' +
+      '\n\n**Workflow:** Use "list\\_widgets" (optionally with a dashboardId) to find the widgetId, then use this tool for the full definition. ' +
+      '\n\n**Related tools:** "list\\_widgets" (find widgetId), "get\\_widget\\_data" (live rendered values), "update\\_widget" (modify).',
+    annotations: {
+      title: 'Get widget details',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        widgetId: {
+          type: 'number',
+          description: 'The ID of the widget to retrieve',
+        },
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['widgetId'],
+    },
+  },
+  {
+    name: 'create_widget',
+    description: 'Create a new widget on a dashboard in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Required parameters:** ' +
+      '\n- dashboardId: The dashboard this widget belongs to (from "list\\_dashboards")' +
+      '\n- name: Widget name' +
+      '\n- type: One of alert, batchjob, flash, gmap, ngraph, ograph, cgraph, sgraph, netflowgraph, ' +
+      'groupNetflowGraph, netflow, groupNetflow, html, bigNumber, gauge, pieChart, table, dynamicTable, ' +
+      'deviceSLA, text, statsd, deviceStatus, serviceAlert, noc, websiteOverview, websiteOverallStatus, ' +
+      'websiteIndividualStatus, websiteSLA, savedMap' +
+      '\n\n**Optional parameters:** ' +
+      '\n- description, theme, interval (minutes), timescale' +
+      '\n- config: Object holding every field specific to the chosen "type" (e.g., for an "html" widget this ' +
+      'is where the HTML/script body goes; for a "bigNumber" widget this is where the datapoint/graphInfo ' +
+      'goes). LogicMonitor\'s widget schema is polymorphic per type - build this the same shape LM\'s UI/API ' +
+      'would produce for that type, or clone it from an existing widget via "get\\_widget". ' +
+      '\n\n**Workflow:** Use "get\\_widget" on a similar existing widget to see the exact shape expected for that type, then adapt it here. ' +
+      '\n\n**Related tools:** "get\\_widget" (see an example of the target type), "update\\_widget" (modify after creation), "list\\_dashboards" (find dashboardId).',
+    annotations: {
+      title: 'Create widget',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dashboardId: {
+          type: 'number',
+          description: 'The ID of the dashboard this widget belongs to',
+        },
+        name: {
+          type: 'string',
+          description: 'Name of the widget',
+        },
+        type: {
+          type: 'string',
+          description: 'Widget type. One of: alert, batchjob, flash, gmap, ngraph, ograph, cgraph, sgraph, ' +
+            'netflowgraph, groupNetflowGraph, netflow, groupNetflow, html, bigNumber, gauge, pieChart, table, ' +
+            'dynamicTable, deviceSLA, text, statsd, deviceStatus, serviceAlert, noc, websiteOverview, ' +
+            'websiteOverallStatus, websiteIndividualStatus, websiteSLA, savedMap',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the widget',
+        },
+        theme: {
+          type: 'string',
+          description: 'Color scheme, e.g. newBorderBlue, newSolidGray, simplePurple, etc.',
+        },
+        interval: {
+          type: 'number',
+          description: 'Refresh interval of the widget, in minutes',
+        },
+        timescale: {
+          type: 'string',
+          description: 'Default timescale of the widget',
+        },
+        config: {
+          type: 'object',
+          description: 'Type-specific configuration fields for the chosen widget "type" (e.g., HTML/script ' +
+            'body for an "html" widget, datapoint/graph config for a "bigNumber"/"gauge"/"*graph" widget, map ' +
+            'settings for "gmap", etc). Merged directly onto the widget alongside the common fields above.',
+        },
+      },
+      additionalProperties: false,
+      required: ['dashboardId', 'name', 'type'],
+    },
+  },
+  {
+    name: 'update_widget',
+    description: 'Modify an existing widget in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Partially updates a widget - only the fields you provide are changed; everything else is left as-is. ' +
+      '\n\n**Common uses:** ' +
+      '\n- Rename a widget or change its description' +
+      '\n- Change theme/interval/timescale' +
+      '\n- Update type-specific config (e.g., edit an "html" widget\'s script, change a graph widget\'s datapoints) via the "config" field' +
+      '\n\n**Workflow:** Use "get\\_widget" first to see current values, then send only the fields you want changed. ' +
+      '\n\n**Related tools:** "get\\_widget" (see current definition), "list\\_widgets" (find widgetId), "delete\\_widget" (remove instead).',
+    annotations: {
+      title: 'Update widget',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        widgetId: {
+          type: 'number',
+          description: 'The ID of the widget to update',
+        },
+        name: {
+          type: 'string',
+          description: 'New name for the widget',
+        },
+        description: {
+          type: 'string',
+          description: 'New description',
+        },
+        theme: {
+          type: 'string',
+          description: 'New color scheme',
+        },
+        interval: {
+          type: 'number',
+          description: 'New refresh interval, in minutes',
+        },
+        timescale: {
+          type: 'string',
+          description: 'New default timescale',
+        },
+        config: {
+          type: 'object',
+          description: 'Type-specific fields to change (e.g., updated HTML/script body for an "html" widget). Merged directly onto the widget alongside any other fields provided.',
+        },
+      },
+      additionalProperties: false,
+      required: ['widgetId'],
+    },
+  },
+  {
+    name: 'delete_widget',
+    description: 'Delete a widget from LogicMonitor (LM) monitoring. ' +
+      '\n\n**⚠️ WARNING: PERMANENT DELETION** - cannot be undone. ' +
+      '\n\n**Before deleting - check:** Use "get\\_widget" to verify it\'s the correct widget, and consider exporting its config first in case you need to recreate it. ' +
+      '\n\n**Related tools:** "get\\_widget" (backup before delete), "list\\_widgets" (find widgetId).',
+    annotations: {
+      title: 'Delete widget',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        widgetId: {
+          type: 'number',
+          description: 'The ID of the widget to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['widgetId'],
+    },
+  },
+  {
+    name: 'get_widget_data',
+    description: 'Get the live rendered data for a specific widget in LogicMonitor (LM) monitoring - i.e., the actual values it is currently displaying (graph series, table rows, big number value, etc), not its configuration. ' +
+      '\n\n**When to use:** ' +
+      '\n- Pull the same data a dashboard widget is showing, for use outside the UI' +
+      '\n- Verify a widget is rendering the data you expect' +
+      '\n\n**Parameters:** ' +
+      '\n- widgetId: from "list\\_widgets"' +
+      '\n- start/end: optional time range (epoch). If omitted, uses the widget\'s own default timescale' +
+      '\n- format: optional response format' +
+      '\n\n**Related tools:** "get\\_widget" (configuration/definition instead of data), "list\\_widgets" (find widgetId).',
+    annotations: {
+      title: 'Get widget data',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        widgetId: {
+          type: 'number',
+          description: 'The ID of the widget to retrieve data for',
+        },
+        start: {
+          type: 'number',
+          description: 'Start time (epoch)',
+        },
+        end: {
+          type: 'number',
+          description: 'End time (epoch)',
+        },
+        format: {
+          type: 'string',
+          description: 'Response format, e.g. "json" or "csv"',
+        },
+      },
+      additionalProperties: false,
+      required: ['widgetId'],
+    },
+  },
+
   // Dashboard Link Tools
   {
     name: 'generate_dashboard_link',

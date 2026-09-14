@@ -38,6 +38,11 @@ const DEFAULT_DASHBOARD_FIELDS = [
   'widgetsConfigVersion', 'widgetTokens',
 ];
 
+const DEFAULT_WIDGET_FIELDS = [
+  'id', 'name', 'description', 'type', 'dashboardId', 'theme',
+  'interval', 'timescale', 'lastUpdatedOn', 'lastUpdatedBy',
+];
+
 const DEFAULT_WEBSITE_FIELDS = [
   'id', 'name', 'description', 'type', 'schema', 'domain', 'isInternal',
   'status', 'stopMonitoring', 'overallAlertLevel',
@@ -531,6 +536,58 @@ export class LogicMonitorHandlers {
 
         case 'delete_dashboard':
           return await this.client.deleteDashboard(args.dashboardId);
+
+        // Widgets
+        case 'list_widgets': {
+          const result = await this.client.listWidgets({
+            dashboardId: args.dashboardId,
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
+          if (args.fields) {
+            return result;
+          }
+
+          return {
+            ...result,
+            items: result.items.map((widget: any) =>
+              filterFields(widget, DEFAULT_WIDGET_FIELDS),
+            ),
+          };
+        }
+
+        case 'get_widget':
+          return await this.client.getWidget(args.widgetId, {
+            fields: args.fields,
+          });
+
+        case 'create_widget': {
+          const { config, ...widgetFields } = args;
+          const widget: any = { ...widgetFields };
+          if (config) Object.assign(widget, config);
+          return await this.client.createWidget(widget);
+        }
+
+        case 'update_widget': {
+          const { widgetId, config, ...widgetFields } = args;
+          const widget: any = { ...widgetFields };
+          if (config) Object.assign(widget, config);
+          return await this.client.updateWidget(widgetId, widget);
+        }
+
+        case 'delete_widget':
+          return await this.client.deleteWidget(args.widgetId);
+
+        case 'get_widget_data':
+          return await this.client.getWidgetData(args.widgetId, {
+            start: args.start,
+            end: args.end,
+            format: args.format,
+          });
 
         case 'generate_dashboard_link':
           return await this.client.generateDashboardLink(args.dashboardId);

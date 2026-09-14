@@ -7,6 +7,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORTALS_DIR="$REPO_ROOT/portal-manager/portals"
 IMAGE_TAG="logicmonitor-mcp-server:latest"
+MCP_JSON_FILE="$REPO_ROOT/.mcp.json"
 
 # Master key for encrypting each portal's secrets at rest. Lives outside the
 # repo entirely (like an SSH key) so it's never adjacent to what it protects.
@@ -267,4 +268,67 @@ EOF
 EOF
   fi
   echo "" >&2
+}
+
+require_jq() {
+  command -v jq > /dev/null 2>&1
+}
+
+# Adds/overwrites this portal's "logicmonitor-<name>" entry in .mcp.json.
+# Returns 1 (after printing the snippet as a manual fallback) if jq is
+# missing or the file isn't valid JSON - never mangles a file it can't
+# safely parse.
+upsert_mcp_json_entry() {
+  local name="$1" port="$2" mcp_bearer_token="$3"
+  local key="logicmonitor-${name}" tmp
+
+  if ! require_jq; then
+    log_warn "jq not found - can't auto-update $MCP_JSON_FILE. Add this entry yourself:"
+    print_mcp_json_snippet "$name" "$port" "$mcp_bearer_token"
+    return 1
+  fi
+
+  [[ -f "$MCP_JSON_FILE" ]] || echo '{"mcpServers": {}}' > "$MCP_JSON_FILE"
+
+  if ! jq empty "$MCP_JSON_FILE" 2> /dev/null; then
+    log_warn "$MCP_JSON_FILE is not valid JSON - not touching it. Add this entry yourself:"
+    print_mcp_json_snippet "$name" "$port" "$mcp_bearer_token"
+    return 1
+  fi
+
+  tmp="$(mktemp "${MCP_JSON_FILE}.XXXXXX")"
+  if [[ -n "$mcp_bearer_token" ]]; then
+    jq --arg key "$key" --arg url "http://localhost:${port}/mcp" --arg token "$mcp_bearer_token" \
+      '.mcpServers[$key] = {type: "http", url: $url, headers: {Authorization: ("Bearer " + $token)}}' \
+      "$MCP_JSON_FILE" > "$tmp"
+  else
+    jq --arg key "$key" --arg url "http://localhost:${port}/mcp" \
+      '.mcpServers[$key] = {type: "http", url: $url}' \
+      "$MCP_JSON_FILE" > "$tmp"
+  fi
+  mv "$tmp" "$MCP_JSON_FILE"
+}
+
+# Removes this portal's entry from .mcp.json, if present. A missing file is
+# not an error (nothing to remove); invalid JSON or missing jq is - printed
+# as a warning so the operator knows to clean it up by hand.
+remove_mcp_json_entry() {
+  local name="$1"
+  local key="logicmonitor-${name}" tmp
+
+  [[ -f "$MCP_JSON_FILE" ]] || return 0
+
+  if ! require_jq; then
+    log_warn "jq not found - can't auto-remove the \"$key\" entry from $MCP_JSON_FILE. Remove it yourself."
+    return 1
+  fi
+
+  if ! jq empty "$MCP_JSON_FILE" 2> /dev/null; then
+    log_warn "$MCP_JSON_FILE is not valid JSON - remove the \"$key\" entry yourself."
+    return 1
+  fi
+
+  tmp="$(mktemp "${MCP_JSON_FILE}.XXXXXX")"
+  jq --arg key "$key" 'del(.mcpServers[$key])' "$MCP_JSON_FILE" > "$tmp"
+  mv "$tmp" "$MCP_JSON_FILE"
 }

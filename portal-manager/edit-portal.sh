@@ -96,7 +96,7 @@ NEW_MCP_BEARER_TOKEN=""
 if [[ "$ROTATE_BEARER_TOKEN" == "true" ]]; then
   NEW_MCP_BEARER_TOKEN="$(gen_token)"
   set_encrypted_env_var "$NAME" "MCP_BEARER_TOKEN" "$NEW_MCP_BEARER_TOKEN"
-  log_info "MCP_BEARER_TOKEN rotated - update .mcp.json with the new value below."
+  log_info "MCP_BEARER_TOKEN rotated - .mcp.json will be updated with the new value below."
   CHANGED="true"
 fi
 
@@ -123,12 +123,18 @@ if [[ "$CHANGED" == "true" ]]; then
     log_warn "Portal \"$NAME\" started but didn't report healthy within 15s. Check: docker logs $(container_name "$NAME")"
   fi
 
+  CURRENT_MCP_BEARER_TOKEN="$(get_encrypted_env_var "$NAME" "MCP_BEARER_TOKEN")"
+  MCP_JSON_UPDATED="false"
+  if upsert_mcp_json_entry "$NAME" "$PORT" "$CURRENT_MCP_BEARER_TOKEN"; then
+    MCP_JSON_UPDATED="true"
+    log_ok "Updated \"logicmonitor-${NAME}\" in $MCP_JSON_FILE"
+  fi
+
   if [[ "$JSON_OUTPUT" == "true" ]]; then
     readonly_val="$(get_encrypted_env_var "$NAME" "MCP_READ_ONLY")"
-    printf '{"name":"%s","port":%s,"readOnly":%s,"healthy":%s,"url":"http://localhost:%s/mcp","mcpBearerToken":"%s"}\n' \
-      "$NAME" "$PORT" "$readonly_val" "$HEALTHY" "$PORT" "$NEW_MCP_BEARER_TOKEN"
+    printf '{"name":"%s","port":%s,"readOnly":%s,"healthy":%s,"url":"http://localhost:%s/mcp","mcpBearerToken":"%s","mcpJsonUpdated":%s}\n' \
+      "$NAME" "$PORT" "$readonly_val" "$HEALTHY" "$PORT" "$NEW_MCP_BEARER_TOKEN" "$MCP_JSON_UPDATED"
   elif [[ -n "$NEW_MCP_BEARER_TOKEN" ]]; then
-    print_mcp_json_snippet "$NAME" "$PORT" "$NEW_MCP_BEARER_TOKEN"
     log_info "New MCP_BEARER_TOKEN (save this - it won't be shown again): $NEW_MCP_BEARER_TOKEN"
   fi
 fi

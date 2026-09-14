@@ -538,6 +538,9 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 - `generate_dashboard_link` - Generate direct link to dashboard in LM UI
 - `list_dashboard_groups` - List dashboard groups
 - `get_dashboard_group` - Get dashboard group details
+- `list_widgets` - List widgets (optionally scoped to a dashboard)
+- `get_widget` - Get full widget definition, including type-specific config
+- `get_widget_data` - Get a widget's live rendered data
 - `list_reports` - List all reports
 - `get_report` - Get report details
 - `list_report_groups` - List report groups
@@ -547,6 +550,9 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 - `create_dashboard` - Create new dashboard
 - `update_dashboard` - Modify dashboard
 - `delete_dashboard` - Delete dashboard
+- `create_widget` - Create a new widget on a dashboard
+- `update_widget` - Modify a widget
+- `delete_widget` - Delete a widget
 - `create_report_group` - Create report group
 - `update_report_group` - Modify report group
 - `delete_report_group` - Delete report group

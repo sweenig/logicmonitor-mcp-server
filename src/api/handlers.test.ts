@@ -47,6 +47,12 @@ describe('LogicMonitorHandlers', () => {
       updateDashboard: jest.fn(),
       deleteDashboard: jest.fn(),
       generateDashboardLink: jest.fn(),
+      listWidgets: jest.fn(),
+      getWidget: jest.fn(),
+      createWidget: jest.fn(),
+      updateWidget: jest.fn(),
+      deleteWidget: jest.fn(),
+      getWidgetData: jest.fn(),
       generateResourceLink: jest.fn(),
       generateAlertLink: jest.fn(),
       generateWebsiteLink: jest.fn(),
@@ -888,6 +894,132 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(result).toEqual(mockDeeplink);
+      });
+    });
+  });
+
+  describe('Widgets', () => {
+    describe('list_widgets', () => {
+      it('should list widgets', async () => {
+        const mockResponse = {
+          items: [{ id: 1, name: 'test-widget', type: 'html' }],
+          total: 1,
+        };
+
+        mockClient.listWidgets.mockResolvedValue(mockResponse);
+
+        const result = await handlers.handleToolCall('list_widgets', {});
+
+        expect(result.items).toHaveLength(1);
+      });
+
+      it('should list widgets scoped to a dashboard', async () => {
+        const mockResponse = {
+          items: [{ id: 1, name: 'test-widget', type: 'html', dashboardId: 5 }],
+          total: 1,
+        };
+
+        mockClient.listWidgets.mockResolvedValue(mockResponse);
+
+        await handlers.handleToolCall('list_widgets', { dashboardId: 5 });
+
+        expect(mockClient.listWidgets).toHaveBeenCalledWith(
+          expect.objectContaining({ dashboardId: 5 }),
+        );
+      });
+    });
+
+    describe('get_widget', () => {
+      it('should get widget by ID', async () => {
+        const mockWidget = { id: 1, name: 'test-widget', type: 'html' };
+        mockClient.getWidget.mockResolvedValue(mockWidget);
+
+        const result = await handlers.handleToolCall('get_widget', {
+          widgetId: 1,
+        });
+
+        expect(result).toEqual(mockWidget);
+      });
+    });
+
+    describe('create_widget', () => {
+      it('should create widget', async () => {
+        const mockWidget = { id: 1, name: 'new-widget', type: 'html', dashboardId: 5 };
+        mockClient.createWidget.mockResolvedValue(mockWidget);
+
+        const result = await handlers.handleToolCall('create_widget', {
+          dashboardId: 5,
+          name: 'new-widget',
+          type: 'html',
+        });
+
+        expect(result).toEqual(mockWidget);
+        expect(mockClient.createWidget).toHaveBeenCalledWith({
+          dashboardId: 5,
+          name: 'new-widget',
+          type: 'html',
+        });
+      });
+
+      it('should merge type-specific config into the widget payload', async () => {
+        const mockWidget = { id: 1, name: 'new-widget', type: 'html' };
+        mockClient.createWidget.mockResolvedValue(mockWidget);
+
+        await handlers.handleToolCall('create_widget', {
+          dashboardId: 5,
+          name: 'new-widget',
+          type: 'html',
+          config: { html: '<div>hi</div>' },
+        });
+
+        expect(mockClient.createWidget).toHaveBeenCalledWith({
+          dashboardId: 5,
+          name: 'new-widget',
+          type: 'html',
+          html: '<div>hi</div>',
+        });
+      });
+    });
+
+    describe('update_widget', () => {
+      it('should update widget', async () => {
+        const mockWidget = { id: 1, name: 'updated-widget' };
+        mockClient.updateWidget.mockResolvedValue(mockWidget);
+
+        const result = await handlers.handleToolCall('update_widget', {
+          widgetId: 1,
+          name: 'updated-widget',
+        });
+
+        expect(result).toEqual(mockWidget);
+        expect(mockClient.updateWidget).toHaveBeenCalledWith(1, {
+          name: 'updated-widget',
+        });
+      });
+    });
+
+    describe('delete_widget', () => {
+      it('should delete widget', async () => {
+        mockClient.deleteWidget.mockResolvedValue({});
+
+        const result = await handlers.handleToolCall('delete_widget', {
+          widgetId: 1,
+        });
+
+        expect(result).toEqual({});
+      });
+    });
+
+    describe('get_widget_data', () => {
+      it('should get widget data', async () => {
+        const mockData = { time: [1, 2], values: { value: [10, 20] } };
+        mockClient.getWidgetData.mockResolvedValue(mockData);
+
+        const result = await handlers.handleToolCall('get_widget_data', {
+          widgetId: 1,
+        });
+
+        expect(result).toEqual(mockData);
       });
     });
   });

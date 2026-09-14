@@ -53,4 +53,7 @@ compose_down "$NAME" || log_warn "docker compose down failed or container was al
 
 rm -rf "$(portal_dir "$NAME")"
 log_ok "Portal \"$NAME\" removed."
-log_warn "Remember to remove its \"logicmonitor-${NAME}\" entry from .mcp.json."
+
+if remove_mcp_json_entry "$NAME"; then
+  log_ok "Removed \"logicmonitor-${NAME}\" from $MCP_JSON_FILE"
+fi

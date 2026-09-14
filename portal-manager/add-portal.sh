@@ -109,12 +109,15 @@ else
   log_warn "Portal \"$NAME\" started but didn't report healthy within 15s. Check: docker logs $(container_name "$NAME")"
 fi
 
+MCP_JSON_UPDATED="false"
+if upsert_mcp_json_entry "$NAME" "$PORT" "$MCP_BEARER_TOKEN"; then
+  MCP_JSON_UPDATED="true"
+  log_ok "Added \"logicmonitor-${NAME}\" to $MCP_JSON_FILE"
+fi
+
 if [[ "$JSON_OUTPUT" == "true" ]]; then
-  printf '{"name":"%s","port":%s,"readOnly":%s,"healthy":%s,"url":"http://localhost:%s/mcp","mcpBearerToken":"%s"}\n' \
-    "$NAME" "$PORT" "$READONLY" "$HEALTHY" "$PORT" "$MCP_BEARER_TOKEN"
-else
-  print_mcp_json_snippet "$NAME" "$PORT" "$MCP_BEARER_TOKEN"
-  if [[ -n "$MCP_BEARER_TOKEN" ]]; then
-    log_info "MCP_BEARER_TOKEN (save this - it won't be shown again): $MCP_BEARER_TOKEN"
-  fi
+  printf '{"name":"%s","port":%s,"readOnly":%s,"healthy":%s,"url":"http://localhost:%s/mcp","mcpBearerToken":"%s","mcpJsonUpdated":%s}\n' \
+    "$NAME" "$PORT" "$READONLY" "$HEALTHY" "$PORT" "$MCP_BEARER_TOKEN" "$MCP_JSON_UPDATED"
+elif [[ -n "$MCP_BEARER_TOKEN" ]]; then
+  log_info "MCP_BEARER_TOKEN (save this - it won't be shown again): $MCP_BEARER_TOKEN"
 fi
