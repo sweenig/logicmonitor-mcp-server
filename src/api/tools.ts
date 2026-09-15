@@ -584,6 +584,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
             },
           },
         },
+        appliesTo: {
+          type: 'string',
+          description: 'Dynamic membership query (auto-add resource/device matching criteria)',
+        },
       },
       additionalProperties: false,
       required: ['name'],
@@ -648,6 +652,25 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         disableAlerting: {
           type: 'boolean',
           description: 'Whether to disable alerting',
+        },
+        parentId: {
+          type: 'number',
+          description: 'Move to different parent group',
+        },
+        customProperties: {
+          type: 'array',
+          description: 'Array of custom properties (affects all resources/devices in group)',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+            },
+          },
+        },
+        appliesTo: {
+          type: 'string',
+          description: 'Dynamic membership query (change auto-add criteria)',
         },
         opType: {
           type: 'string',
@@ -2196,6 +2219,118 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       },
       additionalProperties: false,
       required: ['websiteId'],
+    },
+  },
+  {
+    name: 'create_uptime_check',
+    description: 'Create a new LM Uptime resource (synthetic HTTP check) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Adds a monitored resource of type "uptimewebcheck" (LM\'s newer Uptime feature, distinct from the legacy Website/checkpoint monitors created by "create\\_website"). Runs one or more HTTP steps against a domain from global checkpoint locations or internal collectors, and can assert on status code and/or response body content (e.g. verifying a specific keyword, HTML element, or attribute appears on the page). ' +
+      '\n\n**Required parameters:** ' +
+      '\n- displayName: Friendly name shown in LM' +
+      '\n- name: Internal/unique name (often same as displayName or the domain)' +
+      '\n- domain: Base domain or URL of the service (e.g. "example.com" or "example.com/app")' +
+      '\n\n**Optional parameters:** ' +
+      '\n- schema: "http" or "https" (default: "https")' +
+      '\n- testLocation: {all: true} to test from all global checkpoints (default), {smgIds: [2,3,4,5,6]} for specific checkpoint locations, or {collectorIds: [id]} to test from an internal collector instead' +
+      '\n- isInternal: false (default) for an external check run from LM\'s global SaaS checkpoints (no collector involved); true only for a private/internal check run from your own collector(s)' +
+      '\n- pollingInterval: Minutes between checks, 1-10 (default: 5)' +
+      '\n- hostGroupIds: Comma-separated resource/website folder IDs' +
+      '\n- description: Notes about what this check verifies' +
+      '\n- preferredCollectorId: Only for internal checks (isInternal: true) — do not set this for external checkpoint-based checks' +
+      '\n- steps: Array of HTTP steps (at least one is required). Each step: ' +
+      '\n  - name: Step label' +
+      '\n  - url: Path or full URL for this step (e.g. "/" or "/login")' +
+      '\n  - HTTPMethod: "GET" | "HEAD" | "POST" (default: "GET")' +
+      '\n  - matchType: "plain" (substring match) or "regex" (default: "plain")' +
+      '\n  - keyword: Text or regex that must appear in the response body for the step to pass (e.g. \'id="username"\' to confirm a login field rendered)' +
+      '\n  - invertMatch: true to instead fail when the keyword IS found (default: false)' +
+      '\n  - statusCode: Expected HTTP status code, as a string (e.g. "200")' +
+      '\n  - timeout: Request timeout in seconds' +
+      '\n  - HTTPHeaders / HTTPBody: Custom request headers/body' +
+      '\n  - followRedirection: Whether to follow redirects (default: true)' +
+      '\n\n**Example — verify a login page renders its username field:** ' +
+      '{displayName: "Portal Login Page", name: "Portal Login Page", domain: "example.com/login", steps: [{name: "Check login form", url: "/", matchType: "plain", keyword: "id=\\"username\\"", statusCode: "200"}]} ' +
+      '\n\n**After creation:** Use "get\\_resource" or "generate\\_resource\\_link" to view the new check. ' +
+      '\n\n**Related tools:** "list\\_website\\_checkpoints" (find checkpoint location IDs for testLocation.smgIds), "list\\_collectors" (find preferredCollectorId for internal checks), "create\\_website" (legacy Website/checkpoint monitor, different object model).',
+    annotations: {
+      title: 'Create LM Uptime check',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        displayName: {
+          type: 'string',
+          description: 'Friendly name shown in LM',
+        },
+        name: {
+          type: 'string',
+          description: 'Internal/unique name for the resource',
+        },
+        domain: {
+          type: 'string',
+          description: 'Base domain or URL of the service to check',
+        },
+        schema: {
+          type: 'string',
+          description: '"http" or "https" (default: "https")',
+        },
+        testLocation: {
+          type: 'object',
+          description: 'Where checks run from: {all: true}, {smgIds: [...]}, or {collectorIds: [...]}',
+          properties: {
+            all: { type: 'boolean' },
+            smgIds: { type: 'array', items: { type: 'number' } },
+            collectorIds: { type: 'array', items: { type: 'number' } },
+          },
+        },
+        pollingInterval: {
+          type: 'number',
+          description: 'Minutes between checks, 1-10 (default: 5)',
+        },
+        hostGroupIds: {
+          type: 'string',
+          description: 'Comma-separated resource/website folder IDs',
+        },
+        description: {
+          type: 'string',
+          description: 'Notes about what this check verifies',
+        },
+        preferredCollectorId: {
+          type: 'number',
+          description: 'Only for internal checks (isInternal: true) — do not set this for external checkpoint-based checks',
+        },
+        isInternal: {
+          type: 'boolean',
+          description: 'false (default) for an external check from LM\'s global checkpoints; true for a private check from your own collector(s)',
+        },
+        steps: {
+          type: 'array',
+          description: 'HTTP steps to run, in order. At least one is required.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Step label' },
+              description: { type: 'string' },
+              url: { type: 'string', description: 'Path or full URL for this step' },
+              HTTPMethod: { type: 'string', description: '"GET" | "HEAD" | "POST" (default: "GET")' },
+              HTTPHeaders: { type: 'string' },
+              HTTPBody: { type: 'string' },
+              matchType: { type: 'string', description: '"plain" (substring match) or "regex" (default: "plain")' },
+              keyword: { type: 'string', description: 'Text or regex that must appear in the response body' },
+              invertMatch: { type: 'boolean', description: 'Fail when the keyword IS found (default: false)' },
+              statusCode: { type: 'string', description: 'Expected HTTP status code, e.g. "200"' },
+              timeout: { type: 'number', description: 'Request timeout in seconds' },
+              followRedirection: { type: 'boolean', description: 'Whether to follow redirects (default: true)' },
+              requireAuth: { type: 'boolean' },
+              enable: { type: 'boolean', description: 'Whether this step is active (default: true)' },
+            },
+            required: ['url'],
+          },
+        },
+      },
+      additionalProperties: false,
+      required: ['displayName', 'name', 'domain'],
     },
   },
   {

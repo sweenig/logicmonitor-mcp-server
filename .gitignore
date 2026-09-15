@@ -12,3 +12,4 @@ v4coverage/
 .jest-cache/
 .mcp.json
 portal-manager/webui/__pycache__/*
+.vscode/*

@@ -9,8 +9,9 @@ FROM python:3.12-slim
 # bash: the portal-manager/*.sh scripts require it (not sh/dash compatible).
 # openssl: used directly by lib.sh for the secrets-at-rest encryption.
 # curl: used by lib.sh's wait_for_healthy to poll a portal's /healthz.
+# jq: used by lib.sh's upsert_mcp_json_entry to auto-update .mcp.json.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      bash openssl curl ca-certificates \
+      bash openssl curl ca-certificates jq \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker

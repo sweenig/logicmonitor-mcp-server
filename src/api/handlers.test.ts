@@ -1128,6 +1128,89 @@ describe('LogicMonitorHandlers', () => {
 
       expect(result).toEqual({});
     });
+
+    it('should create an uptime check with a content-match step', async () => {
+      const mockDevice = { id: 1, displayName: 'Portal Login Page' };
+      mockClient.createDevice.mockResolvedValue(mockDevice);
+
+      const result = await handlers.handleToolCall('create_uptime_check', {
+        displayName: 'Portal Login Page',
+        name: 'Portal Login Page',
+        domain: 'example.com/login',
+        steps: [
+          { name: 'Check login form', url: '/', keyword: 'id="username"', statusCode: '200' },
+        ],
+      });
+
+      expect(result).toEqual(mockDevice);
+      expect(mockClient.createDevice).toHaveBeenCalledWith({
+        type: 'uptimewebcheck',
+        displayName: 'Portal Login Page',
+        name: 'Portal Login Page',
+        domain: 'example.com/login',
+        testLocation: { all: true },
+        isInternal: false,
+        steps: [
+          {
+            HTTPMethod: 'GET',
+            matchType: 'plain',
+            enable: true,
+            followRedirection: true,
+            name: 'Check login form',
+            url: '/',
+            keyword: 'id="username"',
+            statusCode: '200',
+          },
+        ],
+      });
+    });
+
+    it('should create an uptime check with explicit testLocation and no steps', async () => {
+      const mockDevice = { id: 2, displayName: 'Simple ping' };
+      mockClient.createDevice.mockResolvedValue(mockDevice);
+
+      const result = await handlers.handleToolCall('create_uptime_check', {
+        displayName: 'Simple ping',
+        name: 'Simple ping',
+        domain: 'example.com',
+        testLocation: { smgIds: [2, 3] },
+      });
+
+      expect(result).toEqual(mockDevice);
+      expect(mockClient.createDevice).toHaveBeenCalledWith({
+        type: 'uptimewebcheck',
+        displayName: 'Simple ping',
+        name: 'Simple ping',
+        domain: 'example.com',
+        testLocation: { smgIds: [2, 3] },
+        isInternal: false,
+      });
+    });
+
+    it('should create an internal uptime check with an explicit collector', async () => {
+      const mockDevice = { id: 3, displayName: 'Internal app check' };
+      mockClient.createDevice.mockResolvedValue(mockDevice);
+
+      const result = await handlers.handleToolCall('create_uptime_check', {
+        displayName: 'Internal app check',
+        name: 'Internal app check',
+        domain: 'internal.example.com',
+        testLocation: { collectorIds: [5] },
+        isInternal: true,
+        preferredCollectorId: 5,
+      });
+
+      expect(result).toEqual(mockDevice);
+      expect(mockClient.createDevice).toHaveBeenCalledWith({
+        type: 'uptimewebcheck',
+        displayName: 'Internal app check',
+        name: 'Internal app check',
+        domain: 'internal.example.com',
+        testLocation: { collectorIds: [5] },
+        isInternal: true,
+        preferredCollectorId: 5,
+      });
+    });
   });
 
   describe('Website Groups', () => {

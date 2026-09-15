@@ -345,6 +345,7 @@ export class LogicMonitorHandlers {
           if (args.description) group.description = args.description;
           if (args.disableAlerting !== undefined) group.disableAlerting = args.disableAlerting;
           if (args.customProperties) group.customProperties = args.customProperties;
+          if (args.appliesTo) group.appliesTo = args.appliesTo;
           return await this.client.createDeviceGroup(group);
         }
 
@@ -700,6 +701,32 @@ export class LogicMonitorHandlers {
 
         case 'delete_website':
           return await this.client.deleteWebsite(args.websiteId);
+
+        case 'create_uptime_check': {
+          const device: any = {
+            type: 'uptimewebcheck',
+            displayName: args.displayName,
+            name: args.name,
+            domain: args.domain,
+            testLocation: args.testLocation || { all: true },
+            isInternal: args.isInternal ?? false,
+          };
+          if (args.schema) device.schema = args.schema;
+          if (args.pollingInterval) device.pollingInterval = args.pollingInterval;
+          if (args.hostGroupIds) device.hostGroupIds = args.hostGroupIds;
+          if (args.description) device.description = args.description;
+          if (args.preferredCollectorId) device.preferredCollectorId = args.preferredCollectorId;
+          if (args.steps) {
+            device.steps = args.steps.map((step: any) => ({
+              HTTPMethod: 'GET',
+              matchType: 'plain',
+              enable: true,
+              followRedirection: true,
+              ...step,
+            }));
+          }
+          return await this.client.createDevice(device);
+        }
 
         // Website Groups
         case 'list_website_groups': {
