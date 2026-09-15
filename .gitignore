@@ -13,3 +13,4 @@ v4coverage/
 .mcp.json
 portal-manager/webui/__pycache__/*
 .vscode/*
+swagger.json
