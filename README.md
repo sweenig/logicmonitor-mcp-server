@@ -526,9 +526,13 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 - `get_eventsource` - Get eventsource details
 - `list_configsources` - List configuration sources
 - `get_configsource` - Get configsource details
+- `get_datasource_scripts` - Extract embedded scripts (collection/discovery/ERI/post-processor) from a DataSource definition
 
 **Write Operations:**
 - `update_resource_datasource` - Modify device datasource configuration
+- `create_datasource` - Create a new DataSource LogicModule
+- `update_datasource` - Modify a DataSource LogicModule
+- `delete_datasource` - Delete a DataSource LogicModule
 
 ### Dashboards & Reporting
 
@@ -573,6 +577,10 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 - `create_netscan` - Create NetScan
 - `update_netscan` - Modify NetScan
 - `delete_netscan` - Delete netscan
+- `execute_debug_command` - Run a debug command on a collector (e.g. test a Groovy/PowerShell script)
+- `get_debug_command_result` - Poll for output from a long-running/session-based debug command
+- `execute_groovy_script` - Typed wrapper to run a Groovy script (path or inline body) on a collector
+- `execute_powershell_script` - Typed wrapper to run a PowerShell script on a Windows collector
 
 ### Website Monitoring
 

@@ -77,6 +77,22 @@ export class LogicMonitorClient {
     body?: unknown,
     params?: Record<string, string | number | boolean>,
   ): Promise<T> {
+    return rateLimiter.executeWithRetry(
+      () => this.attemptRequest<T>(method, path, body, params),
+      'api-request',
+    );
+  }
+
+  /**
+   * Perform a single attempt of an authenticated HTTP request to LogicMonitor API.
+   * Called (and retried on 429s) by request().
+   */
+  private async attemptRequest<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    params?: Record<string, string | number | boolean>,
+  ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
 
     if (params) {
@@ -466,6 +482,15 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/collector/collectors/${collectorId}`, undefined, params);
   }
 
+  // Debug Commands
+  async executeDebugCommand(cmdline: string, collectorId: number) {
+    return this.request<LMResponse<any>>('POST', '/debug', { cmdline }, { collectorId });
+  }
+
+  async getDebugCommandResult(id: string, collectorId: number) {
+    return this.request<LMResponse<any>>('GET', `/debug/${id}`, undefined, { collectorId });
+  }
+
   // DataSources
   async listDataSources(params?: {
     size?: number;
@@ -485,6 +510,18 @@ export class LogicMonitorClient {
 
   async getDataSource(dataSourceId: number, params?: { fields?: string }) {
     return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}`, undefined, params);
+  }
+
+  async createDataSource(dataSource: any) {
+    return this.request<LMResponse<any>>('POST', '/setting/datasources', dataSource);
+  }
+
+  async updateDataSource(dataSourceId: number, dataSource: any) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/datasources/${dataSourceId}`, dataSource);
+  }
+
+  async deleteDataSource(dataSourceId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/datasources/${dataSourceId}`);
   }
 
   // Device DataSource Instances

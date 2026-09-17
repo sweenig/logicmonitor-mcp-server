@@ -25,6 +25,16 @@ describe('LogicMonitor Resources', () => {
       expect(swaggerResource?.mimeType).toBe('application/json');
     });
 
+    it('should include the debug command reference resource', () => {
+      const resources = listLMResources();
+      const debugDocsResource = resources.find(r => r.uri === 'lm://docs/debug-commands');
+
+      expect(debugDocsResource).toBeDefined();
+      expect(debugDocsResource?.name).toContain('Debug');
+      expect(debugDocsResource?.description).toBeTruthy();
+      expect(debugDocsResource?.mimeType).toBe('text/markdown');
+    });
+
     it('should have valid resource structure', () => {
       const resources = listLMResources();
 
@@ -77,6 +87,20 @@ describe('LogicMonitor Resources', () => {
       expect(swagger.basePath).toBe('/santaba/rest');
       expect(swagger.schemes).toContain('https');
     }, 30000);
+
+    it('should read the local debug command reference file', async () => {
+      const result = await readLMResource('lm://docs/debug-commands');
+
+      expect(result).toBeDefined();
+      expect(result.contents).toBeDefined();
+      expect(result.contents.length).toBe(1);
+
+      const content = result.contents[0];
+      expect(content.uri).toBe('lm://docs/debug-commands');
+      expect(content.mimeType).toBe('text/markdown');
+      expect(content.text).toContain('!groovy');
+      expect(content.text).toContain('!posh');
+    });
   });
 });
 

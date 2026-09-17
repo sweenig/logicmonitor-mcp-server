@@ -115,20 +115,20 @@
 
 ---
 
-### DataSources ⚠️ BASIC
-**Status:** Read-only, management operations missing
+### DataSources ⭐ GOOD
+**Status:** Core CRUD + script extraction implemented; import (XML/JSON) and a few auxiliary read endpoints missing
 
 **Implemented:**
-- ✅ List, Get datasources
+- ✅ List, Get, Create, Update, Delete datasources
+- ✅ Extract embedded scripts (collection/discovery/ERI/post-processor) from a datasource definition
 
 **Missing:**
-- ❌ Add, Update, Patch, Delete datasources (4 operations)
-- ❌ Import/Export datasources (XML/JSON) (2 operations)
+- ❌ Import datasources (XML/JSON) (2 operations)
 - ❌ Get overview graphs (2 operations)
 - ❌ Get associated devices (1 operation)
 - ❌ Get update reasons (1 operation)
 
-**Tools:** `list_datasources`, `get_datasource`
+**Tools:** `list_datasources`, `get_datasource`, `get_datasource_scripts`, `create_datasource`, `update_datasource`, `delete_datasource`
 
 ---
 
@@ -284,15 +284,11 @@ API Operations:
 
 ---
 
-### 5. 🟡 DataSource Management (Write Ops) - NOT IMPLEMENTED
-**Priority:** MEDIUM - Important for module management
+### 5. 🟡 DataSource Auxiliary Endpoints - NOT IMPLEMENTED
+**Priority:** LOW - core CRUD (add/update/patch/delete) is now implemented; remaining gaps are import and a few read-only auxiliary endpoints
 
 ```
 API Operations:
-- addDatasourceById            POST   /setting/datasources
-- updateDatasourceById         PUT    /setting/datasources/{id}
-- patchDatasourceById          PATCH  /setting/datasources/{id}
-- deleteDatasourceById         DELETE /setting/datasources/{id}
 - importDataSource             POST   /setting/datasources/importxml
 - importDataSourceJson         POST   /setting/datasources/importjson
 - getDataSourceOverviewGraphList GET  /setting/datasources/{dsId}/ographs
@@ -393,10 +389,6 @@ OID Management (1 operation):
 DNS Mapping (1 operation):
 - addDNSMapping               POST /setting/dnsmappings
 
-Debug Commands (2 operations):
-- executeDebugCommand         POST /debug
-- getDebugCommandResult       GET  /debug/{id}
-
 Delta APIs (2 operations):
 - getDeltaIdWithDevices       GET /device/devices/delta
 - getDeltaDevices             GET /device/devices/delta/{deltaId}
@@ -428,9 +420,9 @@ Beta APIs - DiagnosticSources (8 operations):
    - Complete collector lifecycle management
    - Infrastructure automation
 
-4. **DataSource Management (Write)** (10 ops)
+4. **DataSource Management (Write)** - ✅ core CRUD (add/update/delete) done; remaining: import (XML/JSON) + auxiliary read endpoints (6 ops)
    - Module management and customization
-   - Import/export capabilities
+   - Import capabilities
 
 **Estimated Tools to Add:** ~32 tools
 

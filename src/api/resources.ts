@@ -7,6 +7,12 @@
 
 import https from 'https';
 import http from 'http';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Resource definition for LogicMonitor API Swagger documentation
@@ -44,6 +50,17 @@ export const LM_RESOURCES: LMResource[] = [
       'In case of Widgets endpoints, based on the widget type you select, the request and response will contain additional attributes. ' +
       'For more details about the attributes, refer models specific to the selected widget type at the end of the Swagger documentation.',
     mimeType: 'application/json',
+  },
+  {
+    uri: 'lm://docs/debug-commands',
+    name: 'LogicMonitor Collector Debug Command Reference',
+    description: 'Full syntax reference for every LogicMonitor collector debug command (the ' +
+      '"help <command>" output for each), organized by category (scripting & execution, ' +
+      'discovery & AutoProps, SNMP, networking & diagnostics, collector management, etc). ' +
+      'Read this once if you are not already familiar with debug command syntax before calling ' +
+      '"execute_debug_command" with an unfamiliar command; skip it if you already know the syntax ' +
+      'you need.',
+    mimeType: 'text/markdown',
   },
 ];
 
@@ -126,6 +143,28 @@ export async function readLMResource(uri: string): Promise<{ contents: Array<{ u
     } catch (error) {
       throw new Error(
         `Failed to fetch LogicMonitor API definition: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  if (uri === 'lm://docs/debug-commands') {
+    const filePath = path.join(__dirname, '../../LOGICMONITOR-DEBUG-COMMANDS.md');
+
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: resource.mimeType,
+            text: content,
+          },
+        ],
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to read LogicMonitor debug command reference: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

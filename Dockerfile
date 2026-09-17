@@ -9,6 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY LOGICMONITOR-DEBUG-COMMANDS.md ./
 
 # Copy source code (needed before npm ci because prepare script runs build)
 COPY src ./src
@@ -37,6 +38,7 @@ WORKDIR /app
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/build ./build
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/LOGICMONITOR-DEBUG-COMMANDS.md ./
 
 # Switch to non-root user
 USER nodejs

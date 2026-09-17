@@ -7,6 +7,7 @@
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
+import { extractDataSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
 
@@ -440,6 +441,49 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
+        // Debug Commands
+        case 'execute_debug_command':
+          return await this.client.executeDebugCommand(args.cmdline, args.collectorId);
+
+        case 'get_debug_command_result':
+          return await this.client.getDebugCommandResult(args.id, args.collectorId);
+
+        case 'execute_groovy_script': {
+          if (!!args.scriptPath === !!args.scriptBody) {
+            throw new MCPError(
+              'Provide exactly one of scriptPath or scriptBody',
+              ErrorCodes.INVALID_PARAMETERS,
+              { scriptPath: args.scriptPath, scriptBody: args.scriptBody },
+              [
+                'Set scriptPath to run a script file already on the collector',
+                'Set scriptBody to run an inline script instead',
+              ],
+            );
+          }
+
+          const options: string[] = ['!groovy'];
+          if (args.timeout !== undefined) options.push(`timeout=${args.timeout}`);
+          if (args.runner !== undefined) options.push(`runner=${args.runner}`);
+          if (args.hostId !== undefined) options.push(`hostId=${args.hostId}`);
+          if (args.collectorHostId !== undefined) options.push(`h=${args.collectorHostId}`);
+
+          const cmdline = args.scriptPath
+            ? `${options.join(' ')} ${args.scriptPath}`
+            : `${options.join(' ')} \n${args.scriptBody}`;
+
+          return await this.client.executeDebugCommand(cmdline, args.collectorId);
+        }
+
+        case 'execute_powershell_script': {
+          const options: string[] = ['!posh'];
+          if (args.timeout !== undefined) options.push(`timeout=${args.timeout}`);
+          if (args.hostId !== undefined) options.push(`hostId=${args.hostId}`);
+
+          const cmdline = `${options.join(' ')} ${args.scriptPath}`;
+
+          return await this.client.executeDebugCommand(cmdline, args.collectorId);
+        }
+
         // DataSources
         case 'list_datasources': {
           const result = await this.client.listDataSources({
@@ -466,6 +510,41 @@ export class LogicMonitorHandlers {
           return await this.client.getDataSource(args.dataSourceId, {
             fields: args.fields,
           });
+
+        case 'get_datasource_scripts': {
+          const dataSource = await this.client.getDataSource(args.dataSourceId);
+          return {
+            dataSourceId: args.dataSourceId,
+            scripts: extractDataSourceScripts(dataSource),
+          };
+        }
+
+        case 'create_datasource':
+          return await this.client.createDataSource({
+            name: args.name,
+            displayName: args.displayName,
+            description: args.description,
+            appliesTo: args.appliesTo,
+            group: args.group,
+            technology: args.technology,
+            tags: args.tags,
+            collectMethod: args.collectMethod,
+            collectInterval: args.collectInterval,
+            collectorAttribute: args.collectorAttribute,
+            dataPoints: args.dataPoints,
+            enableAutoDiscovery: args.enableAutoDiscovery,
+            autoDiscoveryConfig: args.autoDiscoveryConfig,
+            enableEriDiscovery: args.enableEriDiscovery,
+            eriDiscoveryConfig: args.eriDiscoveryConfig,
+          });
+
+        case 'update_datasource': {
+          const { dataSourceId, ...updates } = args;
+          return await this.client.updateDataSource(dataSourceId, updates);
+        }
+
+        case 'delete_datasource':
+          return await this.client.deleteDataSource(args.dataSourceId);
 
         // Device DataSource Instances
         case 'list_resource_instances':

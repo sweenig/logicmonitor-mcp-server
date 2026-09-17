@@ -37,8 +37,13 @@ describe('LogicMonitorHandlers', () => {
       addAlertNote: jest.fn(),
       listCollectors: jest.fn(),
       getCollector: jest.fn(),
+      executeDebugCommand: jest.fn(),
+      getDebugCommandResult: jest.fn(),
       listDataSources: jest.fn(),
       getDataSource: jest.fn(),
+      createDataSource: jest.fn(),
+      updateDataSource: jest.fn(),
+      deleteDataSource: jest.fn(),
       listDeviceDataSourceInstances: jest.fn(),
       getDeviceDataSourceInstanceData: jest.fn(),
       listDashboards: jest.fn(),
@@ -649,6 +654,113 @@ describe('LogicMonitorHandlers', () => {
     });
   });
 
+  describe('Debug Commands', () => {
+    describe('execute_debug_command', () => {
+      it('should execute a debug command and return synchronous output', async () => {
+        const mockResult = { cmdline: 'help', output: 'available commands...' };
+        mockClient.executeDebugCommand.mockResolvedValue(mockResult);
+
+        const result = await handlers.handleToolCall('execute_debug_command', {
+          collectorId: 129,
+          cmdline: 'help',
+        });
+
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith('help', 129);
+        expect(result).toEqual(mockResult);
+      });
+
+      it('should execute a debug command that returns a session for polling', async () => {
+        const mockResult = { cmdline: '!groovy hostId=6412\nreturn 0', cmdContext: 'ctx-1', sessionId: 'sess-1' };
+        mockClient.executeDebugCommand.mockResolvedValue(mockResult);
+
+        const result = await handlers.handleToolCall('execute_debug_command', {
+          collectorId: 129,
+          cmdline: '!groovy hostId=6412\nreturn 0',
+        });
+
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith('!groovy hostId=6412\nreturn 0', 129);
+        expect(result).toEqual(mockResult);
+      });
+    });
+
+    describe('get_debug_command_result', () => {
+      it('should poll for debug command output by session id', async () => {
+        const mockResult = { output: 'hello world!', sessionId: 'sess-1' };
+        mockClient.getDebugCommandResult.mockResolvedValue(mockResult);
+
+        const result = await handlers.handleToolCall('get_debug_command_result', {
+          id: 'sess-1',
+          collectorId: 129,
+        });
+
+        expect(mockClient.getDebugCommandResult).toHaveBeenCalledWith('sess-1', 129);
+        expect(result).toEqual(mockResult);
+      });
+    });
+
+    describe('execute_groovy_script', () => {
+      it('should build a cmdline from scriptBody and options', async () => {
+        mockClient.executeDebugCommand.mockResolvedValue({ cmdline: 'x', output: 'ok' });
+
+        await handlers.handleToolCall('execute_groovy_script', {
+          collectorId: 129,
+          scriptBody: 'println "hi"',
+          timeout: 60,
+          runner: 'agent',
+          hostId: 6412,
+        });
+
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith(
+          '!groovy timeout=60 runner=agent hostId=6412 \nprintln "hi"',
+          129,
+        );
+      });
+
+      it('should build a cmdline from scriptPath', async () => {
+        mockClient.executeDebugCommand.mockResolvedValue({ cmdline: 'x', output: 'ok' });
+
+        await handlers.handleToolCall('execute_groovy_script', {
+          collectorId: 129,
+          scriptPath: '../lib/test.groovy',
+        });
+
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith('!groovy ../lib/test.groovy', 129);
+      });
+
+      it('should reject when both scriptPath and scriptBody are given', async () => {
+        await expect(handlers.handleToolCall('execute_groovy_script', {
+          collectorId: 129,
+          scriptPath: 'a.groovy',
+          scriptBody: 'println 1',
+        })).rejects.toThrow();
+      });
+
+      it('should reject when neither scriptPath nor scriptBody is given', async () => {
+        await expect(handlers.handleToolCall('execute_groovy_script', {
+          collectorId: 129,
+        })).rejects.toThrow();
+      });
+    });
+
+    describe('execute_powershell_script', () => {
+      it('should build a cmdline from scriptPath and options', async () => {
+        mockClient.executeDebugCommand.mockResolvedValue({ cmdline: 'x', output: 'ok' });
+
+        await handlers.handleToolCall('execute_powershell_script', {
+          collectorId: 257,
+          scriptPath: '../lib/test.ps1',
+          timeout: 30,
+          hostId: 100,
+        });
+
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith(
+          '!posh timeout=30 hostId=100 ../lib/test.ps1',
+          257,
+        );
+      });
+    });
+  });
+
   describe('DataSources', () => {
     describe('list_datasources', () => {
       it('should list datasources', async () => {
@@ -676,6 +788,82 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(result).toEqual(mockDataSource);
+      });
+    });
+
+    describe('get_datasource_scripts', () => {
+      it('should extract scripts from the fetched datasource', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          id: 1,
+          collectorAttribute: { name: 'script', groovyScript: 'println 1' },
+        });
+
+        const result = await handlers.handleToolCall('get_datasource_scripts', {
+          dataSourceId: 1,
+        });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(1);
+        expect(result).toEqual({
+          dataSourceId: 1,
+          scripts: [
+            {
+              location: 'collectorAttribute (collection method)',
+              field: 'groovyScript',
+              language: 'groovy',
+              content: 'println 1',
+            },
+          ],
+        });
+      });
+    });
+
+    describe('create_datasource', () => {
+      it('should create a datasource', async () => {
+        const mockCreated = { id: 5, name: 'MyDS' };
+        mockClient.createDataSource.mockResolvedValue(mockCreated);
+
+        const result = await handlers.handleToolCall('create_datasource', {
+          name: 'MyDS',
+          collectMethod: 'script',
+          collectInterval: 300,
+          collectorAttribute: { name: 'script', groovyScript: 'return 0' },
+        });
+
+        expect(mockClient.createDataSource).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'MyDS',
+          collectMethod: 'script',
+          collectInterval: 300,
+          collectorAttribute: { name: 'script', groovyScript: 'return 0' },
+        }));
+        expect(result).toEqual(mockCreated);
+      });
+    });
+
+    describe('update_datasource', () => {
+      it('should update a datasource with only the given fields', async () => {
+        const mockUpdated = { id: 5, name: 'MyDS', description: 'updated' };
+        mockClient.updateDataSource.mockResolvedValue(mockUpdated);
+
+        const result = await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5,
+          description: 'updated',
+        });
+
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { description: 'updated' });
+        expect(result).toEqual(mockUpdated);
+      });
+    });
+
+    describe('delete_datasource', () => {
+      it('should delete a datasource by ID', async () => {
+        mockClient.deleteDataSource.mockResolvedValue({});
+
+        const result = await handlers.handleToolCall('delete_datasource', {
+          dataSourceId: 5,
+        });
+
+        expect(mockClient.deleteDataSource).toHaveBeenCalledWith(5);
+        expect(result).toEqual({});
       });
     });
 

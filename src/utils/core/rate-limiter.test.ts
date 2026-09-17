@@ -162,6 +162,65 @@ describe('Rate Limiter', () => {
     });
   });
 
+  describe('executeWithRetry', () => {
+    it('prefers the real reset-time delay from headers over guessed exponential backoff', async () => {
+      rateLimiter.updateRateLimitInfo('retry-key', {
+        remaining: 0,
+        limit: 100,
+        resetTime: Date.now() + 50, // short window so the test resolves quickly
+        window: 1,
+      });
+
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        if (attempts === 1) {
+          throw new Error('LogicMonitor API Error: 429');
+        }
+        return 'success';
+      };
+
+      const start = Date.now();
+      const result = await rateLimiter.executeWithRetry(fn, 'retry-key');
+      const elapsed = Date.now() - start;
+
+      expect(result).toBe('success');
+      expect(attempts).toBe(2);
+      // calculateDelayUntilReset adds a fixed 1s buffer, so this should land near ~1050ms,
+      // not the much larger default exponential backoff (which would still succeed but this
+      // pins the behavior to the header-driven path rather than the guess-based one).
+      expect(elapsed).toBeGreaterThanOrEqual(1000);
+      expect(elapsed).toBeLessThan(5000);
+    }, 10000);
+
+    it('falls back to exponential backoff when no header info is available', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        if (attempts === 1) {
+          throw new Error('LogicMonitor API Error: 429');
+        }
+        return 'success';
+      };
+
+      const result = await rateLimiter.executeWithRetry(fn, 'no-info-key');
+
+      expect(result).toBe('success');
+      expect(attempts).toBe(2);
+    });
+
+    it('does not retry non-rate-limit errors', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        throw new Error('Not found');
+      };
+
+      await expect(rateLimiter.executeWithRetry(fn, 'some-key')).rejects.toThrow('Not found');
+      expect(attempts).toBe(1);
+    });
+  });
+
   describe('isRateLimitError', () => {
     it('should detect 429 errors', () => {
       const error = new Error('HTTP 429: Rate limit exceeded');

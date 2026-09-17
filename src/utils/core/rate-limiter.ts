@@ -143,8 +143,11 @@ export class RateLimiter {
           break; // No more retries
         }
 
-        // Calculate delay for exponential backoff
-        const delay = this.calculateBackoff(attempt, options);
+        // Prefer the real reset time from the rate limit headers of the response
+        // that just failed (updateRateLimitInfo is called before the error is thrown,
+        // so this reflects the server's own stated window) over a guessed exponential
+        // backoff. Only fall back to guessing if no header info was captured.
+        const delay = this.calculateDelayUntilReset(key) || this.calculateBackoff(attempt, options);
         await this.sleep(delay);
       }
     }

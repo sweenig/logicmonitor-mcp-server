@@ -231,6 +231,64 @@ describe('getLogicMonitorTools', () => {
       });
     });
 
+    describe('Debug Command Tools', () => {
+      it('should include debug command tools', () => {
+        const tools = getLogicMonitorTools(false);
+        const toolNames = tools.map(t => t.name);
+
+        expect(toolNames).toContain('execute_debug_command');
+        expect(toolNames).toContain('get_debug_command_result');
+      });
+
+      it('should mark debug command tools as read-write', () => {
+        const tools = getLogicMonitorTools(false);
+
+        const executeTool = tools.find(t => t.name === 'execute_debug_command');
+        const getResultTool = tools.find(t => t.name === 'get_debug_command_result');
+
+        expect(executeTool?.annotations?.readOnlyHint).toBe(false);
+        expect(getResultTool?.annotations?.readOnlyHint).toBe(false);
+      });
+
+      it('should exclude debug command tools from read-only tool list', () => {
+        const readOnlyTools = getLogicMonitorTools(true);
+        const toolNames = readOnlyTools.map(t => t.name);
+
+        expect(toolNames).not.toContain('execute_debug_command');
+        expect(toolNames).not.toContain('get_debug_command_result');
+      });
+
+      it('should require collectorId and cmdline for execute_debug_command', () => {
+        const tools = getLogicMonitorTools(false);
+        const executeTool = tools.find(t => t.name === 'execute_debug_command');
+
+        expect(executeTool?.inputSchema.required).toEqual(['collectorId', 'cmdline']);
+      });
+
+      it('should require id and collectorId for get_debug_command_result', () => {
+        const tools = getLogicMonitorTools(false);
+        const getResultTool = tools.find(t => t.name === 'get_debug_command_result');
+
+        expect(getResultTool?.inputSchema.required).toEqual(['id', 'collectorId']);
+      });
+
+      it('should include typed script execution tools as read-write', () => {
+        const tools = getLogicMonitorTools(false);
+        const toolNames = tools.map(t => t.name);
+
+        expect(toolNames).toContain('execute_groovy_script');
+        expect(toolNames).toContain('execute_powershell_script');
+
+        const groovyTool = tools.find(t => t.name === 'execute_groovy_script');
+        const poshTool = tools.find(t => t.name === 'execute_powershell_script');
+
+        expect(groovyTool?.annotations?.readOnlyHint).toBe(false);
+        expect(poshTool?.annotations?.readOnlyHint).toBe(false);
+        expect(groovyTool?.inputSchema.required).toEqual(['collectorId']);
+        expect(poshTool?.inputSchema.required).toEqual(['collectorId', 'scriptPath']);
+      });
+    });
+
     describe('List Tools with Query Parameter', () => {
       it('should have query parameter in list tools', () => {
         const tools = getLogicMonitorTools(false);
@@ -369,6 +427,25 @@ describe('getLogicMonitorTools', () => {
         expect(getDS?.annotations?.readOnlyHint).toBe(true);
         expect(listInstances?.annotations?.readOnlyHint).toBe(true);
         expect(getData?.annotations?.readOnlyHint).toBe(true);
+      });
+
+      it('should include datasource management tools with correct read-only classification', () => {
+        const tools = getLogicMonitorTools(false);
+
+        const getScripts = tools.find(t => t.name === 'get_datasource_scripts');
+        const createDS = tools.find(t => t.name === 'create_datasource');
+        const updateDS = tools.find(t => t.name === 'update_datasource');
+        const deleteDS = tools.find(t => t.name === 'delete_datasource');
+
+        expect(getScripts?.annotations?.readOnlyHint).toBe(true);
+        expect(createDS?.annotations?.readOnlyHint).toBe(false);
+        expect(updateDS?.annotations?.readOnlyHint).toBe(false);
+        expect(deleteDS?.annotations?.readOnlyHint).toBe(false);
+
+        expect(getScripts?.inputSchema.required).toEqual(['dataSourceId']);
+        expect(createDS?.inputSchema.required).toEqual(['name', 'collectMethod', 'collectInterval', 'collectorAttribute']);
+        expect(updateDS?.inputSchema.required).toEqual(['dataSourceId']);
+        expect(deleteDS?.inputSchema.required).toEqual(['dataSourceId']);
       });
     });
   });
@@ -564,7 +641,9 @@ describe('getLogicMonitorTools', () => {
         // Most get tools should support fields parameter
         if (tool.name !== 'get_resource_instance_data' &&
             tool.name !== 'get_topology' &&
-            tool.name !== 'get_widget_data') {
+            tool.name !== 'get_widget_data' &&
+            tool.name !== 'get_debug_command_result' &&
+            tool.name !== 'get_datasource_scripts') {
           expect(properties).toHaveProperty('fields');
         }
       });

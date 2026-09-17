@@ -52,7 +52,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_resources',
     description: 'List all monitored resources/devices in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of resource/device with: id, displayName, name (IP/hostname), hostStatus (dead/alive/unknown), preferredCollectorId, deviceType, custom properties, group memberships. ' +
+      '\n\n**Returns:** Array of resource/device with: id, displayName, name (IP/hostname), hostStatus (normal/dead/dead-collector - NOT "alive"), preferredCollectorId, deviceType (0=regular, 2=AWS, 4=Azure), custom properties, group memberships, hostGroupIds, sdtStatus (see below), alertStatus, alertDisableStatus (see below). ' +
       '\n\n**When to use:** ' +
       '\n- Get inventory of all monitored resources/devices' +
       '\n- Find specific resource/device by name/IP/property' +
@@ -60,21 +60,26 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Get resource/device IDs for other operations' +
       '\n\n**Two search modes:** ' +
       '\n- **Simple search:** Use query parameter with free text (e.g., query:"production", query:"web-server") - automatically searches displayName, description, and name fields' +
-      '\n- **Advanced filtering:** Use filter parameter with LM filter syntax (e.g., filter:"hostStatus:alive,displayName~\\*web\\*") for precise control' +
+      '\n- **Advanced filtering:** Use filter parameter with LM filter syntax (e.g., filter:"hostStatus:normal,displayName~\\*web\\*") for precise control' +
       '\n\n**Common filter patterns:** ' +
       '\n- By name: filter:"displayName\\~\\*prod\\*" (wildcard search) ' +
-      '\n- By status: filter:"hostStatus:alive" or filter:"hostStatus:dead" ' +
+      '\n- By status: filter:"hostStatus:normal" or filter:"hostStatus:dead" or filter:"hostStatus:dead-collector" (these three are the only valid values - "alive" is NOT a valid hostStatus value, despite appearing in some older examples/docs) ' +
       '\n- By type: filter:"systemProperties.name:system.devicetype,value:server" ' +
       '\n- By custom property: filter:"customProperties.name:company.team,customProperties.value:teamA" ' +
       '\n- By collector: filter:"preferredCollectorId:123" ' +
-      '\n- Multiple conditions: filter:"hostStatus:alive,displayName\\~\\*web\\*" (comma = AND) ' +
+      '\n- Multiple conditions: filter:"hostStatus:normal,displayName\\~\\*web\\*" (comma = AND) ' +
       '\n\n**Query vs Filter:** ' +
       '\n- query: Simplified search across displayName, description, name (OR logic). Use for quick lookups: query:"prod-web-01"' +
-      '\n- filter: Precise LM filter syntax with any field. Use for complex conditions: filter:"hostStatus:alive,displayName~\\*prod\\*"' +
+      '\n- filter: Precise LM filter syntax with any field. Use for complex conditions: filter:"hostStatus:normal,displayName~\\*prod\\*"' +
       '\n- **query and filter cannot be combined in one call:** LogicMonitor\'s filter API only supports comma-separated AND logic (no OR+AND mixing, no parentheses/grouping), so a multi-field "query" search (OR across displayName/description/name) cannot be AND-combined with an additional "filter". Passing both together throws an error with the exact per-field filter strings to use instead - make one call per field (e.g. displayName~"*value*",<filter>), then merge/dedupe the results yourself.' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**SDT status (sdtStatus field):** Format is three dash-separated terms, "group-device-instance" (e.g. "none-SDT-none"), each either "SDT" or "none". First term = an SDT set on a group this resource belongs to (covers the whole resource). Second term = an SDT set directly on this resource (covers the whole resource). Third term = an SDT set on a specific datasource/instance only - it does NOT cover the whole resource. A resource is entirely in SDT if the first OR second term is "SDT"; "none-none-SDT" alone means only part of the resource is suppressed. ' +
+      '\n\n**Alerting-disabled status (alertDisableStatus field):** Same three-part "group-device-instance" format and meaning as sdtStatus above, but for whether alerting is disabled rather than whether SDT is active. Do not confuse this with the separate disableAlerting field, which is a plain boolean for the resource itself only and does not reflect group- or instance-level disabling. ' +
+      '\n\n**Alert status (alertStatus field):** Encodes both severity and acknowledgement in one string, e.g. "critical-unconfirmed" or "warn-confirmed"; "none" means no active alert. Severity is one of warn/error/critical; acknowledgement is confirmed/unconfirmed. ' +
+      '\n\n**hostGroupIds gotcha:** This is a single comma-separated string of group IDs (e.g. "14,26,116"), not a list field, so filter:"hostGroupIds~27" will also match "127", "270", etc. (substring match, not exact membership). To find resources in a specific group reliably, prefer filtering on systemProperties (e.g. filter:"systemProperties.name:system.groups,systemProperties.value~*Exact/Group/Path*" using the group\'s distinctive full path) or cross-check candidate matches against "list\\_resource\\_groups"/"get\\_resource\\_group" rather than trusting a bare hostGroupIds substring match. ' +
+      '\n\n**Known reliability caveat:** Filtering on computed/rollup fields such as sdtStatus or alertDisableStatus (e.g. filter:"sdtStatus:none-SDT-none" or filter:"sdtStatus~SDT-none-") has been observed to return stale results - both missing resources that do match and including ones that do not - likely due to search-index lag on these fields rather than a filter-syntax problem (plain attribute filters like hostStatus or displayName are not known to have this issue). For an accurate audit of SDT or alerting-disabled state, prefer fetching the field unfiltered (fields:"id,displayName,sdtStatus", autoPaginate:true) and evaluating it client-side rather than trusting filter= on it. ' +
       '\n\n**Performance tips:** Use autoPaginate:false for large environments (>1000 resources/devices) and paginate manually to avoid timeouts. ' +
-      '\n\n**Related tools:** "get\\_resource" (details), "generate\\_resource\\_link" (get UI link).',
+      '\n\n**Related tools:** "get\\_resource" (details), "generate\\_resource\\_link" (get UI link), "list\\_sdts" (SDT records), "get\\_sdt" (SDT details).',
     annotations: {
       title: 'List monitored resources/devices',
       readOnlyHint: true,
@@ -84,7 +89,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         query: {
           type: 'string',
-          description: 'Simple search query. Free text (e.g., "production", "web-server", "192.168.1.100") automatically searches across displayName, description, and name fields. Can also use filter syntax (e.g., "hostStatus:alive") which gets formatted automatically.',
+          description: 'Simple search query. Free text (e.g., "production", "web-server", "192.168.1.100") automatically searches across displayName, description, and name fields. Can also use filter syntax (e.g., "hostStatus:normal") which gets formatted automatically.',
         },
         ...paginationSchema,
         ...filterSchema,
@@ -96,12 +101,13 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'get_resource',
     description: 'Get detailed information about a specific resource/device in LogicMonitor (LM) monitoring by its ID. ' +
-      '\n\n**Returns:** Complete resource/device details including: displayName, IP/hostname, hostStatus, alertStatus, collector assignment, resource/device type, custom properties, applied datasources, group memberships, last data time, creation date. ' +
+      '\n\n**Returns:** Complete resource/device details including: displayName, IP/hostname, hostStatus, alertStatus, collector assignment, resource/device type, custom properties, applied datasources, group memberships, last data time, creation date, sdtStatus. ' +
       '\n\n**When to use:** ' +
       '\n- Get full details after finding resource/device ID via "list\\_resources"' +
       '\n- Check resource/device configuration' +
       '\n- Verify collector assignment' +
       '\n- Review custom properties before updating' +
+      '\n- Confirm the live/authoritative sdtStatus for one resource (see "list\\_resources" description for the sdtStatus format and a caveat about that field being unreliable when filtered on in bulk queries)' +
       '\n\n**Workflow:** Use "list\\_resources" or "search\\_resources" first to find the deviceId, then use this tool for complete details. ' +
       '\n\n**Related tools:** "list\\_resource\\_datasources" (see what\'s monitored), "list\\_resource\\_properties" (view all properties), "generate\\_resource\\_link" (get UI link).',
     annotations: {
@@ -1016,6 +1022,160 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
 
+  // Debug Command Tools
+  {
+    name: 'execute_debug_command',
+    description: 'Execute a debug command on a LogicMonitor (LM) collector for advanced troubleshooting and scripting. ' +
+      '\n\n**⚠️ Safety warning:** This executes arbitrary code/commands directly on the target collector\'s host operating system, with the same privileges as the collector process. Commands can read, modify, or delete data, invoke scripts (e.g. "!groovy"), and affect monitoring behavior for that collector and any resources/devices it services. Only run commands you understand, double-check the collectorId, and avoid destructive commands unless intentional. ' +
+      '\n\n**Returns:** Debug object with: cmdline (echo of the command sent), output (command output, if it returned synchronously), cmdContext and sessionId (present for long-running/session-based commands - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**When to use:** ' +
+      '\n- Discover available debug commands and their syntax: use cmdline "help" for the full list, or "help <command>" for usage of a specific command' +
+      '\n- Test a Groovy/PowerShell script against a resource/device before deploying it in a DataSource, EventSource, or PropertySource' +
+      '\n- Interactively debug a discovery or collection script' +
+      '\n- Inspect low-level collector state not exposed by other API endpoints' +
+      '\n\n**Command syntax:** Debug commands are free-form strings typed exactly as they would be in the collector\'s built-in debug console. Multi-line commands (e.g. Groovy scripts) use "\\n" line separators within the cmdline string. Any device/instance targeting (e.g. "hostId=6412") is embedded directly inside the cmdline string - do NOT pass it as a separate parameter. ' +
+      '\n\n**Synchronous vs session-based:** Quick commands (e.g. "help", simple lookups) return their full output immediately in this call\'s "output" field. Long-running or interactive commands instead return a "sessionId"/"cmdContext" - pass that value as "id" to "get\\_debug\\_command\\_result" (with the same collectorId) to retrieve additional output. ' +
+      '\n\n**Full command reference:** MCP resource "lm://docs/debug-commands" has the complete syntax reference for every debug command. Read it once if unfamiliar with debug command syntax; skip it if you already know the syntax you need. ' +
+      '\n\n**Related tools:** "get\\_debug\\_command\\_result" (poll for more output on long-running commands), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (typed wrappers for the two most common scripting commands), "list\\_collectors" / "get\\_collector" (find a valid collectorId), "get\\_resource" (find a hostId to embed in cmdline).',
+    annotations: {
+      title: 'Execute collector debug command',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector to run the debug command on (from "list_collectors" or "get_collector"). Required to route the command, even though LogicMonitor\'s API marks it optional.',
+        },
+        cmdline: {
+          type: 'string',
+          description: 'The debug command string to execute, exactly as typed in LogicMonitor\'s collector debug console (e.g. "!groovy hostId=6412\\nprintln(\\"hello world!\\")\\nreturn 0", or "help" / "help <command>" to discover syntax). Any target device/instance association (e.g. hostId=) must be embedded inside this string itself, not passed as a separate parameter.',
+        },
+      },
+      additionalProperties: false,
+      required: ['collectorId', 'cmdline'],
+    },
+  },
+  {
+    name: 'get_debug_command_result',
+    description: 'Retrieve additional output from a previously started LogicMonitor (LM) collector debug command session, by polling with the sessionId/cmdContext returned from "execute\\_debug\\_command". ' +
+      '\n\n**⚠️ Safety note:** Classified as a write/execute operation (not read-only) because it continues to drive an active debug command session on the collector, even though the HTTP verb is GET. ' +
+      '\n\n**Returns:** Debug object with: output (additional output accumulated since the last poll), cmdline (echo of the original command), cmdContext, sessionId. ' +
+      '\n\n**When to use:** ' +
+      '\n- After "execute\\_debug\\_command" returns a sessionId/cmdContext instead of (or in addition to) final output, indicating the command is long-running or session-based' +
+      '\n- Repeatedly poll this tool with the same id/collectorId until output stabilizes or the session ends' +
+      '\n\n**Workflow:** Call "execute\\_debug\\_command" first; if the response includes a sessionId/cmdContext, pass that value as "id" (with the same collectorId) to this tool to fetch further output. ' +
+      '\n\n**Related tools:** "execute\\_debug\\_command" (start a debug command session).',
+    annotations: {
+      title: 'Get collector debug command result',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The sessionId/cmdContext returned from a prior "execute_debug_command" (or "get_debug_command_result") call, used to poll for additional output.',
+        },
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector the original debug command was run on (must match the collectorId used in "execute_debug_command").',
+        },
+      },
+      additionalProperties: false,
+      required: ['id', 'collectorId'],
+    },
+  },
+  {
+    name: 'execute_groovy_script',
+    description: 'Execute a Groovy script on a LogicMonitor (LM) collector - a typed wrapper around "execute\\_debug\\_command"\'s "!groovy" command that builds the cmdline string for you. ' +
+      '\n\n**⚠️ Safety warning:** Same as "execute\\_debug\\_command" - this runs arbitrary code on the collector host with the collector process\'s privileges. ' +
+      '\n\n**Returns:** Debug object with: cmdline, output (if synchronous), cmdContext and sessionId (present for long-running scripts - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**When to use:** ' +
+      '\n- Test a Groovy script (a DataSource/EventSource/PropertySource collection or discovery script, or a standalone script) against a device before deploying it as a LogicModule' +
+      '\n- Run a script already present on the collector filesystem ("scriptPath"), or an inline script body ("scriptBody") ' +
+      '\n\n**Required:** exactly one of "scriptPath" or "scriptBody" - providing both or neither is rejected. ' +
+      '\n\n**Related tools:** "get\\_debug\\_command\\_result" (poll for output on long-running scripts), "execute\\_debug\\_command" (generic form, any command), "execute\\_powershell\\_script" (Windows PowerShell equivalent), "get\\_datasource\\_scripts" (extract an existing DataSource\'s embedded scripts to test here).',
+    annotations: {
+      title: 'Execute Groovy script on collector',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector to run the script on (from "list_collectors" or "get_collector").',
+        },
+        scriptPath: {
+          type: 'string',
+          description: 'Absolute path, or path relative to <agentRoot>/bin, of a script file already on the collector. Mutually exclusive with scriptBody.',
+        },
+        scriptBody: {
+          type: 'string',
+          description: 'Inline Groovy script text to execute. Mutually exclusive with scriptPath.',
+        },
+        timeout: {
+          type: 'number',
+          description: 'Timeout in seconds (default 180).',
+        },
+        runner: {
+          type: 'string',
+          enum: ['agent', 'sse'],
+          description: 'Where to run the script. Defaults to "agent".',
+        },
+        hostId: {
+          type: 'number',
+          description: 'ID of the resource/device (in the portal) whose properties should be bound to the script.',
+        },
+        collectorHostId: {
+          type: 'string',
+          description: 'Advanced/rare: the "h=" option - which host on the collector the host properties will be bound to. Usually not needed.',
+        },
+      },
+      additionalProperties: false,
+      required: ['collectorId'],
+    },
+  },
+  {
+    name: 'execute_powershell_script',
+    description: 'Execute a PowerShell script on a LogicMonitor (LM) collector - a typed wrapper around "execute\\_debug\\_command"\'s "!posh" command that builds the cmdline string for you. Windows collectors only - fails with "!posh is not supported on linux" on Linux/Unix collectors. ' +
+      '\n\n**⚠️ Safety warning:** Same as "execute\\_debug\\_command" - this runs arbitrary code on the collector host with the collector process\'s privileges. ' +
+      '\n\n**Returns:** Debug object with: cmdline, output (if synchronous), cmdContext and sessionId (present for long-running scripts - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**When to use:** ' +
+      '\n- Test a PowerShell script (a DataSource/EventSource/PropertySource collection or discovery script, or a standalone script) against a device before deploying it as a LogicModule, on a Windows collector' +
+      '\n\n**Note:** unlike "execute\\_groovy\\_script", "!posh" only supports a script file already on the collector filesystem - there is no inline script body option. ' +
+      '\n\n**Related tools:** "get\\_debug\\_command\\_result" (poll for output on long-running scripts), "execute\\_debug\\_command" (generic form, any command), "execute\\_groovy\\_script" (cross-platform Groovy equivalent), "get\\_datasource\\_scripts" (extract an existing DataSource\'s embedded scripts to test here).',
+    annotations: {
+      title: 'Execute PowerShell script on collector',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector to run the script on (from "list_collectors" or "get_collector"). Must be a Windows collector.',
+        },
+        scriptPath: {
+          type: 'string',
+          description: 'Absolute path, or path relative to <agentRoot>/bin, of the PowerShell script file on the collector.',
+        },
+        timeout: {
+          type: 'number',
+          description: 'Timeout in seconds.',
+        },
+        hostId: {
+          type: 'number',
+          description: 'ID of the resource/device (in the portal) whose properties should be bound to the script.',
+        },
+      },
+      additionalProperties: false,
+      required: ['collectorId', 'scriptPath'],
+    },
+  },
+
   // DataSource Tools
   {
     name: 'list_datasources',
@@ -1083,6 +1243,183 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           description: 'The ID of the datasource to retrieve',
         },
         ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
+    name: 'get_datasource_scripts',
+    description: 'Extract every embedded script from a LogicMonitor (LM) DataSource definition, across all the places a script can live in that definition (collection method, discovery method, ERI discovery, per-datapoint post-processors), instead of hunting through the full nested object returned by "get\\_datasource". ' +
+      '\n\n**Returns:** `{dataSourceId, scripts: [{location, field, language, scriptType?, cmdline?, content}]}` - one entry per non-empty script found. "language" is one of groovy/windows/linux/expression. Empty array if the DataSource has no script-based collection/discovery method and no groovy/complex post-processors. ' +
+      '\n\n**When to use:** ' +
+      '\n- Before debugging or modifying a DataSource\'s script, to see exactly what script(s) it contains without manually parsing collectorAttribute/autoDiscoveryConfig/dataPoints' +
+      '\n- To pull a script out for testing via "execute\\_groovy\\_script" / "execute\\_powershell\\_script"' +
+      '\n\n**Workflow:** Use "list\\_datasources" to find dataSourceId, this tool to extract its scripts, then "execute\\_groovy\\_script"/"execute\\_powershell\\_script" to test one against a device. ' +
+      '\n\n**Related tools:** "get\\_datasource" (full raw definition), "update\\_datasource" (write a modified script back), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (test extracted scripts).',
+    annotations: {
+      title: 'Extract DataSource embedded scripts',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: {
+          type: 'number',
+          description: 'The ID of the datasource to extract scripts from',
+        },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
+    name: 'create_datasource',
+    description: 'Create a new DataSource LogicModule in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** The created DataSource object, including its new "id". ' +
+      '\n\n**When to use:** ' +
+      '\n- Define a new monitoring template programmatically (e.g. generated from a discovered API, or migrated from another system) ' +
+      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based DataSource sets collectMethod:"script" and collectorAttribute.groovyScript/windowsScript/linuxScript; an SNMP one sets collectMethod:"snmp" and different fields). This tool passes them through as-is; consult an existing similar DataSource (via "get\\_datasource") for the exact shape to replicate. ' +
+      '\n\n**Related tools:** "get\\_datasource" (see the shape of an existing DataSource to model a new one on), "update\\_datasource", "delete\\_datasource", "get\\_datasource\\_scripts" (extract scripts from an existing one to reuse).',
+    annotations: {
+      title: 'Create DataSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Internal name of the DataSource (no spaces, e.g. "MyApp_Health")',
+        },
+        displayName: {
+          type: 'string',
+          description: 'Human-readable display name',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of what this DataSource monitors',
+        },
+        appliesTo: {
+          type: 'string',
+          description: 'AppliesTo expression determining which resources/devices this DataSource applies to (e.g. "isWindows()")',
+        },
+        group: {
+          type: 'string',
+          description: 'DataSource group/category name',
+        },
+        technology: {
+          type: 'string',
+          description: 'Free-text notes on the monitored technology/setup requirements',
+        },
+        tags: {
+          type: 'string',
+          description: 'Comma-separated tags',
+        },
+        collectMethod: {
+          type: 'string',
+          description: 'Collection method: snmp|ping|wmi|cim|datadump|dns|ipmi|jdbc|script|batchscript|sdkscript|udp|tcp|xen|esx (etc)',
+        },
+        collectInterval: {
+          type: 'number',
+          description: 'Collection interval in seconds',
+        },
+        collectorAttribute: {
+          type: 'object',
+          description: 'Collector attribute object - shape depends on collectMethod. For collectMethod:"script"/"batchscript", include groovyScript and/or windowsScript+windowsCmdline and/or linuxScript+linuxCmdline, and scriptType ("embed"|"file"|"powershell"). See "get_datasource" on an existing DataSource with the same collectMethod for the exact shape.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Array of datapoint definitions (metrics collected). See an existing DataSource via "get_datasource" for the shape.',
+        },
+        enableAutoDiscovery: {
+          type: 'boolean',
+          description: 'Whether this DataSource uses Active Discovery to find instances',
+        },
+        autoDiscoveryConfig: {
+          type: 'object',
+          description: 'Auto-discovery configuration, including "method" (shape depends on the discovery method name, e.g. ad_script uses groovyScript/winScript+winCmdline/linuxScript+linuxCmdline).',
+        },
+        enableEriDiscovery: {
+          type: 'boolean',
+          description: 'Whether this DataSource uses External Resource Inventory (ERI) discovery',
+        },
+        eriDiscoveryConfig: {
+          type: 'object',
+          description: 'ERI discovery configuration (same script field shape as autoDiscoveryConfig.method).',
+        },
+      },
+      additionalProperties: false,
+      required: ['name', 'collectMethod', 'collectInterval', 'collectorAttribute'],
+    },
+  },
+  {
+    name: 'update_datasource',
+    description: 'Update an existing DataSource LogicModule in LogicMonitor (LM) monitoring. Partial update - only include fields you want to change. ' +
+      '\n\n**Returns:** The updated DataSource object. ' +
+      '\n\n**When to use:** ' +
+      '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
+      '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
+      '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
+    annotations: {
+      title: 'Update DataSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: {
+          type: 'number',
+          description: 'The ID of the datasource to update',
+        },
+        name: { type: 'string', description: 'Internal name of the DataSource' },
+        displayName: { type: 'string', description: 'Human-readable display name' },
+        description: { type: 'string', description: 'Description of what this DataSource monitors' },
+        appliesTo: { type: 'string', description: 'AppliesTo expression' },
+        group: { type: 'string', description: 'DataSource group/category name' },
+        technology: { type: 'string', description: 'Free-text notes on the monitored technology/setup requirements' },
+        tags: { type: 'string', description: 'Comma-separated tags' },
+        collectMethod: { type: 'string', description: 'Collection method: snmp|ping|wmi|cim|datadump|dns|ipmi|jdbc|script|batchscript|sdkscript|udp|tcp|xen|esx (etc)' },
+        collectInterval: { type: 'number', description: 'Collection interval in seconds' },
+        collectorAttribute: {
+          type: 'object',
+          description: 'Collector attribute object - shape depends on collectMethod. See "get_datasource" for the current shape before modifying.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Array of datapoint definitions. See "get_datasource" for the current shape before modifying.',
+        },
+        enableAutoDiscovery: { type: 'boolean', description: 'Whether this DataSource uses Active Discovery' },
+        autoDiscoveryConfig: {
+          type: 'object',
+          description: 'Auto-discovery configuration. See "get_datasource" for the current shape before modifying.',
+        },
+        enableEriDiscovery: { type: 'boolean', description: 'Whether this DataSource uses ERI discovery' },
+        eriDiscoveryConfig: {
+          type: 'object',
+          description: 'ERI discovery configuration. See "get_datasource" for the current shape before modifying.',
+        },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
+    name: 'delete_datasource',
+    description: 'Delete a DataSource LogicModule from LogicMonitor (LM) monitoring. ' +
+      '\n\n**⚠️ Warning:** This removes the monitoring template entirely for all resources/devices it applies to - any historical data collected under it becomes orphaned. Consider whether disabling/scoping "appliesTo" instead (via "update\\_datasource") meets the need before deleting. ' +
+      '\n\n**Related tools:** "get\\_datasource" (verify what you\'re about to delete), "update\\_datasource" (alternative: narrow appliesTo instead of deleting).',
+    annotations: {
+      title: 'Delete DataSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: {
+          type: 'number',
+          description: 'The ID of the datasource to delete',
+        },
       },
       additionalProperties: false,
       required: ['dataSourceId'],

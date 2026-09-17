@@ -39,6 +39,7 @@ Thumbs.db
 
 # Documentation
 *.md
+!LOGICMONITOR-DEBUG-COMMANDS.md
 docs/
 
 # CI/CD
