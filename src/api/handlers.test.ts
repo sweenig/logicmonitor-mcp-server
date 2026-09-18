@@ -83,6 +83,8 @@ describe('LogicMonitorHandlers', () => {
       deleteSDT: jest.fn(),
       listConfigSources: jest.fn(),
       getConfigSource: jest.fn(),
+      listPropertySources: jest.fn(),
+      getPropertySource: jest.fn(),
       listDeviceProperties: jest.fn(),
       updateDeviceProperty: jest.fn(),
       listAuditLogs: jest.fn(),
@@ -1572,6 +1574,28 @@ describe('LogicMonitorHandlers', () => {
       });
 
       expect(result).toEqual(mockConfigSource);
+    });
+  });
+
+  describe('PropertySources', () => {
+    it('should list propertysources', async () => {
+      const mockResponse = { items: [{ id: 1, name: 'test-property' }], total: 1 };
+      mockClient.listPropertySources.mockResolvedValue(mockResponse);
+
+      const result = await handlers.handleToolCall('list_propertysources', {});
+
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should get propertysource', async () => {
+      const mockPropertySource = { id: 1, name: 'test-property' };
+      mockClient.getPropertySource.mockResolvedValue(mockPropertySource);
+
+      const result = await handlers.handleToolCall('get_propertysource', {
+        propertySourceId: 1,
+      });
+
+      expect(result).toEqual(mockPropertySource);
     });
   });
 

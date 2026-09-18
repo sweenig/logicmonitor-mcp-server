@@ -3253,6 +3253,69 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
 
+  // PropertySource Tools
+  {
+    name: 'list_propertysources',
+    description: 'List all PropertySources in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** Array of PropertySources with: id, name, description, appliesTo logic, scriptType (embed/powershell/external), group. ' +
+      '\n\n**What are PropertySources:** Scripts (Groovy or PowerShell) that run against matching resources/devices to auto-populate custom properties. Unlike DataSources (metrics) or ConfigSources (config files), PropertySources set property key/value pairs on a device - often used to auto-discover credentials, roles, or metadata that other modules then key off of. ' +
+      '\n\n**When to use:** ' +
+      '\n- Find the PropertySource responsible for setting a specific auto.* or custom property' +
+      '\n- Discover which script (Groovy vs PowerShell) determines a property value' +
+      '\n- Get PropertySource IDs for API operations' +
+      '\n- Audit property-discovery coverage and appliesTo logic' +
+      '\n\n**Common PropertySource patterns:** ' +
+      '\n- Auth-detection scripts: check if the target is the collector itself (run script locally, no credentials), else check for wmi.user/wmi.pass (or ssh.user/ssh.pass, etc.) properties (use explicit credentials), else fall back to integrated/current-context authentication' +
+      '\n- Auto-discovery of OS version, role, hardware serial number, or licensing info used later by "appliesTo" logic on DataSources/EventSources' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**Related tools:** "get\\_propertysource" (full script/details), "list\\_datasources" (metric collection), "list\\_configsources" (config tracking).',
+    annotations: {
+      title: 'List PropertySources',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_propertysource',
+    description: 'Get detailed information about a specific PropertySource by its ID in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** Complete PropertySource details: name, description, appliesTo logic (which resources/devices), scriptType (embed/powershell/external), groovyScript/windowsScript (the actual collection script body or external script name), windowsCmdline/linuxCmdline (script arguments). ' +
+      '\n\n**When to use:** ' +
+      '\n- Read the actual script body to understand how a property is computed' +
+      '\n- Review appliesTo logic (why it does/doesn\'t apply to a device)' +
+      '\n- Check scriptType to see if it is PowerShell, Groovy (embed), or an external script' +
+      '\n- Trace authentication logic (e.g. collector-local vs wmi.user/wmi.pass vs integrated auth) embedded in the script' +
+      '\n\n**Key information:** ' +
+      '\n- appliesTo: Logic determining which resource/device this PropertySource runs against' +
+      '\n- scriptType: "embed" (Groovy, in groovyScript), "powershell" (in windowsScript), or "external" (references a script file, args in windowsCmdline/linuxCmdline)' +
+      '\n- lineageId: Built-in (LogicMonitor) vs custom PropertySource' +
+      '\n\n**Workflow:** Use "list\\_propertysources" to find propertySourceId, then use this tool to read the script and understand its logic. ' +
+      '\n\n**Related tools:** "list\\_propertysources" (find PropertySource), "execute\\_powershell\\_script"/"execute\\_groovy\\_script" (test the script logic against a collector/device).',
+    annotations: {
+      title: 'Get PropertySource details',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        propertySourceId: {
+          type: 'number',
+          description: 'The ID of the property source to retrieve',
+        },
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['propertySourceId'],
+    },
+  },
+
   // Device Property Tools
   {
     name: 'list_resource_properties',

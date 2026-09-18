@@ -89,6 +89,11 @@ const DEFAULT_CONFIGSOURCE_FIELDS = [
   'version', 'lineageId', 'hasMultiConfigs',
 ];
 
+const DEFAULT_PROPERTYSOURCE_FIELDS = [
+  'id', 'name', 'description', 'appliesTo', 'group',
+  'scriptType', 'version', 'lineageId',
+];
+
 const DEFAULT_DEVICE_PROPERTY_FIELDS = [
   'name', 'value', 'type', 'inheritedFrom',
 ];
@@ -976,6 +981,33 @@ export class LogicMonitorHandlers {
 
         case 'get_configsource':
           return await this.client.getConfigSource(args.configSourceId, {
+            fields: args.fields,
+          });
+
+        // PropertySources
+        case 'list_propertysources': {
+          const result = await this.client.listPropertySources({
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
+          if (args.fields) {
+            return result;
+          }
+
+          return {
+            ...result,
+            items: result.items.map((propertysource: any) =>
+              filterFields(propertysource, DEFAULT_PROPERTYSOURCE_FIELDS),
+            ),
+          };
+        }
+
+        case 'get_propertysource':
+          return await this.client.getPropertySource(args.propertySourceId, {
             fields: args.fields,
           });
 

@@ -526,6 +526,8 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 - `get_eventsource` - Get eventsource details
 - `list_configsources` - List configuration sources
 - `get_configsource` - Get configsource details
+- `list_propertysources` - List property sources
+- `get_propertysource` - Get propertysource details (including script body)
 - `get_datasource_scripts` - Extract embedded scripts (collection/discovery/ERI/post-processor) from a DataSource definition
 
 **Write Operations:**

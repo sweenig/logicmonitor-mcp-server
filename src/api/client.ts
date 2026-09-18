@@ -1047,6 +1047,27 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/configsources/${configSourceId}`, undefined, params);
   }
 
+  // PropertySources
+  async listPropertySources(params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+
+    if (autoPaginate) {
+      return this.paginateAll<any>('/setting/propertyrules', cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', '/setting/propertyrules', undefined, cleanedParams);
+  }
+
+  async getPropertySource(propertySourceId: number, params?: { fields?: string }) {
+    return this.request<LMResponse<any>>('GET', `/setting/propertyrules/${propertySourceId}`, undefined, params);
+  }
+
   // Device Properties
   async listDeviceProperties(deviceId: number, params?: {
     size?: number;
