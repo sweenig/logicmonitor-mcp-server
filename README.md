@@ -35,6 +35,59 @@ Model Context Protocol (MCP) server for LogicMonitor - enables AI assistants to 
 - **Smart Batching**: Adaptive concurrency that automatically adjusts to API rate limits
 - **TLS/HTTPS Support**: Optional TLS for secure remote access
 
+## Quick Start
+
+The fastest way to get one or more LogicMonitor portals connected to an AI assistant in VS Code: clone the repo, start the Portal Manager web UI, add a portal, then point your VS Code AI extension at it.
+
+### 1. Clone the repo and open it in VS Code
+
+```bash
+git clone git@github.com:sweenig/logicmonitor-mcp-server.git
+cd logicmonitor-mcp-server
+code .
+```
+
+> **Note:** `portal-manager/webui/docker-compose.yml` bind-mounts the repo into its container at the *same absolute path* it lives at on the host (required so the container can shell out to the host's Docker daemon with paths that resolve correctly). It's currently set up for `/home/sweenig/docker/logicmonitor-mcp-server`. If you clone somewhere else or run this as a different user, update the `volumes:` paths and `PORTAL_VAULT_KEY_FILE` in that file, and the UID/GID (`1000`/`988`) baked into `portal-manager/webui/Dockerfile`, to match your machine first.
+
+### 2. Start the Portal Manager web UI
+
+Generate the vault key used to encrypt each portal's credentials at rest (one-time, must exist before the container starts):
+
+```bash
+mkdir -p ~/.config/portal-manager
+( umask 077 && openssl rand -base64 32 > ~/.config/portal-manager/vault.key )
+```
+
+Set an admin password for the web UI, then build and start it:
+
+```bash
+cd portal-manager/webui
+./setup.sh
+docker compose up -d --build
+```
+
+Open `http://localhost:5050` and log in with the password you just set.
+
+> **Security note:** this service runs with `network_mode: host`, so port `5050` is reachable from your whole network, not just `localhost`. Keep it on a trusted machine/network, or firewall the port off.
+
+### 3. Add a portal in the web UI
+
+Click **+ Add Portal** and fill in:
+
+- **Name** — your LogicMonitor company/subdomain (e.g. `acme` for `acme.logicmonitor.com`). This also becomes the `logicmonitor-<name>` entry in `.mcp.json`.
+- **LM_BEARER_TOKEN** — generate one in your LogicMonitor portal at *Settings > Users & Roles > API Tokens*.
+- **Read-only** — leave checked unless this portal needs write access.
+
+Submitting builds the shared server image (first portal only), starts a container for that portal on its own port, waits for it to report healthy, and automatically adds a `logicmonitor-<name>` entry (with a generated MCP bearer token) to `.mcp.json` at the repo root. Repeat for each additional portal you want to query. See [portal-manager/README.md](portal-manager/README.md) for the equivalent CLI scripts (`add-portal.sh`, `edit-portal.sh`, `remove-portal.sh`, `list-portals.sh`).
+
+### 4. Connect your AI extension in VS Code
+
+Because `.mcp.json` lives at the repo root and is kept in sync automatically, any MCP-aware AI extension (GitHub Copilot Chat's Agent mode, the Claude Code extension, etc.) that reads workspace `.mcp.json` will pick up the new `logicmonitor-<name>` server(s):
+
+- Reload the extension or the VS Code window (`Cmd/Ctrl+Shift+P` → "Developer: Reload Window") if it doesn't pick up the change automatically.
+- Approve/trust the `logicmonitor-<name>` server(s) if your extension prompts you the first time it sees a new workspace MCP server.
+- Ask the assistant to use a LogicMonitor tool (e.g. "list alerts in acme") to confirm it can reach the server at `http://localhost:<port>/mcp`.
+
 ## Images
 
 ### Cursor Prompt - Resource Check Demo
@@ -141,7 +194,7 @@ docker-compose up -d logicmonitor-mcp-http
 
 **Best for**: Web applications, remote access, multiple users, enterprise deployments, where admin controls access.
 
-## Quick Start
+## Manual Installation (Single Portal, No Portal Manager)
 
 ### Prerequisites
 
