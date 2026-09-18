@@ -47,16 +47,7 @@ cd logicmonitor-mcp-server
 code .
 ```
 
-> **Note:** `portal-manager/webui/docker-compose.yml` bind-mounts the repo into its container at the *same absolute path* it lives at on the host (required so the container can shell out to the host's Docker daemon with paths that resolve correctly). It's currently set up for `/home/sweenig/docker/logicmonitor-mcp-server`. If you clone somewhere else or run this as a different user, update the `volumes:` paths and `PORTAL_VAULT_KEY_FILE` in that file, and the UID/GID (`1000`/`988`) baked into `portal-manager/webui/Dockerfile`, to match your machine first.
-
 ### 2. Start the Portal Manager web UI
-
-Generate the vault key used to encrypt each portal's credentials at rest (one-time, must exist before the container starts):
-
-```bash
-mkdir -p ~/.config/portal-manager
-( umask 077 && openssl rand -base64 32 > ~/.config/portal-manager/vault.key )
-```
 
 Set an admin password for the web UI, then build and start it:
 
@@ -65,6 +56,8 @@ cd portal-manager/webui
 ./setup.sh
 docker compose up -d --build
 ```
+
+`setup.sh` also generates the vault key (used to encrypt each portal's credentials at rest, if one doesn't already exist) and writes your repo path, host UID/GID, and `docker` group GID into `webui/.env` for `docker-compose.yml` to pick up — so this works regardless of where you cloned the repo or which user runs it. Re-run `./setup.sh` if you ever move the checkout or run it as a different user.
 
 Open `http://localhost:5050` and log in with the password you just set.
 

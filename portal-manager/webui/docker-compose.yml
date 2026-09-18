@@ -11,6 +11,12 @@
 # path (e.g. /app) would make the daemon look for files that don't exist from
 # its point of view. Same reasoning applies to the vault key mount below.
 #
+# REPO_ROOT, PORTAL_VAULT_KEY_FILE, HOST_UID, HOST_GID, and DOCKER_GID below
+# come from webui/.env (written by setup.sh from the actual host values, and
+# also injected into the container via env_file), so none of this is
+# hardcoded to one machine or user. Re-run setup.sh after moving the checkout
+# or if a different user is running it.
+#
 # ALSO CRITICAL: network_mode: host. Without it, lib.sh's wait_for_healthy
 # (curl http://localhost:$port/healthz) resolves "localhost" to THIS
 # container's own network namespace, not the host's - so it can never reach
@@ -29,13 +35,14 @@ services:
     network_mode: host
     env_file:
       - .env
+    user: "${HOST_UID}:${HOST_GID}"
+    group_add:
+      - "${DOCKER_GID}"
     volumes:
-      - /home/sweenig/docker/logicmonitor-mcp-server:/home/sweenig/docker/logicmonitor-mcp-server
-      - /home/sweenig/.config/portal-manager/vault.key:/home/sweenig/.config/portal-manager/vault.key:ro
+      - ${REPO_ROOT}:${REPO_ROOT}
+      - ${PORTAL_VAULT_KEY_FILE}:${PORTAL_VAULT_KEY_FILE}:ro
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      PORTAL_VAULT_KEY_FILE: /home/sweenig/.config/portal-manager/vault.key
-    working_dir: /home/sweenig/docker/logicmonitor-mcp-server/portal-manager/webui
+    working_dir: ${REPO_ROOT}/portal-manager/webui
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/login')"]
       interval: 30s
