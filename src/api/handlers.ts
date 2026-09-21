@@ -794,6 +794,7 @@ export class LogicMonitorHandlers {
             domain: args.domain,
             testLocation: args.testLocation || { all: true },
             isInternal: args.isInternal ?? false,
+            useDefaultAlertSetting: args.useDefaultAlertSetting ?? true,
           };
           if (args.schema) device.schema = args.schema;
           if (args.pollingInterval) device.pollingInterval = args.pollingInterval;

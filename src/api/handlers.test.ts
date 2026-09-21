@@ -1340,6 +1340,7 @@ describe('LogicMonitorHandlers', () => {
         domain: 'example.com/login',
         testLocation: { all: true },
         isInternal: false,
+        useDefaultAlertSetting: true,
         steps: [
           {
             HTTPMethod: 'GET',
@@ -1374,6 +1375,7 @@ describe('LogicMonitorHandlers', () => {
         domain: 'example.com',
         testLocation: { smgIds: [2, 3] },
         isInternal: false,
+        useDefaultAlertSetting: true,
       });
     });
 
@@ -1398,6 +1400,7 @@ describe('LogicMonitorHandlers', () => {
         domain: 'internal.example.com',
         testLocation: { collectorIds: [5] },
         isInternal: true,
+        useDefaultAlertSetting: true,
         preferredCollectorId: 5,
       });
     });

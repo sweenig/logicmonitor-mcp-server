@@ -2570,6 +2570,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- schema: "http" or "https" (default: "https")' +
       '\n- testLocation: {all: true} to test from all global checkpoints (default), {smgIds: [2,3,4,5,6]} for specific checkpoint locations, or {collectorIds: [id]} to test from an internal collector instead' +
       '\n- isInternal: false (default) for an external check run from LM\'s global SaaS checkpoints (no collector involved); true only for a private/internal check run from your own collector(s)' +
+      '\n- useDefaultAlertSetting: true (default) to inherit alert thresholds and SSL alert behavior from LM\'s default alert settings — what you want almost always. Set to false only when you need per-check overrides (e.g. a custom SSL expiration alert), since false without explicit overrides will disable SSL error/expiration alerting entirely.' +
       '\n- pollingInterval: Minutes between checks, 1-10 (default: 5)' +
       '\n- hostGroupIds: Comma-separated resource/website folder IDs' +
       '\n- description: Notes about what this check verifies' +
@@ -2640,6 +2641,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         isInternal: {
           type: 'boolean',
           description: 'false (default) for an external check from LM\'s global checkpoints; true for a private check from your own collector(s)',
+        },
+        useDefaultAlertSetting: {
+          type: 'boolean',
+          description: 'true (default) to inherit alert thresholds and SSL alert behavior from LM\'s default alert settings; false to use per-check overrides instead',
         },
         steps: {
           type: 'array',
