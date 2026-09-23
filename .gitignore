@@ -14,3 +14,4 @@ v4coverage/
 portal-manager/webui/__pycache__/*
 .vscode/*
 swagger.json
+context_data/*
