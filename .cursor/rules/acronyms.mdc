@@ -4,3 +4,9 @@ alwaysApply: true
 
 Use acronyms:
 LM = LogicMonitor
+DS = DataSource
+PS = PropertySource
+TS = TopologySource
+CS = ConfigSource
+DX = DiagnosticSource
+LS = LogSource
