@@ -1501,6 +1501,71 @@ export class LogicMonitorHandlers {
             args.value,
           );
 
+        // Device Group DataSources (group-level datasource associations & threshold overrides)
+        case 'list_resource_group_datasources':
+          return await this.client.listDeviceGroupDataSources(args.groupId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
+        case 'get_resource_group_datasource_thresholds':
+          return await this.client.getDeviceGroupDataSourceAlertSettings(
+            args.groupId,
+            args.dataSourceId,
+          );
+
+        case 'update_resource_group_datasource_thresholds': {
+          // The write endpoint requires alertTransitionInterval/alertClearTransitionInterval/alertForNoData
+          // to be present with valid values (-1, the "inherited" value the read endpoint reports, is rejected
+          // as out-of-range) even when only alertExpr is changing. Fetch current settings and backfill them
+          // from the matching datapoint's existing (or, if unset, global) value so callers only ever need to
+          // supply dataPointId/dataPointName + alertExpr/disableAlerting, per this tool's documented contract.
+          const current: any = await this.client.getDeviceGroupDataSourceAlertSettings(
+            args.groupId,
+            args.dataSourceId,
+          );
+          const currentByKey = new Map<string, any>();
+          for (const dp of current.dpConfig || []) {
+            currentByKey.set(String(dp.dataPointId), dp);
+            currentByKey.set(dp.dataPointName, dp);
+          }
+
+          const resolveInterval = (value: number, globalValue: number) => (value === -1 ? globalValue : value);
+
+          const dpConfig = (args.dpConfig || []).map((entry: any) => {
+            const key = entry.dataPointId !== undefined ? String(entry.dataPointId) : entry.dataPointName;
+            const match = currentByKey.get(key);
+            if (!match) {
+              throw new MCPError(
+                `Datapoint not found on datasource ${args.dataSourceId} for group ${args.groupId}: ${key}`,
+                ErrorCodes.INVALID_PARAMETERS,
+                { groupId: args.groupId, dataSourceId: args.dataSourceId, requested: key },
+                [
+                  'Use "get_datasource" or "get_resource_group_datasource_thresholds" to see valid datapoint names/IDs for this datasource',
+                ],
+              );
+            }
+            return {
+              dataPointId: match.dataPointId,
+              dataPointName: match.dataPointName,
+              alertExpr: entry.alertExpr !== undefined ? entry.alertExpr : match.alertExpr,
+              disableAlerting: entry.disableAlerting !== undefined ? entry.disableAlerting : match.disableAlerting,
+              alertTransitionInterval: resolveInterval(match.alertTransitionInterval, match.globalAlertTransitionInterval),
+              alertClearTransitionInterval: resolveInterval(match.alertClearTransitionInterval, match.globalAlertClearTransitionInterval),
+              alertForNoData: resolveInterval(match.alertForNoData, match.globalAlertForNoData),
+            };
+          });
+
+          return await this.client.updateDeviceGroupDataSourceAlertSettings(
+            args.groupId,
+            args.dataSourceId,
+            dpConfig,
+          );
+        }
+
         // Netscans
         case 'list_netscans':
           return await this.client.listNetscans({

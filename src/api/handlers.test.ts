@@ -144,6 +144,9 @@ describe('LogicMonitorHandlers', () => {
       getCollectorGroup: jest.fn(),
       listDeviceGroupProperties: jest.fn(),
       updateDeviceGroupProperty: jest.fn(),
+      listDeviceGroupDataSources: jest.fn(),
+      getDeviceGroupDataSourceAlertSettings: jest.fn(),
+      updateDeviceGroupDataSourceAlertSettings: jest.fn(),
       listNetscans: jest.fn(),
       getNetscan: jest.fn(),
       createNetscan: jest.fn(),
@@ -930,6 +933,147 @@ describe('LogicMonitorHandlers', () => {
           end: 1234567900,
           format: 'json',
         });
+      });
+    });
+  });
+
+  describe('Device Group DataSources', () => {
+    describe('list_resource_group_datasources', () => {
+      it('should list datasources applied to a group', async () => {
+        const mockResponse = {
+          items: [{ dataSourceId: 34, dataSourceName: 'SSL_Certificates' }],
+          total: 1,
+        };
+        mockClient.listDeviceGroupDataSources.mockResolvedValue(mockResponse);
+
+        const result = await handlers.handleToolCall('list_resource_group_datasources', {
+          groupId: 18,
+        });
+
+        expect(result).toEqual(mockResponse);
+        expect(mockClient.listDeviceGroupDataSources).toHaveBeenCalledWith(18, {
+          size: undefined,
+          offset: undefined,
+          filter: undefined,
+          fields: undefined,
+          autoPaginate: undefined,
+        });
+      });
+    });
+
+    describe('get_resource_group_datasource_thresholds', () => {
+      it('should get group-level threshold overrides for a datasource', async () => {
+        const mockSettings = {
+          datasourceType: 'DS',
+          dpConfig: [
+            { dataPointId: 297, dataPointName: 'DaysRemaining', alertExpr: '', globalAlertExpr: '< 28 7 2' },
+          ],
+        };
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(mockSettings);
+
+        const result = await handlers.handleToolCall('get_resource_group_datasource_thresholds', {
+          groupId: 18,
+          dataSourceId: 34,
+        });
+
+        expect(result).toEqual(mockSettings);
+        expect(mockClient.getDeviceGroupDataSourceAlertSettings).toHaveBeenCalledWith(18, 34);
+      });
+    });
+
+    describe('update_resource_group_datasource_thresholds', () => {
+      // The write endpoint 400s if alertTransitionInterval/alertClearTransitionInterval/alertForNoData
+      // are missing or -1 (the "inherited" value the read endpoint reports), so the handler fetches
+      // current settings first and backfills them - callers only ever supply alertExpr/disableAlerting.
+      const currentSettings = {
+        datasourceType: 'DS',
+        dpConfig: [
+          {
+            dataPointId: 297,
+            dataPointName: 'DaysRemaining',
+            alertExpr: '',
+            disableAlerting: false,
+            globalAlertExpr: '< 28 7 2',
+            alertTransitionInterval: -1,
+            alertClearTransitionInterval: -1,
+            alertForNoData: -1,
+            globalAlertTransitionInterval: 0,
+            globalAlertClearTransitionInterval: 0,
+            globalAlertForNoData: 1,
+          },
+          {
+            dataPointId: 298,
+            dataPointName: 'ChainLength',
+            alertExpr: '',
+            disableAlerting: false,
+            globalAlertExpr: '',
+            alertTransitionInterval: 5,
+            alertClearTransitionInterval: 5,
+            alertForNoData: 2,
+            globalAlertTransitionInterval: 0,
+            globalAlertClearTransitionInterval: 0,
+            globalAlertForNoData: 1,
+          },
+        ],
+      };
+
+      it('should set a group-level threshold override omitting the critical level, backfilling required fields from the global defaults', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(currentSettings);
+        mockClient.updateDeviceGroupDataSourceAlertSettings.mockResolvedValue({ datasourceType: 'DS', dpConfig: [] });
+
+        await handlers.handleToolCall('update_resource_group_datasource_thresholds', {
+          groupId: 18,
+          dataSourceId: 34,
+          dpConfig: [{ dataPointName: 'DaysRemaining', alertExpr: '< 28 7' }],
+        });
+
+        expect(mockClient.getDeviceGroupDataSourceAlertSettings).toHaveBeenCalledWith(18, 34);
+        expect(mockClient.updateDeviceGroupDataSourceAlertSettings).toHaveBeenCalledWith(18, 34, [
+          {
+            dataPointId: 297,
+            dataPointName: 'DaysRemaining',
+            alertExpr: '< 28 7',
+            disableAlerting: false,
+            alertTransitionInterval: 0,
+            alertClearTransitionInterval: 0,
+            alertForNoData: 1,
+          },
+        ]);
+      });
+
+      it('should preserve an existing non-default transition interval instead of resetting it to global', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(currentSettings);
+        mockClient.updateDeviceGroupDataSourceAlertSettings.mockResolvedValue({ datasourceType: 'DS', dpConfig: [] });
+
+        await handlers.handleToolCall('update_resource_group_datasource_thresholds', {
+          groupId: 18,
+          dataSourceId: 34,
+          dpConfig: [{ dataPointId: 298, alertExpr: '> 5' }],
+        });
+
+        expect(mockClient.updateDeviceGroupDataSourceAlertSettings).toHaveBeenCalledWith(18, 34, [
+          {
+            dataPointId: 298,
+            dataPointName: 'ChainLength',
+            alertExpr: '> 5',
+            disableAlerting: false,
+            alertTransitionInterval: 5,
+            alertClearTransitionInterval: 5,
+            alertForNoData: 2,
+          },
+        ]);
+      });
+
+      it('should reject a datapoint that does not exist on the datasource', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(currentSettings);
+
+        await expect(handlers.handleToolCall('update_resource_group_datasource_thresholds', {
+          groupId: 18,
+          dataSourceId: 34,
+          dpConfig: [{ dataPointName: 'NoSuchDataPoint', alertExpr: '> 1' }],
+        })).rejects.toThrow(MCPError);
+
+        expect(mockClient.updateDeviceGroupDataSourceAlertSettings).not.toHaveBeenCalled();
       });
     });
   });

@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 122 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 143 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
@@ -718,6 +718,15 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 **Write Operations:**
 - `update_resource_property` - Update device property value
 - `update_resource_group_property` - Update device group property value
+
+### Group-Level Alert Thresholds
+
+**Read-Only:**
+- `list_resource_group_datasources` - List datasources applied to a resource/device group
+- `get_resource_group_datasource_thresholds` - Get per-datapoint alert threshold overrides for a datasource, scoped to a group
+
+**Write Operations:**
+- `update_resource_group_datasource_thresholds` - Set per-datapoint alert threshold overrides (warning/error/critical, or fewer to omit the more severe levels) for a datasource, scoped to a single resource/device group without touching the datasource's global thresholds
 
 ### Scheduled Down Time (SDT)
 

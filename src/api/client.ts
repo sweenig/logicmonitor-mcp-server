@@ -1531,6 +1531,49 @@ export class LogicMonitorClient {
     });
   }
 
+  // Device Group DataSources (group-level datasource associations & threshold overrides)
+  async listDeviceGroupDataSources(groupId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+
+    if (autoPaginate) {
+      return this.paginateAll<any>(`/device/groups/${groupId}/datasources`, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', `/device/groups/${groupId}/datasources`, undefined, cleanedParams);
+  }
+
+  async getDeviceGroupDataSourceAlertSettings(groupId: number, dataSourceId: number) {
+    return this.request<LMResponse<any>>('GET', `/device/groups/${groupId}/datasources/${dataSourceId}/alertsettings`);
+  }
+
+  async updateDeviceGroupDataSourceAlertSettings(
+    groupId: number,
+    dataSourceId: number,
+    dpConfig: Array<{
+      dataPointId?: number;
+      dataPointName?: string;
+      alertExpr?: string;
+      disableAlerting?: boolean;
+      // Required by the API with a valid (non -1) value even when unrelated to the change being
+      // made - see the backfill logic in handlers.ts for why callers don't need to supply these.
+      alertTransitionInterval?: number;
+      alertClearTransitionInterval?: number;
+      alertForNoData?: number;
+    }>,
+  ) {
+    return this.request<LMResponse<any>>(
+      'PUT',
+      `/device/groups/${groupId}/datasources/${dataSourceId}/alertsettings`,
+      { dpConfig },
+    );
+  }
+
   // Netscans
   async listNetscans(params?: {
     size?: number;

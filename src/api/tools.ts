@@ -6490,6 +6490,133 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
 
+  // Device Group DataSources (group-level datasource associations & threshold overrides)
+  {
+    name: 'list_resource_group_datasources',
+    description: 'List the datasources currently associated with (applied to) a resource/device group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** Array of group-datasource associations with: dataSourceId, dataSourceName, dataSourceDisplayName, dataSourceGroupName, deviceGroupId, stopMonitoring, disableAlerting, dataSourceType. ' +
+      '\n\n**When to use:** ' +
+      '\n- Find the dataSourceId to pass to "get\\_resource\\_group\\_datasource\\_thresholds"/"update\\_resource\\_group\\_datasource\\_thresholds" for a datasource you already know by name' +
+      '\n- Confirm a datasource actually applies to (has data for) resource/device in this group before configuring a group-level threshold override' +
+      '\n- Audit which datasources are disabled or stopped for a group ' +
+      '\n\n**Note:** The "dataSourceId" returned here is the same global DataSource module ID used by "get\\_datasource" - there is no separate per-group ID. ' +
+      '\n\n**Workflow:** Use "list\\_resource\\_groups" to find groupId, this tool (optionally filtered by dataSourceName) to confirm the datasource applies and get its ID, then "get\\_resource\\_group\\_datasource\\_thresholds" to inspect current overrides. ' +
+      '\n\n**Related tools:** "get\\_resource\\_group\\_datasource\\_thresholds" (current overrides), "update\\_resource\\_group\\_datasource\\_thresholds" (set overrides), "list\\_datasources" (find datasource by name globally).',
+    annotations: {
+      title: 'List resource/device group datasources',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The resource/device group ID',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'get_resource_group_datasource_thresholds',
+    description: 'Get the group-level alert threshold overrides for a specific datasource on a resource/device group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** `{dpConfig: [{dataPointId, dataPointName, dataPointDescription, alertExpr, disableAlerting, globalAlertExpr}]}` - one entry per datapoint on the datasource. ' +
+      '\n- "alertExpr": the group-level override, or an empty string if the group has no override (inherits the datasource\'s global threshold) ' +
+      '\n- "globalAlertExpr": the datasource\'s global/default threshold, for comparison ' +
+      '\n\n**When to use:** ' +
+      '\n- Check whether a group already has a custom threshold for a datapoint before changing it ' +
+      '\n- Verify a change made via "update\\_resource\\_group\\_datasource\\_thresholds" took effect ' +
+      '\n- Audit per-group alert tuning (e.g. why a group is more/less sensitive than the datasource default) ' +
+      '\n\n**Workflow:** Use "list\\_resource\\_group\\_datasources" (or "list\\_datasources") to find dataSourceId, then this tool to inspect current overrides, then "update\\_resource\\_group\\_datasource\\_thresholds" to change them. ' +
+      '\n\n**Related tools:** "update\\_resource\\_group\\_datasource\\_thresholds" (set overrides), "get\\_datasource" (global thresholds and datapoint definitions), "list\\_resource\\_group\\_datasources" (find dataSourceId).',
+    annotations: {
+      title: 'Get resource/device group datasource threshold overrides',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The resource/device group ID',
+        },
+        dataSourceId: {
+          type: 'number',
+          description: 'The datasource ID (same ID used by "get_datasource")',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId', 'dataSourceId'],
+    },
+  },
+  {
+    name: 'update_resource_group_datasource_thresholds',
+    description: 'Set group-level alert threshold overrides for one or more datapoints on a datasource, scoped to a single resource/device group, in LogicMonitor (LM) monitoring - without changing the datasource\'s global thresholds or any other group. ' +
+      '\n\n**What this does:** Writes an override that applies only to resource/device in this group (and its subgroups, unless overridden further down). resources/devices outside this group keep the datasource\'s global threshold. This is the same mechanism as the LM portal\'s per-group "Alert Tuning" feature. ' +
+      '\n\n**Required parameters:** ' +
+      '\n- groupId: The resource/device group ID ' +
+      '\n- dataSourceId: The datasource ID (same ID used by "get\\_datasource") ' +
+      '\n- dpConfig: Array of datapoint overrides, each with: ' +
+      '\n  - dataPointId or dataPointName (one required) - which datapoint to override ' +
+      '\n  - alertExpr (optional) - the threshold expression, e.g. "< 28 7 2" for a "less than" comparator with warning/error/critical levels. There must be a space between the operator and each value. ' +
+      '\n  - disableAlerting (optional) - true to suppress alerting for this datapoint in this group without changing its threshold ' +
+      '\n\n**Omitting severity levels:** alertExpr values are read left-to-right as warning, error, critical. Supplying fewer values than the datasource normally has omits the more severe level(s) for this group - e.g. "< 28 7" sets warning/error but leaves this group\'s copy of the datapoint with no critical threshold, even if the datasource\'s global default includes one. ' +
+      '\n\n**Clearing an override:** Pass alertExpr: "" to remove a group\'s override for that datapoint and revert it to inheriting the datasource\'s global threshold. ' +
+      '\n\n**Untouched settings are preserved automatically:** Behind the scenes this tool reads the datapoint\'s current alert-transition-interval/no-data settings first and carries them through unchanged - you never need to specify them, and this call never resets them to datasource defaults just because they weren\'t mentioned. ' +
+      '\n\n**Verified behavior:** Confirmed against a live LM portal - overriding a datapoint\'s alertExpr for one group leaves "globalAlertExpr" (and every other group\'s effective threshold) unchanged; the override is visible afterward via "get\\_resource\\_group\\_datasource\\_thresholds". ' +
+      '\n\n**Workflow:** Use "list\\_resource\\_group\\_datasources" (or "list\\_datasources") to find dataSourceId, "get\\_resource\\_group\\_datasource\\_thresholds" or "get\\_datasource" to see current/default values and exact dataPointName spelling, then this tool to write the override. ' +
+      '\n\n**Related tools:** "get\\_resource\\_group\\_datasource\\_thresholds" (verify before/after), "get\\_datasource" (datapoint names and global thresholds), "update\\_resource\\_datasource" (per-device, not per-group, alerting/monitoring controls).',
+    annotations: {
+      title: 'Update resource/device group datasource threshold overrides',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The resource/device group ID',
+        },
+        dataSourceId: {
+          type: 'number',
+          description: 'The datasource ID (same ID used by "get_datasource")',
+        },
+        dpConfig: {
+          type: 'array',
+          description: 'Array of per-datapoint overrides to apply. Each item needs dataPointId or dataPointName, plus alertExpr and/or disableAlerting.',
+          items: {
+            type: 'object',
+            properties: {
+              dataPointId: {
+                type: 'number',
+                description: 'The ID of the datapoint associated with the threshold (one of dataPointId/dataPointName required)',
+              },
+              dataPointName: {
+                type: 'string',
+                description: 'The name of the datapoint associated with the threshold (one of dataPointId/dataPointName required)',
+              },
+              alertExpr: {
+                type: 'string',
+                description: 'The threshold expression for this group, e.g. "> 1" or "< 28 7 2". Space-separated operator and values (warning, error, critical - trailing values may be omitted to skip those levels). Pass "" to clear the override and revert to the datasource\'s global threshold.',
+              },
+              disableAlerting: {
+                type: 'boolean',
+                description: 'Whether alerting is disabled for this datapoint in this group (defaults to false)',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId', 'dataSourceId', 'dpConfig'],
+    },
+  },
+
   // NetScans
   {
     name: 'list_netscans',

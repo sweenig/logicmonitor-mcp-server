@@ -643,7 +643,8 @@ describe('getLogicMonitorTools', () => {
             tool.name !== 'get_topology' &&
             tool.name !== 'get_widget_data' &&
             tool.name !== 'get_debug_command_result' &&
-            tool.name !== 'get_datasource_scripts') {
+            tool.name !== 'get_datasource_scripts' &&
+            tool.name !== 'get_resource_group_datasource_thresholds') {
           expect(properties).toHaveProperty('fields');
         }
       });

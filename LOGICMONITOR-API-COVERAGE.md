@@ -196,8 +196,9 @@
 **Implemented:**
 - ✅ Topology (Get)
 - ✅ Device Group Properties (List, Update)
+- ✅ Device Group DataSources & Threshold Overrides (List group datasources, Get/Update per-group alert threshold overrides) - backed by `/device/groups/{id}/datasources` and `/device/groups/{id}/datasources/{dsId}/alertsettings`, verified live against a test portal
 
-**Tools:** `get_topology`, `list_resource_group_properties`, `update_resource_group_property`
+**Tools:** `get_topology`, `list_resource_group_properties`, `update_resource_group_property`, `list_resource_group_datasources`, `get_resource_group_datasource_thresholds`, `update_resource_group_datasource_thresholds`
 
 ---
 
