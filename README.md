@@ -745,12 +745,13 @@ The server provides 122 tools for comprehensive LogicMonitor operations. Tools a
 **Read-Only:**
 - `list_audit_logs` - List audit trail logs (supports simple search via `query` parameter or advanced filtering via `filter` parameter)
 - `get_audit_log` - Get audit log entry details
+- `list_integration_logs` - List integration delivery logs (audit trail of alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc., supports `query`/`filter`)
 
 ### Summary
 
-- **70 read-only tools** - Safe for production monitoring
+- **71 read-only tools** - Safe for production monitoring
 - **52 write tools** - Require caution (disabled by default with `--read-only`)
-- **122 total tools**
+- **123 total tools**
 
 ## Security Considerations
 

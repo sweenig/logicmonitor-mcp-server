@@ -184,8 +184,9 @@
 - ✅ Netscans (List, Get, Create, Update, Delete)
 - ✅ Integrations (List, Get, Create, Update, Delete)
 - ✅ Audit Logs (List, Get, Search)
+- ✅ Integration Logs (List) - delivery/audit trail for alerts sent to configured integrations (ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
-**Tools:** `list_opsnotes`, `get_opsnote`, `create_opsnote`, `update_opsnote`, `delete_opsnote`, `list_netscans`, `get_netscan`, `create_netscan`, `update_netscan`, `delete_netscan`, `list_integrations`, `get_integration`, `create_integration`, `update_integration`, `delete_integration`, `list_audit_logs`, `get_audit_log`, `search_audit_logs`
+**Tools:** `list_opsnotes`, `get_opsnote`, `create_opsnote`, `update_opsnote`, `delete_opsnote`, `list_netscans`, `get_netscan`, `create_netscan`, `update_netscan`, `delete_netscan`, `list_integrations`, `get_integration`, `create_integration`, `update_integration`, `delete_integration`, `list_audit_logs`, `get_audit_log`, `search_audit_logs`, `list_integration_logs`
 
 ---
 

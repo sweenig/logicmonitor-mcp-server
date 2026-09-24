@@ -3520,6 +3520,47 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['auditLogId'],
     },
   },
+  {
+    name: 'list_integration_logs',
+    description: 'List integration delivery logs in LogicMonitor (LM) monitoring - the audit trail of alert notifications sent to third-party integrations (ServiceNow, Slack, PagerDuty, Jira, webhooks, etc.). ' +
+      '\n\n**Returns:** Array of delivery log entries with: id, happenedOnMs (delivery timestamp in epoch MILLISECONDS - note this differs from "list\\_audit\\_logs" which uses epoch SECONDS), integrationName, alertId, alertInstanceId, httpResponseCode (the HTTP status the integration endpoint returned). ' +
+      '\n\n**What this is:** Every time LM sends/updates/clears an alert through a configured integration (see "list\\_integrations"), it records a delivery attempt here - separate from "list\\_audit\\_logs" (user/API actions) and from the alert itself. This is the same data backing LogicMonitor\'s built-in "LogicMonitor\\_Portal\\_Integration Logs" DataSource. ' +
+      '\n\n**When to use:** ' +
+      '\n- Troubleshoot "did this alert actually get sent to ServiceNow/Slack/PagerDuty?"' +
+      '\n- Find failed deliveries: filter:"httpResponseCode!:200"' +
+      '\n- Audit a specific integration\'s traffic: query:"ServiceNow" or filter:"integrationName:ServiceNow"' +
+      '\n- Correlate a specific alert\'s notification history: filter:"alertId:SV63577"' +
+      '\n- Investigate a delivery-failure incident window: filter:"happenedOnMs>:1730851200000,happenedOnMs<:1730855000000" (epoch MILLISECONDS)' +
+      '\n\n**Two search modes:** ' +
+      '\n- **Simple search:** Use query parameter with free text (e.g., query:"ServiceNow") - searches the integrationName field' +
+      '\n- **Advanced filtering:** Use filter parameter with LM filter syntax (e.g., filter:"httpResponseCode!:200") for precise control' +
+      '\n\n**Critical notes:** ' +
+      '\n- Time field is happenedOnMs in epoch MILLISECONDS, unlike "list\\_audit\\_logs" which uses happenedOn in epoch SECONDS - do not mix these up' +
+      '\n- Use autoPaginate:true for complete history (may take time for large datasets)' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**Related tools:** "list\\_integrations" (see configured integrations), "list\\_audit\\_logs" (user/API actions, not alert delivery), "get\\_alert" (the alert that triggered a delivery).',
+    annotations: {
+      title: 'List integration logs',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Simple search query. Free text (e.g., "ServiceNow", "Slack") automatically searches the integrationName field. Can also use filter syntax (e.g., "integrationName:ServiceNow") which gets formatted automatically.',
+        },
+        sort: {
+          type: 'string',
+          description: 'Sort order, e.g. "-happenedOnMs" for newest first (default LogicMonitor Integration Logs DataSource behavior).',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+    },
+  },
 
   // Access Groups Tools
   {

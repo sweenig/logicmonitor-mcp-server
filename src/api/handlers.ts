@@ -108,6 +108,11 @@ const DEFAULT_AUDIT_LOG_FIELDS = [
   'description', 'userId',
 ];
 
+const DEFAULT_INTEGRATION_LOG_FIELDS = [
+  'id', 'happenedOnMs', 'integrationName', 'alertId',
+  'alertInstanceId', 'httpResponseCode',
+];
+
 const DEFAULT_ACCESS_GROUP_FIELDS = [
   'id', 'name', 'description', 'tenantId',
   'numOfDevices', 'numOfUsers',
@@ -1070,6 +1075,31 @@ export class LogicMonitorHandlers {
           return await this.client.getAuditLog(args.auditLogId, {
             fields: args.fields,
           });
+
+        // Integration Logs
+        case 'list_integration_logs': {
+          const filter = this.combineQueryAndFilter(args.query, args.filter, SEARCH_FIELDS.integrationLogs, name);
+
+          const result = await this.client.listIntegrationLogs({
+            size: args.size,
+            offset: args.offset,
+            filter: filter,
+            fields: args.fields,
+            sort: args.sort,
+            autoPaginate: args.autoPaginate,
+          });
+
+          if (args.fields) {
+            return result;
+          }
+
+          return {
+            ...result,
+            items: result.items.map((integrationLog: any) =>
+              filterFields(integrationLog, DEFAULT_INTEGRATION_LOG_FIELDS),
+            ),
+          };
+        }
 
         // Access Groups
         case 'list_access_groups': {

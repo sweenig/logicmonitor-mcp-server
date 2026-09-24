@@ -170,6 +170,7 @@ export const SEARCH_FIELDS = {
   sdts: ['comment', 'adminName'],
   configsources: ['name', 'displayName', 'description'],
   auditLogs: ['username', 'description', 'ip'],
+  integrationLogs: ['integrationName'],
 };
 
 /**

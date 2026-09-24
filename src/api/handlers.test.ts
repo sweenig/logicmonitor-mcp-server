@@ -89,6 +89,7 @@ describe('LogicMonitorHandlers', () => {
       updateDeviceProperty: jest.fn(),
       listAuditLogs: jest.fn(),
       getAuditLog: jest.fn(),
+      listIntegrationLogs: jest.fn(),
       listAccessGroups: jest.fn(),
       getAccessGroup: jest.fn(),
       createAccessGroup: jest.fn(),
@@ -1700,6 +1701,48 @@ describe('LogicMonitorHandlers', () => {
       }
 
       expect(mockClient.listAuditLogs).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Integration Logs', () => {
+    it('should list integration logs', async () => {
+      const mockResponse = {
+        items: [{ id: 1, happenedOnMs: 1730851200000, integrationName: 'ServiceNow', alertId: 'SV1', alertInstanceId: 'inst1', httpResponseCode: 200 }],
+        total: 1,
+      };
+      mockClient.listIntegrationLogs.mockResolvedValue(mockResponse);
+
+      const result = await handlers.handleToolCall('list_integration_logs', {});
+
+      expect(result.items).toHaveLength(1);
+      expect(mockClient.listIntegrationLogs).toHaveBeenCalled();
+    });
+
+    it('should list integration logs with query parameter', async () => {
+      const mockResponse = { items: [], total: 0 };
+      mockClient.listIntegrationLogs.mockResolvedValue(mockResponse);
+
+      await handlers.handleToolCall('list_integration_logs', {
+        query: 'ServiceNow',
+      });
+
+      expect(mockClient.listIntegrationLogs).toHaveBeenCalledWith(
+        expect.objectContaining({ filter: 'integrationName~"*ServiceNow*"' }),
+      );
+    });
+
+    it('should pass through sort and filter for integration logs', async () => {
+      const mockResponse = { items: [], total: 0 };
+      mockClient.listIntegrationLogs.mockResolvedValue(mockResponse);
+
+      await handlers.handleToolCall('list_integration_logs', {
+        filter: 'httpResponseCode!:200',
+        sort: '-happenedOnMs',
+      });
+
+      expect(mockClient.listIntegrationLogs).toHaveBeenCalledWith(
+        expect.objectContaining({ filter: 'httpResponseCode!:200', sort: '-happenedOnMs' }),
+      );
     });
   });
 

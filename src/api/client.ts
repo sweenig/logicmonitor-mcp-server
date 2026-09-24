@@ -1115,6 +1115,24 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/accesslogs/${auditLogId}`, undefined, cleanedParams);
   }
 
+  // Integration Logs
+  async listIntegrationLogs(params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    sort?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+
+    if (autoPaginate) {
+      return this.paginateAll<any>('/setting/integrations/auditlogs', cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', '/setting/integrations/auditlogs', undefined, cleanedParams);
+  }
+
   // Access Groups
   async listAccessGroups(params?: {
     size?: number;
