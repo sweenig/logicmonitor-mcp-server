@@ -67,19 +67,20 @@
 ---
 
 ### Collectors ⭐ GOOD
-**Status:** Read operations complete, write operations missing
+**Status:** Read operations complete, collector group delete implemented, other write operations missing
 
 **Implemented:**
 - ✅ List, Get collectors
-- ✅ Collector Groups (List, Get)
+- ✅ Collector Groups (List, Get, Delete)
 - ✅ Collector Versions (List)
 
 **Missing:**
 - ❌ Add, Update, Patch, Delete collectors
+- ❌ Add, Update collector groups
 - ❌ Get collector installer
 - ❌ Acknowledge collector down alert
 
-**Tools:** `list_collectors`, `get_collector`, `list_collector_groups`, `get_collector_group`, `list_collector_versions`
+**Tools:** `list_collectors`, `get_collector`, `list_collector_groups`, `get_collector_group`, `delete_collector_group`, `list_collector_versions`
 
 ---
 

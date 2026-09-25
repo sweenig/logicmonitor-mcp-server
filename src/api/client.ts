@@ -1508,6 +1508,10 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/collector/groups/${groupId}`, undefined, params);
   }
 
+  async deleteCollectorGroup(groupId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/collector/groups/${groupId}`);
+  }
+
   // Device Group Properties
   async listDeviceGroupProperties(groupId: number, params?: {
     size?: number;

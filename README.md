@@ -625,6 +625,7 @@ The server provides 143 tools for comprehensive LogicMonitor operations. Tools a
 - `create_netscan` - Create NetScan
 - `update_netscan` - Modify NetScan
 - `delete_netscan` - Delete netscan
+- `delete_collector_group` - Delete an empty collector group
 - `execute_debug_command` - Run a debug command on a collector (e.g. test a Groovy/PowerShell script)
 - `get_debug_command_result` - Poll for output from a long-running/session-based debug command
 - `execute_groovy_script` - Typed wrapper to run a Groovy script (path or inline body) on a collector
@@ -759,8 +760,8 @@ The server provides 143 tools for comprehensive LogicMonitor operations. Tools a
 ### Summary
 
 - **71 read-only tools** - Safe for production monitoring
-- **52 write tools** - Require caution (disabled by default with `--read-only`)
-- **123 total tools**
+- **53 write tools** - Require caution (disabled by default with `--read-only`)
+- **124 total tools**
 
 ## Security Considerations
 

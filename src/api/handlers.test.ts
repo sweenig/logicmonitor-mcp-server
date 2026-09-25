@@ -142,6 +142,7 @@ describe('LogicMonitorHandlers', () => {
       deleteReportGroup: jest.fn(),
       listCollectorGroups: jest.fn(),
       getCollectorGroup: jest.fn(),
+      deleteCollectorGroup: jest.fn(),
       listDeviceGroupProperties: jest.fn(),
       updateDeviceGroupProperty: jest.fn(),
       listDeviceGroupDataSources: jest.fn(),
@@ -656,6 +657,16 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(result).toEqual(mockCollector);
+      });
+    });
+
+    describe('delete_collector_group', () => {
+      it('should delete a collector group by ID', async () => {
+        mockClient.deleteCollectorGroup.mockResolvedValue({});
+
+        await handlers.handleToolCall('delete_collector_group', { groupId: 5 });
+
+        expect(mockClient.deleteCollectorGroup).toHaveBeenCalledWith(5);
       });
     });
   });

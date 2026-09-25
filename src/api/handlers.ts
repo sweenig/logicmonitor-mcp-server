@@ -1484,6 +1484,9 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
+        case 'delete_collector_group':
+          return await this.client.deleteCollectorGroup(args.groupId);
+
         // Device Group Properties
         case 'list_resource_group_properties':
           return await this.client.listDeviceGroupProperties(args.groupId, {

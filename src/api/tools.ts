@@ -6379,6 +6379,46 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['groupId'],
     },
   },
+  {
+    name: 'delete_collector_group',
+    description: 'Delete a collector group from LogicMonitor (LM) monitoring. ' +
+      '\n\n**⚠️ WARNING: CHECK FOR COLLECTORS FIRST** ' +
+      '\n- Cannot delete group containing collectors ' +
+      '\n- Cannot delete group containing subgroups ' +
+      '\n- Must be empty to delete ' +
+      '\n- The "@default" group cannot be deleted ' +
+      '\n\n**What this does:** Removes empty collector group folder. Group must have no collectors and no subgroups. ' +
+      '\n\n**When to use:**' +
+      '\n- Cleanup empty groups after reorganization' +
+      '\n- Remove unused organizational folders' +
+      '\n- Simplify collector hierarchy' +
+      '\n' +
+      '\n\n**Required parameters:** ' +
+      '\n- groupId: Collector group ID to delete (from "list\\_collector\\_groups") ' +
+      '\n\n**Before deleting:** ' +
+      '1. Use "list\\_collector\\_groups" or "get\\_collector\\_group" to confirm numOfCollectors is 0 and there are no subgroups ' +
+      '2. Move or delete collectors/subgroups first if not empty ' +
+      '\n\n**Error handling:** ' +
+      'If deletion fails, group likely not empty. Check for: ' +
+      '\n- Collectors still in group ' +
+      '\n- Subgroups still under this group ' +
+      '\n\n**Related tools:** "list\\_collector\\_groups" (find groups), "get\\_collector\\_group" (check for collectors/subgroups), "list\\_collectors" (collectors in group).',
+    annotations: {
+      title: 'Delete collector group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the collector group to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
 
   // Device Group Properties
   {
