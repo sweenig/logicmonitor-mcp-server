@@ -137,18 +137,18 @@
 **Status:** Read-only operations
 
 **Implemented:**
-- ✅ ConfigSources (List, Get)
+- ✅ ConfigSources (List, Get, Create)
 - ✅ EventSources (List, Get)
 - ✅ PropertySources (List, Get)
 - ✅ SDTs (List, Get, Create Device SDT, Delete)
 
 **Missing:**
-- ❌ ConfigSource management (Add, Update, Delete, Import/Export)
+- ❌ ConfigSource management (Update, Delete, Import/Export)
 - ❌ EventSource management (Add, Update, Delete, Import/Export)
 - ❌ PropertySource management (Add, Update, Delete, Import/Export)
 - ❌ Complete SDT management
 
-**Tools:** `list_configsources`, `get_configsource`, `list_eventsources`, `get_eventsource`, `list_propertysources`, `get_propertysource`, `list_sdts`, `get_sdt`, `create_resource_sdt`, `delete_sdt`
+**Tools:** `list_configsources`, `get_configsource`, `create_configsource`, `list_eventsources`, `get_eventsource`, `list_propertysources`, `get_propertysource`, `list_sdts`, `get_sdt`, `create_resource_sdt`, `delete_sdt`
 
 ---
 

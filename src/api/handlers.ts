@@ -990,6 +990,26 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
+        case 'create_configsource':
+          return await this.client.createConfigSource({
+            name: args.name,
+            displayName: args.displayName,
+            description: args.description,
+            appliesTo: args.appliesTo,
+            group: args.group,
+            technology: args.technology,
+            tags: args.tags,
+            collectMethod: args.collectMethod,
+            collectInterval: args.collectInterval,
+            collectorAttribute: args.collectorAttribute,
+            hasMultiInstances: args.hasMultiInstances,
+            enableAutoDiscovery: args.enableAutoDiscovery,
+            autoDiscoveryConfig: args.autoDiscoveryConfig,
+            fileFormat: args.fileFormat,
+            timestampFormat: args.timestampFormat,
+            configChecks: args.configChecks,
+          });
+
         // PropertySources
         case 'list_propertysources': {
           const result = await this.client.listPropertySources({

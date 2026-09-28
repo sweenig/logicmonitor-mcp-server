@@ -83,6 +83,7 @@ describe('LogicMonitorHandlers', () => {
       deleteSDT: jest.fn(),
       listConfigSources: jest.fn(),
       getConfigSource: jest.fn(),
+      createConfigSource: jest.fn(),
       listPropertySources: jest.fn(),
       getPropertySource: jest.fn(),
       listDeviceProperties: jest.fn(),
@@ -1733,6 +1734,26 @@ describe('LogicMonitorHandlers', () => {
       });
 
       expect(result).toEqual(mockConfigSource);
+    });
+
+    it('should create a configsource', async () => {
+      const mockCreated = { id: 5, name: 'MyConfig' };
+      mockClient.createConfigSource.mockResolvedValue(mockCreated);
+
+      const result = await handlers.handleToolCall('create_configsource', {
+        name: 'MyConfig',
+        collectMethod: 'batchscript',
+        collectInterval: 3600,
+        collectorAttribute: { name: 'batchscript', groovyScript: 'return 0' },
+      });
+
+      expect(mockClient.createConfigSource).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'MyConfig',
+        collectMethod: 'batchscript',
+        collectInterval: 3600,
+        collectorAttribute: { name: 'batchscript', groovyScript: 'return 0' },
+      }));
+      expect(result).toEqual(mockCreated);
     });
   });
 

@@ -1047,6 +1047,10 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/configsources/${configSourceId}`, undefined, params);
   }
 
+  async createConfigSource(configSource: any) {
+    return this.request<LMResponse<any>>('POST', '/setting/configsources', configSource);
+  }
+
   // PropertySources
   async listPropertySources(params?: {
     size?: number;

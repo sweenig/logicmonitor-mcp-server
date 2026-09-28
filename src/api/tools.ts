@@ -3257,6 +3257,90 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['configSourceId'],
     },
   },
+  {
+    name: 'create_configsource',
+    description: 'Create a new ConfigSource LogicModule in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** The created ConfigSource object, including its new "id". ' +
+      '\n\n**When to use:** ' +
+      '\n- Define a new configuration-tracking template programmatically (e.g. to track a config file, or a settings blob pulled from an API, for drift/change management) ' +
+      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based ConfigSource sets collectMethod:"batchscript" and collectorAttribute.groovyScript; autoDiscoveryConfig.method.name:"ad_script" with its own groovyScript that emits "wildvalue##wildalias" lines). This tool passes them through as-is; consult an existing similar ConfigSource (via "get\\_configsource") for the exact shape to replicate. ' +
+      '\n\n**Related tools:** "get\\_configsource" (see the shape of an existing ConfigSource to model a new one on), "list\\_configsources".',
+    annotations: {
+      title: 'Create ConfigSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Internal name of the ConfigSource (no spaces, e.g. "MyApp_Config")',
+        },
+        displayName: {
+          type: 'string',
+          description: 'Human-readable display name',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of what config this ConfigSource tracks',
+        },
+        appliesTo: {
+          type: 'string',
+          description: 'AppliesTo expression determining which resources/devices this ConfigSource applies to (e.g. "isWindows()")',
+        },
+        group: {
+          type: 'string',
+          description: 'ConfigSource group/category name',
+        },
+        technology: {
+          type: 'string',
+          description: 'Free-text notes on the monitored technology/setup requirements',
+        },
+        tags: {
+          type: 'string',
+          description: 'Comma-separated tags',
+        },
+        collectMethod: {
+          type: 'string',
+          description: 'Collection method, e.g. script|batchscript|cli|snmp|winreg (etc)',
+        },
+        collectInterval: {
+          type: 'number',
+          description: 'Collection interval in seconds',
+        },
+        collectorAttribute: {
+          type: 'object',
+          description: 'Collector attribute object - shape depends on collectMethod. For collectMethod:"script"/"batchscript", include groovyScript and/or windowsScript+windowsCmdline and/or linuxScript+linuxCmdline, and scriptType ("embed"|"file"|"powershell"). See "get_configsource" on an existing ConfigSource with the same collectMethod for the exact shape.',
+        },
+        hasMultiInstances: {
+          type: 'boolean',
+          description: 'Whether this ConfigSource tracks multiple config instances per resource/device',
+        },
+        enableAutoDiscovery: {
+          type: 'boolean',
+          description: 'Whether this ConfigSource uses Active Discovery to find instances',
+        },
+        autoDiscoveryConfig: {
+          type: 'object',
+          description: 'Auto-discovery configuration, including "method" (shape depends on the discovery method name, e.g. ad_script uses groovyScript/winScript+winCmdline/linuxScript+linuxCmdline).',
+        },
+        fileFormat: {
+          type: 'string',
+          description: 'Format of the collected config content for diffing, e.g. "text"|"xml"|"java-properties"|"ini"',
+        },
+        timestampFormat: {
+          type: 'string',
+          description: 'Optional format string for extracting a timestamp from the raw config content',
+        },
+        configChecks: {
+          type: 'array',
+          description: 'Array of config check definitions (e.g. a "fetch" check that alerts when collection fails). See an existing ConfigSource via "get_configsource" for the shape.',
+        },
+      },
+      additionalProperties: false,
+      required: ['name', 'collectMethod', 'collectInterval', 'collectorAttribute'],
+    },
+  },
 
   // PropertySource Tools
   {
