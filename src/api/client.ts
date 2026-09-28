@@ -482,6 +482,18 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/collector/collectors/${collectorId}`, undefined, params);
   }
 
+  async updateCollector(collectorId: number, collector: any, params?: {
+    opType?: string;
+    autoBalanceMonitoredDevices?: boolean;
+    forceUpdateFailedOverDevices?: boolean;
+  }) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/collector/collectors/${collectorId}`, collector, params);
+  }
+
+  async deleteCollector(collectorId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/collector/collectors/${collectorId}`);
+  }
+
   // Debug Commands
   async executeDebugCommand(cmdline: string, collectorId: number) {
     return this.request<LMResponse<any>>('POST', '/debug', { cmdline }, { collectorId });

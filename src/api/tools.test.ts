@@ -218,9 +218,11 @@ describe('getLogicMonitorTools', () => {
 
         expect(toolNames).toContain('list_collectors');
         expect(toolNames).toContain('get_collector');
+        expect(toolNames).toContain('update_collector');
+        expect(toolNames).toContain('delete_collector');
       });
 
-      it('should mark collector tools as read-only', () => {
+      it('should mark read-only collector tools as read-only', () => {
         const tools = getLogicMonitorTools(false);
 
         const listTool = tools.find(t => t.name === 'list_collectors');
@@ -228,6 +230,43 @@ describe('getLogicMonitorTools', () => {
 
         expect(listTool?.annotations?.readOnlyHint).toBe(true);
         expect(getTool?.annotations?.readOnlyHint).toBe(true);
+      });
+
+      it('should mark collector write tools as read-write', () => {
+        const tools = getLogicMonitorTools(false);
+
+        const updateTool = tools.find(t => t.name === 'update_collector');
+        const deleteTool = tools.find(t => t.name === 'delete_collector');
+
+        expect(updateTool?.annotations?.readOnlyHint).toBe(false);
+        expect(deleteTool?.annotations?.readOnlyHint).toBe(false);
+      });
+
+      it('should exclude collector write tools from read-only tool list', () => {
+        const readOnlyTools = getLogicMonitorTools(true);
+        const toolNames = readOnlyTools.map(tool => tool.name);
+
+        expect(toolNames).not.toContain('update_collector');
+        expect(toolNames).not.toContain('delete_collector');
+      });
+
+      it('should require collectorId for update_collector and delete_collector', () => {
+        const tools = getLogicMonitorTools(false);
+
+        const updateTool = tools.find(t => t.name === 'update_collector');
+        const deleteTool = tools.find(t => t.name === 'delete_collector');
+
+        expect(updateTool?.inputSchema.required).toContain('collectorId');
+        expect(deleteTool?.inputSchema.required).toContain('collectorId');
+      });
+
+      it('should support customProperties and opType in update_collector', () => {
+        const tools = getLogicMonitorTools(false);
+        const updateTool = tools.find(t => t.name === 'update_collector');
+
+        const properties = updateTool?.inputSchema.properties || {};
+        expect(properties).toHaveProperty('customProperties');
+        expect(properties).toHaveProperty('opType');
       });
     });
 

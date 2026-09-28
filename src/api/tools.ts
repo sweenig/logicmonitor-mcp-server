@@ -1021,6 +1021,129 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['collectorId'],
     },
   },
+  {
+    name: 'update_collector',
+    description: 'Modify an existing collector (monitoring agent) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Updates fields on the Collector object itself - NOT the resource/device that represents the collector\'s host. This is the only way to change a collector\'s own custom properties (e.g. "Site"), description, backup collector assignment, failback settings, or collector group. ' +
+      '\n\n**⚠️ Important distinction:** A collector and the resource/device it runs on are two separate LM objects with independent IDs and independent custom properties, even though they often show the same values. Use "update\\_resource"/"update\\_resource\\_property" (with the collector\'s "collectorDeviceId" from "get\\_collector") to change the host resource\'s properties instead. Use this tool only when you specifically need to change the Collector entity\'s own settings. ' +
+      '\n\n**Required parameters:** ' +
+      '\n- collectorId: The collector ID (from "list\\_collectors" or "get\\_collector")' +
+      '\n\n**Optional parameters (what to change):** ' +
+      '\n- description: New collector name/description' +
+      '\n- customProperties: Array of {name, value} custom properties on the collector itself' +
+      '\n- collectorGroupId: Move to a different collector group (from "list\\_collector\\_groups")' +
+      '\n- backupAgentId: ID of the backup/failover collector' +
+      '\n- enableFailBack: Whether automatic failback is enabled' +
+      '\n- resendIval: Minutes before resending alert notifications for this collector' +
+      '\n- opType: "replace" (default) overwrites the customProperties array entirely, "add" merges the given properties with existing ones (safer - use this when setting a single new property like "Site")' +
+      '\n- autoBalanceMonitoredDevices: Whether to auto-rebalance monitored devices across the collector group after this change' +
+      '\n- forceUpdateFailedOverDevices: Whether to force-update devices currently failed over to a backup collector' +
+      '\n\n**Common update scenarios:** ' +
+      '\n- Set the collector\'s own Site property: {collectorId: 16, customProperties: [{name: "Site", value: "Cloud-Azure East"}], opType: "add"}' +
+      '\n- Rename a collector: {collectorId: 16, description: "NEWNAME"}' +
+      '\n- Reassign backup collector: {collectorId: 16, backupAgentId: 75}' +
+      '\n\n**opType explained:** ' +
+      '\n- "replace": Overwrites the entire customProperties array with exactly what you pass - omitting an existing property deletes it' +
+      '\n- "add": Merges/appends to existing properties - existing properties not mentioned are left untouched (recommended for single-property changes)' +
+      '\n\n**Workflow:** Use "list\\_collectors" or "get\\_collector" to find collectorId and review current customProperties before updating. ' +
+      '\n\n**Related tools:** "get\\_collector" (verify before/after update), "list\\_collectors" (find collector), "update\\_resource"/"update\\_resource\\_property" (change the collector\'s underlying host resource instead), "delete\\_collector" (remove entirely).',
+    annotations: {
+      title: 'Update collector',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'The ID of the collector to update',
+        },
+        description: {
+          type: 'string',
+          description: 'New description/name for the collector',
+        },
+        customProperties: {
+          type: 'array',
+          description: 'Array of custom properties to set on the collector itself (not its host resource)',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+            },
+          },
+        },
+        collectorGroupId: {
+          type: 'number',
+          description: 'ID of the collector group to move this collector into (from "list_collector_groups")',
+        },
+        backupAgentId: {
+          type: 'number',
+          description: 'ID of the backup/failover collector to assign',
+        },
+        enableFailBack: {
+          type: 'boolean',
+          description: 'Whether automatic failback to this collector is enabled',
+        },
+        resendIval: {
+          type: 'number',
+          description: 'Minutes after which alert notifications for this collector are resent',
+        },
+        opType: {
+          type: 'string',
+          description: 'Operation type for customProperties: "replace" (default) or "add"',
+        },
+        autoBalanceMonitoredDevices: {
+          type: 'boolean',
+          description: 'Whether to auto-rebalance monitored devices across the collector group after this change',
+        },
+        forceUpdateFailedOverDevices: {
+          type: 'boolean',
+          description: 'Whether to force-update devices currently failed over to a backup collector',
+        },
+      },
+      additionalProperties: false,
+      required: ['collectorId'],
+    },
+  },
+  {
+    name: 'delete_collector',
+    description: 'Remove a collector (monitoring agent) from LogicMonitor (LM) monitoring. ' +
+      '\n\n**⚠️ WARNING: DESTRUCTIVE OPERATION** ' +
+      '\n- This permanently removes the collector registration from LM' +
+      '\n- Any resource/device relying on this collector as its preferred or backup collector will lose that assignment and may stop being monitored' +
+      '\n- This does NOT uninstall the collector software from the host machine - it only removes LM\'s record of it' +
+      '\n- This action CANNOT be undone via the API (the collector would need to be reinstalled/re-registered)' +
+      '\n\n**Required parameters:** ' +
+      '\n- collectorId: The collector ID (from "list\\_collectors")' +
+      '\n\n**When to use:** ' +
+      '\n- Decommissioned collector hosts' +
+      '\n- Cleanup after a collector migration where devices have already been reassigned to a new collector' +
+      '\n- Removing duplicate/orphaned collector registrations' +
+      '\n\n**⚠️ CONSIDER ALTERNATIVES FIRST:** ' +
+      '\n- Just moving devices to a different collector? Use "update\\_resource" with a new preferredCollectorId instead - no need to delete the collector' +
+      '\n- Temporarily taking a collector out of service? Consider leaving it registered (dead collectors just show as offline) rather than deleting' +
+      '\n\n**Best practice workflow:** ' +
+      '\n1. Use "list\\_resources" filtered by "preferredCollectorId:<id>" to confirm no devices still depend on this collector' +
+      '\n2. Reassign any dependent devices via "update\\_resource" first' +
+      '\n3. Delete the collector' +
+      '\n\n**Related tools:** "list\\_collectors" (find collector), "get\\_collector" (verify before deleting), "update\\_resource" (reassign devices first).',
+    annotations: {
+      title: 'Delete collector',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'The ID of the collector to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['collectorId'],
+    },
+  },
 
   // Debug Command Tools
   {

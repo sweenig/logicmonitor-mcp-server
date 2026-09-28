@@ -451,6 +451,24 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
+        case 'update_collector': {
+          const {
+            collectorId,
+            opType,
+            autoBalanceMonitoredDevices,
+            forceUpdateFailedOverDevices,
+            ...collectorData
+          } = args;
+          return await this.client.updateCollector(collectorId, collectorData, {
+            opType: opType || 'replace',
+            autoBalanceMonitoredDevices,
+            forceUpdateFailedOverDevices,
+          });
+        }
+
+        case 'delete_collector':
+          return await this.client.deleteCollector(args.collectorId);
+
         // Debug Commands
         case 'execute_debug_command':
           return await this.client.executeDebugCommand(args.cmdline, args.collectorId);

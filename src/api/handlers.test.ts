@@ -37,6 +37,8 @@ describe('LogicMonitorHandlers', () => {
       addAlertNote: jest.fn(),
       listCollectors: jest.fn(),
       getCollector: jest.fn(),
+      updateCollector: jest.fn(),
+      deleteCollector: jest.fn(),
       executeDebugCommand: jest.fn(),
       getDebugCommandResult: jest.fn(),
       listDataSources: jest.fn(),
@@ -658,6 +660,72 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(result).toEqual(mockCollector);
+      });
+    });
+
+    describe('update_collector', () => {
+      it('should update collector with replace opType by default', async () => {
+        const mockCollector = { id: 16, description: 'EXTRANET\\AZETAAAEXTWP02' };
+        mockClient.updateCollector.mockResolvedValue(mockCollector);
+
+        const result = await handlers.handleToolCall('update_collector', {
+          collectorId: 16,
+          customProperties: [{ name: 'Site', value: 'Cloud-Azure East' }],
+        });
+
+        expect(result).toEqual(mockCollector);
+        expect(mockClient.updateCollector).toHaveBeenCalledWith(
+          16,
+          { customProperties: [{ name: 'Site', value: 'Cloud-Azure East' }] },
+          { opType: 'replace', autoBalanceMonitoredDevices: undefined, forceUpdateFailedOverDevices: undefined },
+        );
+      });
+
+      it('should update collector with add opType to merge a new property', async () => {
+        const mockCollector = { id: 16, description: 'EXTRANET\\AZETAAAEXTWP02' };
+        mockClient.updateCollector.mockResolvedValue(mockCollector);
+
+        await handlers.handleToolCall('update_collector', {
+          collectorId: 16,
+          customProperties: [{ name: 'Site', value: 'Cloud-Azure East' }],
+          opType: 'add',
+        });
+
+        expect(mockClient.updateCollector).toHaveBeenCalledWith(
+          16,
+          { customProperties: [{ name: 'Site', value: 'Cloud-Azure East' }] },
+          { opType: 'add', autoBalanceMonitoredDevices: undefined, forceUpdateFailedOverDevices: undefined },
+        );
+      });
+
+      it('should not send collectorId/opType/rebalance flags in the request body', async () => {
+        mockClient.updateCollector.mockResolvedValue({ id: 16 });
+
+        await handlers.handleToolCall('update_collector', {
+          collectorId: 16,
+          description: 'renamed-collector',
+          autoBalanceMonitoredDevices: true,
+          forceUpdateFailedOverDevices: true,
+        });
+
+        expect(mockClient.updateCollector).toHaveBeenCalledWith(
+          16,
+          { description: 'renamed-collector' },
+          { opType: 'replace', autoBalanceMonitoredDevices: true, forceUpdateFailedOverDevices: true },
+        );
+      });
+    });
+
+    describe('delete_collector', () => {
+      it('should delete a collector by ID', async () => {
+        mockClient.deleteCollector.mockResolvedValue({});
+
+        const result = await handlers.handleToolCall('delete_collector', {
+          collectorId: 16,
+        });
+
+        expect(result).toEqual({});
+        expect(mockClient.deleteCollector).toHaveBeenCalledWith(16);
       });
     });
 
