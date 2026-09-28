@@ -21,7 +21,7 @@ Model Context Protocol (MCP) server for LogicMonitor - enables AI assistants to 
 
 ## Features
 
-- **125 MCP Tools** for comprehensive LogicMonitor operations (73 read-only, 52 write)
+- **145 MCP Tools** for comprehensive LogicMonitor operations (79 read-only, 66 write)
 - **Unified Server**: Single server implementation supporting all transport modes (STDIO, SSE, HTTP)
 - **Multiple Transport Modes**: STDIO for local use, SSE/HTTP for remote access
 - **Flexible Authentication**: No auth (dev), bearer token, or OAuth/OIDC
@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 143 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 145 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
@@ -581,6 +581,7 @@ The server provides 143 tools for comprehensive LogicMonitor operations. Tools a
 - `create_datasource` - Create a new DataSource LogicModule
 - `update_datasource` - Modify a DataSource LogicModule
 - `delete_datasource` - Delete a DataSource LogicModule
+- `create_configsource` - Create a new ConfigSource LogicModule
 
 ### Dashboards & Reporting
 
@@ -645,6 +646,7 @@ The server provides 143 tools for comprehensive LogicMonitor operations. Tools a
 - `create_website` - Create new website monitor
 - `update_website` - Modify website monitor
 - `delete_website` - Delete website monitor
+- `create_uptime_check` - Create a new LM Uptime synthetic HTTP check (distinct from legacy website/checkpoint monitors)
 
 ### Services (Business Logic)
 
@@ -759,9 +761,9 @@ The server provides 143 tools for comprehensive LogicMonitor operations. Tools a
 
 ### Summary
 
-- **71 read-only tools** - Safe for production monitoring
-- **53 write tools** - Require caution (disabled by default with `--read-only`)
-- **124 total tools**
+- **79 read-only tools** - Safe for production monitoring
+- **66 write tools** - Require caution (disabled by default with `--read-only`)
+- **145 total tools**
 
 ## Security Considerations
 
@@ -785,7 +787,7 @@ export MCP_READ_ONLY=true
 npm start
 ```
 
-This disables all 52 write operations, leaving only 73 safe read-only tools.
+This disables all 66 write operations, leaving only 79 safe read-only tools.
 
 ### Authentication Setup
 
