@@ -10,3 +10,5 @@ TS = TopologySource
 CS = ConfigSource
 DX = DiagnosticSource
 LS = LogSource
+ILP = instance level property
+AD = Active Discovery
