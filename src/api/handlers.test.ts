@@ -146,6 +146,7 @@ describe('LogicMonitorHandlers', () => {
       listCollectorGroups: jest.fn(),
       getCollectorGroup: jest.fn(),
       deleteCollectorGroup: jest.fn(),
+      updateCollectorGroup: jest.fn(),
       listDeviceGroupProperties: jest.fn(),
       updateDeviceGroupProperty: jest.fn(),
       listDeviceGroupDataSources: jest.fn(),
@@ -736,6 +737,57 @@ describe('LogicMonitorHandlers', () => {
         await handlers.handleToolCall('delete_collector_group', { groupId: 5 });
 
         expect(mockClient.deleteCollectorGroup).toHaveBeenCalledWith(5);
+      });
+    });
+
+    describe('update_collector_group', () => {
+      it('should update collector group with replace opType by default', async () => {
+        const mockGroup = { id: 5, name: 'Azure Collectors' };
+        mockClient.updateCollectorGroup.mockResolvedValue(mockGroup);
+
+        const result = await handlers.handleToolCall('update_collector_group', {
+          groupId: 5,
+          customProperties: [{ name: 'needsFailoverCollector', value: 'false' }],
+        });
+
+        expect(result).toEqual(mockGroup);
+        expect(mockClient.updateCollectorGroup).toHaveBeenCalledWith(
+          5,
+          { customProperties: [{ name: 'needsFailoverCollector', value: 'false' }] },
+          { opType: 'replace' },
+        );
+      });
+
+      it('should update collector group with add opType to merge a new property', async () => {
+        const mockGroup = { id: 5, name: 'Azure Collectors' };
+        mockClient.updateCollectorGroup.mockResolvedValue(mockGroup);
+
+        await handlers.handleToolCall('update_collector_group', {
+          groupId: 5,
+          customProperties: [{ name: 'needsFailoverCollector', value: 'false' }],
+          opType: 'add',
+        });
+
+        expect(mockClient.updateCollectorGroup).toHaveBeenCalledWith(
+          5,
+          { customProperties: [{ name: 'needsFailoverCollector', value: 'false' }] },
+          { opType: 'add' },
+        );
+      });
+
+      it('should not send groupId/opType in the request body', async () => {
+        mockClient.updateCollectorGroup.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_collector_group', {
+          groupId: 5,
+          name: 'renamed-group',
+        });
+
+        expect(mockClient.updateCollectorGroup).toHaveBeenCalledWith(
+          5,
+          { name: 'renamed-group' },
+          { opType: 'replace' },
+        );
       });
     });
   });

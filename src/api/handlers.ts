@@ -1525,6 +1525,13 @@ export class LogicMonitorHandlers {
         case 'delete_collector_group':
           return await this.client.deleteCollectorGroup(args.groupId);
 
+        case 'update_collector_group': {
+          const { groupId, opType, ...groupData } = args;
+          return await this.client.updateCollectorGroup(groupId, groupData, {
+            opType: opType || 'replace',
+          });
+        }
+
         // Device Group Properties
         case 'list_resource_group_properties':
           return await this.client.listDeviceGroupProperties(args.groupId, {

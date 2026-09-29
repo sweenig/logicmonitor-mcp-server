@@ -6626,6 +6626,64 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['groupId'],
     },
   },
+  {
+    name: 'update_collector_group',
+    description: 'Modify an existing collector group (folder) in LogicMonitor (LM) monitoring, including its custom properties (e.g. "needsFailoverCollector"). ' +
+      '\n\n**What this does:** Updates fields on the collector group itself - name, description, or custom properties inherited by collectors in the group. ' +
+      '\n\n**Required parameters:** ' +
+      '\n- groupId: The collector group ID (from "list\\_collector\\_groups")' +
+      '\n\n**Optional parameters (what to change):** ' +
+      '\n- name: New name for the group' +
+      '\n- description: New description for the group' +
+      '\n- customProperties: Array of {name, value} custom properties on the group' +
+      '\n- opType: "replace" (default) overwrites the customProperties array entirely, "add" merges the given properties with existing ones (safer - use this when setting a single new property)' +
+      '\n\n**Common update scenarios:** ' +
+      '\n- Set a custom property on a group: {groupId: 3, customProperties: [{name: "needsFailoverCollector", value: "false"}], opType: "add"}' +
+      '\n- Rename a group: {groupId: 3, name: "NEWNAME"}' +
+      '\n\n**opType explained:** ' +
+      '\n- "replace": Overwrites the entire customProperties array with exactly what you pass - omitting an existing property deletes it' +
+      '\n- "add": Merges/appends to existing properties - existing properties not mentioned are left untouched (recommended for single-property changes)' +
+      '\n\n**Workflow:** Use "list\\_collector\\_groups" or "get\\_collector\\_group" to find groupId and review current customProperties before updating. ' +
+      '\n\n**Related tools:** "get\\_collector\\_group" (verify before/after update), "list\\_collector\\_groups" (find group), "delete\\_collector\\_group" (remove entirely).',
+    annotations: {
+      title: 'Update collector group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the collector group to update',
+        },
+        name: {
+          type: 'string',
+          description: 'New name for the collector group',
+        },
+        description: {
+          type: 'string',
+          description: 'New description for the collector group',
+        },
+        customProperties: {
+          type: 'array',
+          description: 'Array of custom properties to set on the collector group',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              value: { type: 'string' },
+            },
+          },
+        },
+        opType: {
+          type: 'string',
+          description: 'Operation type for customProperties: "replace" (default) or "add"',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
 
   // Device Group Properties
   {
