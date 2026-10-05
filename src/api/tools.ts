@@ -7578,6 +7578,40 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
 
+  {
+    name: 'list_collector_events',
+    description: 'List events reported by a specific collector in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** Array of collector events with: reportedOn (epoch SECONDS), eventMsg (message text), plus other event metadata. ' +
+      '\n\n**When to use:** ' +
+      '\n- Investigate what happened on a collector: restarts, upgrade attempts, down/up transitions, watchdog actions' +
+      '\n- Troubleshoot a collector that went down or is flapping' +
+      '\n- Confirm whether a scheduled collector upgrade succeeded' +
+      '\n\n**Required parameters:** ' +
+      '\n- collectorId: The collector ID (from "list\\_collectors")' +
+      '\n\n**Time filtering:** Use filter on reportedOn with epoch SECONDS (not milliseconds). ' +
+      '\n- Last N hours: filter:"reportedOn>:1790861470,reportedOn<1790947870"' +
+      '\n\n**Tip:** Events complement "list\\_audit\\_logs", which shows who changed what, but not what the collector itself reported. ' +
+      '\n\n**Related tools:** "get\\_collector" (current status/uptime), "list\\_collectors" (find collector), "list\\_audit\\_logs" (changes made via LM), "list\\_alerts" (alerts).',
+    annotations: {
+      title: 'List collector events',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        collectorId: {
+          type: 'number',
+          description: 'The ID of the collector whose events to list',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['collectorId'],
+    },
+  },
+
   // Collector Versions
   {
     name: 'list_collector_versions',

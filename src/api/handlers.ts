@@ -1700,6 +1700,15 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
+        case 'list_collector_events':
+          return await this.client.listCollectorEvents(args.collectorId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
         // Collector Versions
         case 'list_collector_versions':
           return await this.client.listCollectorVersions({

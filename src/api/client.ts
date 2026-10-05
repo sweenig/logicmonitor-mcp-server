@@ -482,6 +482,23 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/collector/collectors/${collectorId}`, undefined, params);
   }
 
+  async listCollectorEvents(collectorId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+    const path = `/setting/collector/collectors/${encodeURIComponent(String(collectorId))}/events`;
+
+    if (autoPaginate) {
+      return this.paginateAll<any>(path, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', path, undefined, cleanedParams);
+  }
+
   async updateCollector(collectorId: number, collector: any, params?: {
     opType?: string;
     autoBalanceMonitoredDevices?: boolean;

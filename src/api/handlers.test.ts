@@ -165,6 +165,7 @@ describe('LogicMonitorHandlers', () => {
       listWebsiteCheckpoints: jest.fn(),
       getTopology: jest.fn(),
       listCollectorVersions: jest.fn(),
+      listCollectorEvents: jest.fn(),
     } as unknown as jest.Mocked<LogicMonitorClient>;
 
     handlers = new LogicMonitorHandlers(mockClient);
@@ -648,6 +649,31 @@ describe('LogicMonitorHandlers', () => {
         expect(result.items[0]).toHaveProperty('id');
         expect(result.items[0]).toHaveProperty('hostname');
         expect(result.items[0]).not.toHaveProperty('extraField');
+      });
+    });
+
+    describe('list_collector_events', () => {
+      it('should list events for a collector', async () => {
+        const mockResponse = {
+          items: [{ reportedOn: 1790947102, eventMsg: 'Collector restarted' }],
+          total: 1,
+        };
+        mockClient.listCollectorEvents.mockResolvedValue(mockResponse);
+
+        const result = await handlers.handleToolCall('list_collector_events', {
+          collectorId: 1455,
+          filter: 'reportedOn>:1790861470',
+          size: 100,
+        });
+
+        expect(mockClient.listCollectorEvents).toHaveBeenCalledWith(1455, {
+          size: 100,
+          offset: undefined,
+          filter: 'reportedOn>:1790861470',
+          fields: undefined,
+          autoPaginate: undefined,
+        });
+        expect(result).toEqual(mockResponse);
       });
     });
 
