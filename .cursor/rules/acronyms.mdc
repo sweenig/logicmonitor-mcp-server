@@ -12,3 +12,4 @@ DX = DiagnosticSource
 LS = LogSource
 ILP = instance level property
 AD = Active Discovery
+RBAC = Role Based Access Control
