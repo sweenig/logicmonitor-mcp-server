@@ -57,11 +57,11 @@ cd portal-manager/webui
 docker compose up -d --build
 ```
 
-`setup.sh` also generates the vault key (used to encrypt each portal's credentials at rest, if one doesn't already exist) and writes your repo path, host UID/GID, and `docker` group GID into `webui/.env` for `docker-compose.yml` to pick up — so this works regardless of where you cloned the repo or which user runs it. Re-run `./setup.sh` if you ever move the checkout or run it as a different user.
+`setup.sh` also generates the vault key (used to encrypt each portal's credentials at rest, if one doesn't already exist) and writes your repo path, vault key path, web UI port, host UID/GID, and `docker` group GID into `webui/.env` for `docker-compose.yml` to pick up — so this works regardless of where you cloned the repo or which user runs it. Re-run `./setup.sh` if you ever move the checkout or run it as a different user.
 
-Open `http://localhost:5050` and log in with the password you just set.
+Open `http://localhost:5051` (or whatever `WEBUI_PORT` is in `webui/.env`; change it with `./setup.sh --port N` and `docker compose up -d`) and log in with the password you just set.
 
-> **Security note:** this service runs with `network_mode: host`, so port `5050` is reachable from your whole network, not just `localhost`. Keep it on a trusted machine/network, or firewall the port off.
+> **Security note:** this service runs with `network_mode: host`, so the web UI port is reachable from your whole network, not just `localhost`. Keep it on a trusted machine/network, or firewall the port off.
 
 ### 3. Add a portal in the web UI
 
