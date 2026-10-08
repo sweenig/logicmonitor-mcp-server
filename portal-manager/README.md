@@ -62,6 +62,13 @@ credentials), and removes its entry from `.mcp.json`. Asks you to type the
 portal name to confirm unless `--yes` is passed. Does not touch anything in
 LogicMonitor itself.
 
+### Start, restart, or stop a portal
+
+```bash
+./portal-manager/start-portal.sh --name acme   # also restarts (recreates the container); builds the image if missing
+./portal-manager/stop-portal.sh --name acme    # stops the container, keeps config and credentials
+```
+
 ### List portals
 
 ```bash

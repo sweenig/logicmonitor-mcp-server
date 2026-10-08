@@ -127,6 +127,25 @@ def api_remove_portal(name):
         return jsonify({"error": str(exc)}), 400
 
 
+@app.route("/api/portals/<name>/start", methods=["POST"])
+@login_required
+def api_start_portal(name):
+    try:
+        return jsonify(portal_ops.start_portal(name))
+    except portal_ops.PortalOpError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/portals/<name>/stop", methods=["POST"])
+@login_required
+def api_stop_portal(name):
+    try:
+        portal_ops.stop_portal(name)
+        return jsonify({"stopped": name})
+    except portal_ops.PortalOpError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @app.route("/api/portals/<name>/test-connectivity", methods=["POST"])
 @login_required
 def api_test_connectivity(name):
@@ -170,4 +189,4 @@ def api_reveal_token(name):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5050)
+    app.run(host="0.0.0.0", port=int(os.environ.get("WEBUI_PORT", "5051")))

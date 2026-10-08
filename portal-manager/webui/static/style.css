@@ -46,6 +46,9 @@ header {
 
 main { padding: 24px; }
 
+.table-title { font-size: 1em; color: var(--muted); margin: 24px 0 8px 0; }
+.table-title:first-child { margin-top: 0; }
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -79,7 +82,7 @@ tr:last-child td { border-bottom: none; }
   gap: 8px;
   white-space: nowrap;
 }
-.conn-cell .secondary { padding: 4px 10px; font-size: 0.85em; }
+.conn-cell button { padding: 4px 10px; font-size: 0.85em; min-width: 64px; }
 
 .conn-result { font-size: 0.85em; cursor: default; }
 .conn-result.ok { color: var(--ok); }
@@ -96,6 +99,20 @@ button {
 }
 button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
 button.danger { background: var(--danger); }
+button.start { background: var(--ok); color: #0b1f16; }
+button.stop { background: var(--danger); }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.row-icons { white-space: nowrap; width: 1%; }
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 6px;
+  line-height: 0;
+}
+.icon-btn:hover { color: var(--text); border-color: var(--border); }
+.icon-btn.danger-icon:hover { color: var(--danger); }
 
 input {
   background: var(--bg);

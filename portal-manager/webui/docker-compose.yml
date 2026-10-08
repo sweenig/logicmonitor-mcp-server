@@ -11,7 +11,7 @@
 # path (e.g. /app) would make the daemon look for files that don't exist from
 # its point of view. Same reasoning applies to the vault key mount below.
 #
-# REPO_ROOT, PORTAL_VAULT_KEY_FILE, HOST_UID, HOST_GID, and DOCKER_GID below
+# REPO_ROOT, PORTAL_VAULT_KEY_FILE, WEBUI_PORT, HOST_UID, HOST_GID, and DOCKER_GID below
 # come from webui/.env (written by setup.sh from the actual host values, and
 # also injected into the container via env_file), so none of this is
 # hardcoded to one machine or user. Re-run setup.sh after moving the checkout
@@ -44,7 +44,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     working_dir: ${REPO_ROOT}/portal-manager/webui
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/login')"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${WEBUI_PORT:-5051}/login')"]
       interval: 30s
       timeout: 5s
       retries: 5

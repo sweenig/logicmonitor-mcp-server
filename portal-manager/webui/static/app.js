@@ -1,4 +1,5 @@
-const portalsBody = document.getElementById("portals-body");
+const runningBody = document.getElementById("running-body");
+const stoppedBody = document.getElementById("stopped-body");
 const addModal = document.getElementById("add-modal");
 const editModal = document.getElementById("edit-modal");
 const jsonModal = document.getElementById("json-modal");
@@ -10,29 +11,38 @@ async function fetchJSON(url, options) {
   return body;
 }
 
+const ICON_EDIT =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ICON_TRASH =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
 function renderRow(portal) {
   const tr = document.createElement("tr");
+  const running = portal.status.startsWith("running");
   const modeBadge = portal.readOnly
     ? '<span class="badge ro">read-only</span>'
     : '<span class="badge rw">read-write</span>';
   tr.innerHTML = `
+    <td class="row-icons">
+      <button class="icon-btn edit-btn" title="Edit" aria-label="Edit ${portal.name}">${ICON_EDIT}</button>
+      <button class="icon-btn danger-icon remove-btn" title="Remove" aria-label="Remove ${portal.name}">${ICON_TRASH}</button>
+    </td>
     <td>${portal.name}</td>
     <td>${portal.port}</td>
     <td>${modeBadge}</td>
-    <td>${portal.authenticated ? "bearer token" : "none"}</td>
     <td>${portal.status}</td>
     <td>
       <div class="conn-cell">
+        <button class="${running ? "stop" : "start"} toggle-btn">${running ? "Stop" : "Start"}</button>
         <button class="secondary test-btn">Test API</button>
+        <button class="secondary json-btn">View JSON</button>
         <span class="conn-result"></span>
       </div>
     </td>
-    <td>
-      <button class="secondary json-btn">View JSON</button>
-      <button class="secondary edit-btn">Edit</button>
-      <button class="danger remove-btn">Remove</button>
-    </td>
   `;
+  tr.querySelector(".toggle-btn").addEventListener("click", (e) =>
+    portalAction(portal.name, running ? "stop" : "start", e.target)
+  );
   tr.querySelector(".json-btn").addEventListener("click", () => openJsonModal(portal));
   tr.querySelector(".edit-btn").addEventListener("click", () => openEditModal(portal));
   tr.querySelector(".remove-btn").addEventListener("click", () => removePortal(portal.name));
@@ -42,17 +52,24 @@ function renderRow(portal) {
   return tr;
 }
 
+function fillBody(body, portals, emptyText) {
+  body.innerHTML = "";
+  if (portals.length === 0) {
+    body.innerHTML = `<tr><td colspan="6" class="muted">${emptyText}</td></tr>`;
+    return;
+  }
+  portals.forEach((p) => body.appendChild(renderRow(p)));
+}
+
 async function refreshPortals() {
   try {
     const portals = await fetchJSON("/api/portals");
-    portalsBody.innerHTML = "";
-    if (portals.length === 0) {
-      portalsBody.innerHTML = '<tr><td colspan="7" class="muted">No portals yet.</td></tr>';
-      return;
-    }
-    portals.forEach((p) => portalsBody.appendChild(renderRow(p)));
+    fillBody(runningBody, portals.filter((p) => p.status.startsWith("running")), "No running portals.");
+    fillBody(stoppedBody, portals.filter((p) => !p.status.startsWith("running")), "No stopped portals.");
   } catch (err) {
-    portalsBody.innerHTML = `<tr><td colspan="7" class="error">${err.message}</td></tr>`;
+    const row = `<tr><td colspan="6" class="error">${err.message}</td></tr>`;
+    runningBody.innerHTML = row;
+    stoppedBody.innerHTML = "";
   }
 }
 
@@ -160,6 +177,24 @@ async function testConnectivity(name, resultEl, btnEl) {
     btnEl.disabled = false;
     btnEl.textContent = originalLabel;
   }
+}
+
+async function portalAction(name, action, btnEl) {
+  const label = btnEl.textContent;
+  btnEl.parentElement.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  btnEl.textContent = action === "start" ? "Starting..." : "Stopping...";
+  try {
+    const result = await fetchJSON(`/api/portals/${encodeURIComponent(name)}/${action}`, {
+      method: "POST",
+    });
+    if (action === "start" && result.healthy === false) {
+      alert(`"${name}" started but did not report healthy within 15s. Check: docker logs logicmonitor-mcp-${name}`);
+    }
+  } catch (err) {
+    btnEl.textContent = label;
+    alert(err.message);
+  }
+  refreshPortals();
 }
 
 async function removePortal(name) {

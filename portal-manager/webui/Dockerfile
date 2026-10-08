@@ -39,5 +39,7 @@ COPY . .
 
 USER appuser
 
-EXPOSE 5050
-CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--workers", "2", "app:app"]
+# Overridden at runtime by WEBUI_PORT from .env (compose env_file).
+ENV WEBUI_PORT=5051
+EXPOSE ${WEBUI_PORT}
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:${WEBUI_PORT} --workers 2 app:app"]

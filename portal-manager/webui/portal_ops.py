@@ -119,6 +119,16 @@ def remove_portal(name: str) -> None:
     _run("remove-portal.sh", ["--name", name, "--yes"])
 
 
+def start_portal(name: str) -> dict:
+    """Starts (or restarts - the container is always recreated) a portal."""
+    stdout = _run("start-portal.sh", ["--name", name, "--json"])
+    return _parse_json_line(stdout)
+
+
+def stop_portal(name: str) -> None:
+    _run("stop-portal.sh", ["--name", name])
+
+
 def get_portal_secret(name: str, key: str) -> str:
     """Only call this after independently re-verifying the caller's password -
     it returns the real decrypted secret, not a masked/redacted value."""
