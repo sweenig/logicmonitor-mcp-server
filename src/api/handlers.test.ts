@@ -1092,6 +1092,21 @@ describe('LogicMonitorHandlers', () => {
           format: 'json',
         });
       });
+
+      it('should convert epoch milliseconds to seconds', async () => {
+        mockClient.getDeviceDataSourceInstanceData.mockResolvedValue({});
+
+        await handlers.handleToolCall('get_resource_instance_data', {
+          deviceId: 1,
+          deviceDataSourceId: 2,
+          instanceId: 3,
+          start: 1791494000123,
+          end: 1791495000999,
+        });
+
+        expect(mockClient.getDeviceDataSourceInstanceData).toHaveBeenCalledWith(1, 2, 3,
+          expect.objectContaining({ start: 1791494000, end: 1791495000 }));
+      });
     });
   });
 

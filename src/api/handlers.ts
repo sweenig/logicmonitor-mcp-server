@@ -11,6 +11,17 @@ import { extractDataSourceScripts } from '../utils/helpers/logicmodule-scripts.j
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
 
+/**
+ * LogicMonitor's /data endpoints expect epoch SECONDS. Callers (LLMs especially)
+ * often pass epoch milliseconds (e.g. Date.now()), which the API reads as a time
+ * far in the future and rejects. Any value above 1e11 is not a plausible epoch
+ * in seconds (that would be year 5138), so treat it as milliseconds and convert.
+ */
+function toEpochSeconds(value: number | undefined): number | undefined {
+  if (typeof value !== 'number') return value;
+  return value > 1e11 ? Math.floor(value / 1000) : value;
+}
+
 // Default field sets for curated responses (when no fields parameter specified)
 const DEFAULT_DEVICE_FIELDS = [
   'id', 'displayName', 'name', 'hostGroupIds', 'preferredCollectorId',
@@ -594,8 +605,8 @@ export class LogicMonitorHandlers {
             args.instanceId,
             {
               datapoints: args.datapoints,
-              start: args.start,
-              end: args.end,
+              start: toEpochSeconds(args.start),
+              end: toEpochSeconds(args.end),
               format: args.format,
             },
           );
@@ -692,8 +703,8 @@ export class LogicMonitorHandlers {
 
         case 'get_widget_data':
           return await this.client.getWidgetData(args.widgetId, {
-            start: args.start,
-            end: args.end,
+            start: toEpochSeconds(args.start),
+            end: toEpochSeconds(args.end),
             format: args.format,
           });
 
@@ -1881,6 +1892,12 @@ export class LogicMonitorHandlers {
       } else if (toolName.includes('alert_note')) {
         code = ErrorCodes.ALERT_NOTE_FAILED;
         suggestions = [...ErrorSuggestions.alertOperations];
+      } else if (/time range/i.test(lmError ?? '')) {
+        suggestions = [
+          'start/end must be epoch SECONDS (not milliseconds), e.g. Math.floor(Date.now()/1000) - 3600',
+          'start must be before end and before the current time',
+          'Omit start/end to get the default recent window',
+        ];
       }
     }
     // Server errors (5xx)
