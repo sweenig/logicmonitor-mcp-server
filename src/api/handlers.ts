@@ -1097,6 +1097,9 @@ export class LogicMonitorHandlers {
             args.value,
           );
 
+        case 'schedule_resource_discovery':
+          return await this.client.scheduleDeviceDiscovery(args.deviceId);
+
         // Audit Logs
         case 'list_audit_logs': {
           // Handle query parameter - convert to filter

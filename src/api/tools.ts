@@ -3654,6 +3654,34 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       required: ['deviceId', 'propertyName', 'value'],
     },
   },
+  {
+    name: 'schedule_resource_discovery',
+    description: 'Ask LogicMonitor (LM) to run Active Discovery now on a resource/device. ' +
+      '\n\n**What this does:** Schedules an immediate Active Discovery run for every DataSource on the resource/device that has Active Discovery enabled, so new or changed instances are picked up without waiting for the next scheduled run or clicking "Run Active Discovery" in the UI. ' +
+      '\n\n**Read-only classification:** The underlying call is a POST (/device/devices/{id}/scheduleAutoDiscovery), but it only requests a discovery run. It changes no configuration and deletes nothing directly, so it is marked read-only and is available in read-only mode. Note that a discovery run can add or remove instances (per each DataSource\'s Active Discovery settings, e.g. deleteInactiveInstance). ' +
+      '\n\n**Returns:** An empty/acknowledgement object. Discovery runs asynchronously on the collector, so results are not in the response. ' +
+      '\n\n**When to use:** ' +
+      '\n- Right after creating/changing a DataSource, or after changing a property an Active Discovery script reads' +
+      '\n- Right after adding a resource/device, instead of waiting for the next discovery cycle' +
+      '\n- Troubleshooting missing instances' +
+      '\n\n**Workflow:** Call this tool, wait a short time (typically seconds to a couple of minutes depending on the collector and scripts), then call "list\\_resource\\_instances" (or "list\\_resource\\_datasources") to see what was discovered. ' +
+      '\n\n**Related tools:** "list\\_resource\\_instances" (check discovered instances), "list\\_resource\\_datasources" (see which DataSources applied), "update\\_resource\\_property" (change properties that discovery reads).',
+    annotations: {
+      title: 'Schedule resource/device Active Discovery',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: {
+          type: 'number',
+          description: 'The resource/device ID (from "list_resources")',
+        },
+      },
+      additionalProperties: false,
+      required: ['deviceId'],
+    },
+  },
 
   // Audit Logs Tools
   {

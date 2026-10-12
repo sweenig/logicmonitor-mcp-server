@@ -1124,6 +1124,10 @@ export class LogicMonitorClient {
     });
   }
 
+  async scheduleDeviceDiscovery(deviceId: number) {
+    return this.request<LMResponse<any>>('POST', `/device/devices/${deviceId}/scheduleAutoDiscovery`);
+  }
+
   // Audit Logs
   async listAuditLogs(params?: {
     size?: number;

@@ -720,6 +720,7 @@ The server provides 145 tools for comprehensive LogicMonitor operations. Tools a
 
 **Write Operations:**
 - `update_resource_property` - Update device property value
+- `schedule_resource_discovery` - Trigger Active Discovery on a device (read-only; asynchronous)
 - `update_resource_group_property` - Update device group property value
 
 ### Group-Level Alert Thresholds

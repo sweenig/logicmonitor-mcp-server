@@ -90,6 +90,7 @@ describe('LogicMonitorHandlers', () => {
       getPropertySource: jest.fn(),
       listDeviceProperties: jest.fn(),
       updateDeviceProperty: jest.fn(),
+      scheduleDeviceDiscovery: jest.fn(),
       listAuditLogs: jest.fn(),
       getAuditLog: jest.fn(),
       listIntegrationLogs: jest.fn(),
@@ -2004,6 +2005,17 @@ describe('LogicMonitorHandlers', () => {
 
       expect(result).toEqual({});
       expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'test.prop', 'new-value');
+    });
+
+    it('should schedule device discovery', async () => {
+      mockClient.scheduleDeviceDiscovery.mockResolvedValue({});
+
+      const result = await handlers.handleToolCall('schedule_resource_discovery', {
+        deviceId: 6415,
+      });
+
+      expect(result).toEqual({});
+      expect(mockClient.scheduleDeviceDiscovery).toHaveBeenCalledWith(6415);
     });
   });
 

@@ -311,6 +311,16 @@ describe('getLogicMonitorTools', () => {
         expect(getResultTool?.inputSchema.required).toEqual(['id', 'collectorId']);
       });
 
+      it('should expose schedule_resource_discovery as a read-only tool requiring deviceId', () => {
+        const allTools = getLogicMonitorTools(false);
+        const readOnlyTools = getLogicMonitorTools(true);
+        const tool = allTools.find(t => t.name === 'schedule_resource_discovery');
+
+        expect(tool?.annotations?.readOnlyHint).toBe(true);
+        expect(tool?.inputSchema.required).toEqual(['deviceId']);
+        expect(readOnlyTools.map(t => t.name)).toContain('schedule_resource_discovery');
+      });
+
       it('should include typed script execution tools as read-write', () => {
         const tools = getLogicMonitorTools(false);
         const toolNames = tools.map(t => t.name);
