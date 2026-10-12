@@ -571,6 +571,8 @@ export class LogicMonitorHandlers {
             collectInterval: args.collectInterval,
             collectorAttribute: args.collectorAttribute,
             dataPoints: args.dataPoints,
+            // hasMultiInstances is create-only in LM; default to true when Active Discovery is on
+            hasMultiInstances: args.hasMultiInstances ?? (args.enableAutoDiscovery ? true : undefined),
             enableAutoDiscovery: args.enableAutoDiscovery,
             autoDiscoveryConfig: args.autoDiscoveryConfig,
             enableEriDiscovery: args.enableEriDiscovery,

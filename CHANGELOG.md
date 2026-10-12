@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
 ### Changed
-- None
+- `update_datasource` description now notes that `hasMultiInstances` cannot be changed after creation (LogicMonitor limitation)
 
 ### Fixed
-- None
+- `create_datasource` now supports `hasMultiInstances` (create-only in LogicMonitor); previously it was silently dropped, producing unusable single-instance DataSources. Defaults to `true` when `enableAutoDiscovery` is `true`; an explicit `false` is respected
 
 ## [0.0.1] - Initial Release
 

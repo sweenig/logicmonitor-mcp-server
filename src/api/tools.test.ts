@@ -486,6 +486,16 @@ describe('getLogicMonitorTools', () => {
         expect(updateDS?.inputSchema.required).toEqual(['dataSourceId']);
         expect(deleteDS?.inputSchema.required).toEqual(['dataSourceId']);
       });
+
+      it('should document hasMultiInstances on create_datasource and its create-only limit on update_datasource', () => {
+        const tools = getLogicMonitorTools(false);
+        const createDS = tools.find(t => t.name === 'create_datasource');
+        const updateDS = tools.find(t => t.name === 'update_datasource');
+
+        expect((createDS?.inputSchema.properties as any).hasMultiInstances.type).toBe('boolean');
+        expect((updateDS?.inputSchema.properties as any).hasMultiInstances).toBeUndefined();
+        expect(updateDS?.description).toContain('hasMultiInstances');
+      });
     });
   });
 

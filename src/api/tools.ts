@@ -1403,6 +1403,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Define a new monitoring template programmatically (e.g. generated from a discovered API, or migrated from another system) ' +
       '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based DataSource sets collectMethod:"script" and collectorAttribute.groovyScript/windowsScript/linuxScript; an SNMP one sets collectMethod:"snmp" and different fields). This tool passes them through as-is; consult an existing similar DataSource (via "get\\_datasource") for the exact shape to replicate. ' +
+      '\n\n**Multi-instance:** "hasMultiInstances" can only be set at creation time and cannot be changed later (not even via "update\\_datasource"). It defaults to true when "enableAutoDiscovery" is true (a discovery-enabled DataSource without multi-instance is not useful); pass hasMultiInstances:false to override. ' +
       '\n\n**Related tools:** "get\\_datasource" (see the shape of an existing DataSource to model a new one on), "update\\_datasource", "delete\\_datasource", "get\\_datasource\\_scripts" (extract scripts from an existing one to reuse).',
     annotations: {
       title: 'Create DataSource',
@@ -1455,9 +1456,13 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'array',
           description: 'Array of datapoint definitions (metrics collected). See an existing DataSource via "get_datasource" for the shape.',
         },
+        hasMultiInstances: {
+          type: 'boolean',
+          description: 'Whether this DataSource is multi-instance (one monitored instance per discovered item). **Can only be set at creation - LogicMonitor does not allow changing it afterward.** Defaults to true when enableAutoDiscovery is true; pass false explicitly to override.',
+        },
         enableAutoDiscovery: {
           type: 'boolean',
-          description: 'Whether this DataSource uses Active Discovery to find instances',
+          description: 'Whether this DataSource uses Active Discovery to find instances. When true, hasMultiInstances defaults to true unless explicitly set.',
         },
         autoDiscoveryConfig: {
           type: 'object',
@@ -1482,6 +1487,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Returns:** The updated DataSource object. ' +
       '\n\n**When to use:** ' +
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
+      '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
     annotations: {

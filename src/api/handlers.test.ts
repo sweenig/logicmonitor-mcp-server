@@ -1001,6 +1001,47 @@ describe('LogicMonitorHandlers', () => {
         }));
         expect(result).toEqual(mockCreated);
       });
+
+      const base = {
+        name: 'MyDS',
+        collectMethod: 'script',
+        collectInterval: 300,
+        collectorAttribute: { name: 'script', groovyScript: 'return 0' },
+      };
+
+      it('should pass hasMultiInstances through in the request body', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', { ...base, hasMultiInstances: true });
+        expect(mockClient.createDataSource).toHaveBeenCalledWith(
+          expect.objectContaining({ hasMultiInstances: true }),
+        );
+      });
+
+      it('should default hasMultiInstances to true when enableAutoDiscovery is true', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', { ...base, enableAutoDiscovery: true });
+        expect(mockClient.createDataSource).toHaveBeenCalledWith(
+          expect.objectContaining({ hasMultiInstances: true }),
+        );
+      });
+
+      it('should respect an explicit hasMultiInstances false with auto discovery', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', {
+          ...base,
+          enableAutoDiscovery: true,
+          hasMultiInstances: false,
+        });
+        expect(mockClient.createDataSource).toHaveBeenCalledWith(
+          expect.objectContaining({ hasMultiInstances: false }),
+        );
+      });
+
+      it('should not set hasMultiInstances when auto discovery is off and it is unspecified', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', base);
+        expect(mockClient.createDataSource.mock.calls[0][0].hasMultiInstances).toBeUndefined();
+      });
     });
 
     describe('update_datasource', () => {
