@@ -709,5 +709,21 @@ describe('getLogicMonitorTools', () => {
       });
     });
   });
-});
 
+  describe('time parameter documentation', () => {
+    it('states the epoch unit for every start/end style parameter', () => {
+      const timeProps = ['start', 'end', 'startDateTime', 'endDateTime'];
+      const tools = getLogicMonitorTools(false);
+
+      tools.forEach(tool => {
+        const properties: Record<string, any> = tool.inputSchema.properties || {};
+        timeProps.forEach(name => {
+          if (properties[name]) {
+            expect({ tool: tool.name, param: name, documented: /seconds|milliseconds/i.test(properties[name].description || '') })
+              .toEqual({ tool: tool.name, param: name, documented: true });
+          }
+        });
+      });
+    });
+  });
+});

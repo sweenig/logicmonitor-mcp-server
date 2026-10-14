@@ -1135,6 +1135,22 @@ describe('LogicMonitorHandlers', () => {
         });
       });
 
+      it('should pass paging and summarize options through', async () => {
+        mockClient.getDeviceDataSourceInstanceData.mockResolvedValue({});
+
+        await handlers.handleToolCall('get_resource_instance_data', {
+          deviceId: 1,
+          deviceDataSourceId: 2,
+          instanceId: 3,
+          autoPaginate: true,
+          maxPages: 4,
+          summarize: true,
+        });
+
+        expect(mockClient.getDeviceDataSourceInstanceData).toHaveBeenCalledWith(1, 2, 3,
+          expect.objectContaining({ autoPaginate: true, maxPages: 4, summarize: true }));
+      });
+
       it('should convert epoch milliseconds to seconds', async () => {
         mockClient.getDeviceDataSourceInstanceData.mockResolvedValue({});
 
@@ -1871,8 +1887,8 @@ describe('LogicMonitorHandlers', () => {
       const result = await handlers.handleToolCall('create_resource_sdt', {
         deviceId: 123,
         type: 1,
-        startDateTime: 1234567890,
-        endDateTime: 1234567900,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
       });
 
       expect(result).toEqual(mockSDT);
@@ -1880,8 +1896,8 @@ describe('LogicMonitorHandlers', () => {
         sdtType: 1,
         deviceId: 123,
         type: 1,
-        startDateTime: 1234567890,
-        endDateTime: 1234567900,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
       });
     });
 
@@ -1892,8 +1908,8 @@ describe('LogicMonitorHandlers', () => {
       await handlers.handleToolCall('create_resource_sdt', {
         deviceId: 123,
         type: 1,
-        startDateTime: 1234567890,
-        endDateTime: 1234567900,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
         comment: 'Maintenance window',
       });
 
@@ -1901,10 +1917,26 @@ describe('LogicMonitorHandlers', () => {
         sdtType: 1,
         deviceId: 123,
         type: 1,
-        startDateTime: 1234567890,
-        endDateTime: 1234567900,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
         comment: 'Maintenance window',
       });
+    });
+
+    it('should convert epoch seconds to milliseconds for SDT times', async () => {
+      mockClient.createDeviceSDT.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_resource_sdt', {
+        deviceId: 123,
+        type: 1,
+        startDateTime: 1791494000,
+        endDateTime: 1791497600,
+      });
+
+      expect(mockClient.createDeviceSDT).toHaveBeenCalledWith(expect.objectContaining({
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
+      }));
     });
 
     it('should delete SDT', async () => {

@@ -8,19 +8,9 @@ import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
+import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
-
-/**
- * LogicMonitor's /data endpoints expect epoch SECONDS. Callers (LLMs especially)
- * often pass epoch milliseconds (e.g. Date.now()), which the API reads as a time
- * far in the future and rejects. Any value above 1e11 is not a plausible epoch
- * in seconds (that would be year 5138), so treat it as milliseconds and convert.
- */
-function toEpochSeconds(value: number | undefined): number | undefined {
-  if (typeof value !== 'number') return value;
-  return value > 1e11 ? Math.floor(value / 1000) : value;
-}
 
 // Default field sets for curated responses (when no fields parameter specified)
 const DEFAULT_DEVICE_FIELDS = [
@@ -610,6 +600,9 @@ export class LogicMonitorHandlers {
               start: toEpochSeconds(args.start),
               end: toEpochSeconds(args.end),
               format: args.format,
+              autoPaginate: args.autoPaginate,
+              maxPages: args.maxPages,
+              summarize: args.summarize,
             },
           );
 
@@ -984,8 +977,8 @@ export class LogicMonitorHandlers {
             sdtType: 1, // Device SDT
             deviceId: args.deviceId,
             type: args.type,
-            startDateTime: args.startDateTime,
-            endDateTime: args.endDateTime,
+            startDateTime: toEpochMillis(args.startDateTime),
+            endDateTime: toEpochMillis(args.endDateTime),
           };
           if (args.comment) sdt.comment = args.comment;
           return await this.client.createDeviceSDT(sdt);

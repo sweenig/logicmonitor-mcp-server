@@ -109,6 +109,62 @@ describe('LogicMonitor Client Utils', () => {
       expect(result).toEqual({ format: 'csv', data: 'Timestamp,uptime\n1791763179,100\n' });
     });
 
+    it('follows nextPageParams when autoPaginate is set and respects maxPages', async () => {
+      const urls: string[] = [];
+      global.fetch = jest.fn(async (url: any) => {
+        urls.push(String(url));
+        const u = new URL(String(url));
+        const end = Number(u.searchParams.get('end') ?? 300);
+        const page = end >= 300 ? 1 : end >= 100 ? 2 : 3;
+        const body = page === 1
+          ? { dataPoints: ['a'], values: [[3]], time: [3000], nextPageParams: 'start=0&end=199' }
+          : page === 2
+            ? { dataPoints: ['a'], values: [[2]], time: [2000], nextPageParams: 'start=0&end=99' }
+            : { dataPoints: ['a'], values: [[1]], time: [1000], nextPageParams: '' };
+        return { ok: true, status: 200, headers: new Headers(), json: async () => body } as unknown as Response;
+      }) as unknown as typeof fetch;
+
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+
+      const all: any = await client.getDeviceDataSourceInstanceData(1, 2, 3, { start: 0, end: 300, autoPaginate: true });
+      expect(all.values).toEqual([[3], [2], [1]]);
+      expect(all.truncated).toBeUndefined();
+
+      urls.length = 0;
+      const capped: any = await client.getDeviceDataSourceInstanceData(1, 2, 3, { start: 0, end: 300, autoPaginate: true, maxPages: 2 });
+      expect(capped.values).toEqual([[3], [2]]);
+      expect(capped.truncated).toBe(true);
+      expect(urls).toHaveLength(2);
+    });
+
+    it('marks single-page instance data as truncated when more exists', async () => {
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ dataPoints: ['a'], values: [[1]], time: [1000], nextPageParams: 'start=0&end=50' }),
+      } as unknown as Response)) as unknown as typeof fetch;
+
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+      const result: any = await client.getDeviceDataSourceInstanceData(1, 2, 3, {});
+      expect(result.truncated).toBe(true);
+      expect(result.truncationNote).toContain('end=50');
+    });
+
+    it('returns a summary when summarize is set', async () => {
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ dataPoints: ['a'], values: [[2], [1]], time: [2000, 1000], nextPageParams: '' }),
+      } as unknown as Response)) as unknown as typeof fetch;
+
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+      const result: any = await client.getDeviceDataSourceInstanceData(1, 2, 3, { summarize: true });
+      expect(result.datapoints.a).toMatchObject({ min: 1, max: 2, first: 1, last: 2 });
+      expect(result.values).toBeUndefined();
+    });
+
     it('does not retry non-rate-limit errors', async () => {
       let callCount = 0;
       global.fetch = jest.fn(async () => {

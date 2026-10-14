@@ -1618,8 +1618,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- instanceId: From "list\\_resource\\_instances"' +
       '\n- datapoints: Comma-separated metric names (e.g., "CPUBusyPercent,MemoryUsedPercent")' +
       '\n- start/end: Time range in epoch SECONDS (not milliseconds; millisecond values are auto-converted), start time must be before current time' +
+      '\n- autoPaginate: follow the API\'s paging cursor to fetch older samples (capped by maxPages, default 10). Without it only the newest ~500 samples are returned' +
+      '\n- summarize: return per-datapoint stats (samples, min, max, first, last, changes, decreases) instead of raw rows; ideal for long ranges. A "decreases" count above 0 on a counter such as uptime means it reset (e.g. restart)' +
       '\n\n**Example:** Get last hour CPU data: start=Math.floor(Date.now()/1000)-3600, end=Math.floor(Date.now()/1000) ' +
       '\n\n**Time range tips:** If omitted, returns last 2 hours. Max range: 1 year. Use shorter ranges for better performance. ' +
+      '\n\n**Partial results:** The API returns about 500 samples (newest first) per call. If older data exists the response includes truncated:true and a truncationNote explaining how to get the rest - never assume a long range was fully covered unless truncated is absent. Omitting "datapoints" returns every datapoint, which can be large; filter or use summarize. Sample timestamps in "time" are epoch milliseconds.' +
       '\n\n**Related tools:** "list\\_resource\\_datasources", "list\\_resource\\_instances".',
     annotations: {
       title: 'Get time-series metric data',
@@ -1654,7 +1657,19 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         format: {
           type: 'string',
-          description: 'Response format: "json" or "csv"',
+          description: 'Response format: "json" or "csv". CSV is returned as {format, data}; autoPaginate and summarize always use json',
+        },
+        autoPaginate: {
+          type: 'boolean',
+          description: 'Fetch older pages automatically (default: false)',
+        },
+        maxPages: {
+          type: 'number',
+          description: 'Maximum pages to fetch when autoPaginate is true (default: 10)',
+        },
+        summarize: {
+          type: 'boolean',
+          description: 'Return per-datapoint min/max/first/last/changes/decreases instead of raw samples (default: false)',
         },
       },
       additionalProperties: false,
@@ -3250,11 +3265,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         startDateTime: {
           type: 'number',
-          description: 'Start time (epoch milliseconds)',
+          description: 'Start time (epoch milliseconds; second values are auto-converted)',
         },
         endDateTime: {
           type: 'number',
-          description: 'End time (epoch milliseconds)',
+          description: 'End time (epoch milliseconds; second values are auto-converted)',
         },
         comment: {
           type: 'string',

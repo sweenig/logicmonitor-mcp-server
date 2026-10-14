@@ -8,6 +8,10 @@
 import { rateLimiter } from '../utils/core/rate-limiter.js';
 import { formatLogicMonitorFilter } from '../utils/helpers/filters.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
+import { parseNextPageParams, mergeInstanceDataPages, annotateTruncation, summarizeInstanceData } from '../utils/helpers/instance-data.js';
+
+/** Safety cap on pages followed when autoPaginate is requested for instance data. */
+const DEFAULT_MAX_DATA_PAGES = 10;
 
 export interface LogicMonitorConfig {
   company: string;
@@ -599,14 +603,41 @@ export class LogicMonitorClient {
       start?: number;
       end?: number;
       format?: string;
+      autoPaginate?: boolean;
+      maxPages?: number;
+      summarize?: boolean;
     },
   ) {
-    return this.request<LMResponse<any>>(
-      'GET',
-      `/device/devices/${deviceId}/devicedatasources/${deviceDataSourceId}/instances/${instanceId}/data`,
-      undefined,
-      params,
-    );
+    const {
+      autoPaginate = false,
+      maxPages = DEFAULT_MAX_DATA_PAGES,
+      summarize = false,
+      ...apiParams
+    } = params || {};
+    const path = `/device/devices/${deviceId}/devicedatasources/${deviceDataSourceId}/instances/${instanceId}/data`;
+
+    // Paging and summarizing need structured samples, so they override format=csv.
+    const needsJson = autoPaginate || summarize;
+    const requestParams = needsJson ? { ...apiParams, format: undefined } : apiParams;
+
+    let result = await this.request<any>('GET', path, undefined, requestParams);
+    if (needsJson || requestParams.format !== 'csv') {
+      if (autoPaginate) {
+        let pages = 1;
+        while (result.nextPageParams && pages < Math.max(1, maxPages)) {
+          const older = await this.request<any>(
+            'GET', path, undefined, { ...requestParams, ...parseNextPageParams(result.nextPageParams) },
+          );
+          result = mergeInstanceDataPages(result, older);
+          pages++;
+        }
+      }
+      result = annotateTruncation(result);
+      if (summarize) {
+        return summarizeInstanceData(result);
+      }
+    }
+    return result;
   }
 
   // Dashboards
