@@ -152,7 +152,15 @@ export class LogicMonitorClient {
 
     try {
       response = await fetch(url.toString(), options);
-      data = await response.json();
+      // Some endpoints (e.g. instance data with format=csv) return non-JSON bodies.
+      // Wrap those so downstream code still receives an object.
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType && !/json/i.test(contentType)) {
+        const text = await response.text();
+        data = response.ok ? { format: 'csv', data: text } : { errmsg: text };
+      } else {
+        data = await response.json();
+      }
 
       const duration = Date.now() - startTime;
 

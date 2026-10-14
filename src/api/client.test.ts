@@ -94,6 +94,21 @@ describe('LogicMonitor Client Utils', () => {
       expect(result).toEqual({ id: 1, description: 'test-collector' });
     }, 10000);
 
+    it('returns CSV bodies wrapped in an object instead of failing JSON parsing', async () => {
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/octet-stream' }),
+        json: async () => { throw new Error('not json'); },
+        text: async () => 'Timestamp,uptime\n1791763179,100\n',
+      } as unknown as Response)) as unknown as typeof fetch;
+
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+      const result = await client.getDeviceDataSourceInstanceData(1, 2, 3, { format: 'csv' });
+
+      expect(result).toEqual({ format: 'csv', data: 'Timestamp,uptime\n1791763179,100\n' });
+    });
+
     it('does not retry non-rate-limit errors', async () => {
       let callCount = 0;
       global.fetch = jest.fn(async () => {
