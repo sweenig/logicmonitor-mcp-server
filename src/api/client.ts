@@ -1119,6 +1119,14 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('POST', '/setting/configsources', configSource);
   }
 
+  async updateConfigSource(configSourceId: number, configSource: any) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/configsources/${configSourceId}`, configSource);
+  }
+
+  async deleteConfigSource(configSourceId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/configsources/${configSourceId}`);
+  }
+
   // PropertySources
   async listPropertySources(params?: {
     size?: number;

@@ -3485,7 +3485,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- configAlerts: Settings for when to alert on changes' +
       '\n- lineageId: Built-in (LogicMonitor) vs custom ConfigSource' +
       '\n\n**Workflow:** Use "list\\_configsources" to find configSourceId, then use this tool to understand how it works. ' +
-      '\n\n**Related tools:** "list\\_configsources" (find ConfigSource), "list\\_device\\_configs" (see configs for device).',
+      '\n\n**Note:** Passing fields="*" returns an empty object `{}` for ConfigSources - omit "fields" to get the full definition (including configChecks and collectorAttribute). ' +
+      '\n\n**Related tools:** "list\\_configsources" (find ConfigSource), "get\\_configsource\\_scripts" (extract embedded scripts), "update\\_configsource", "delete\\_configsource", "list\\_device\\_configs" (see configs for device).',
     annotations: {
       title: 'Get ConfigSource details',
       readOnlyHint: true,
@@ -3585,6 +3586,106 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       },
       additionalProperties: false,
       required: ['name', 'collectMethod', 'collectInterval', 'collectorAttribute'],
+    },
+  },
+
+  {
+    name: 'get_configsource_scripts',
+    description: 'Extract every embedded script from a LogicMonitor (LM) ConfigSource definition (collection method and Active Discovery method), instead of hunting through the full nested object returned by "get\\_configsource". ' +
+      '\n\n**Returns:** `{configSourceId, scripts: [{location, field, language, scriptType?, cmdline?, content}]}` - one entry per non-empty script found. "language" is one of groovy/windows/linux. Empty array if the ConfigSource has no script-based collection/discovery method. Config checks (configChecks) are not scripts and are not included - read them via "get\\_configsource". ' +
+      '\n\n**When to use:** ' +
+      '\n- Before debugging or modifying a ConfigSource\'s collection script, to see exactly what it contains' +
+      '\n- To pull a script out for testing via "execute\\_groovy\\_script" / "execute\\_powershell\\_script"' +
+      '\n\n**Workflow:** Use "list\\_configsources" to find configSourceId, this tool to extract its scripts, then "execute\\_groovy\\_script"/"execute\\_powershell\\_script" to test one against a device. ' +
+      '\n\n**Related tools:** "get\\_configsource" (full raw definition), "update\\_configsource" (write a modified script back), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (test extracted scripts).',
+    annotations: {
+      title: 'Extract ConfigSource embedded scripts',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        configSourceId: {
+          type: 'number',
+          description: 'The ID of the ConfigSource to extract scripts from',
+        },
+      },
+      additionalProperties: false,
+      required: ['configSourceId'],
+    },
+  },
+  {
+    name: 'update_configsource',
+    description: 'Update an existing ConfigSource LogicModule in LogicMonitor (LM) monitoring. Partial update (PATCH) - only include fields you want to change. ' +
+      '\n\n**Returns:** The updated ConfigSource object. ' +
+      '\n\n**When to use:** ' +
+      '\n- Modify an existing ConfigSource\'s collection script, appliesTo logic, or metadata' +
+      '\n- Add, change, or remove config checks (e.g. add an "Any Change" check)' +
+      '\n\n**configChecks semantics (verified):** "configChecks" is a full REPLACEMENT of the array, not a merge. Any existing check omitted from the array is DELETED, and re-adding it later gives it a new id. First fetch the current checks via "get\\_configsource", then send back the complete desired list: keep each existing check\'s "id" (and "originId") so it is updated in place, and leave "id" off new checks. Omit "configChecks" entirely to leave checks untouched. ' +
+      '\n\n**Check shape:** {name, description, alertLevel, ackClearAlert, alertEffectiveIval, alertTransitionInterval, type, script}. alertLevel: 1 = no alert (rejected by the API for checks that must alert), 2 = warn, 3 = error, 4 = critical. type "fetch" (alerts when collection fails) uses script {fetch_check:{}, format}; "ignore" (the "Any Change"/diff check) uses script {format, diff_check:{...}}; "value" uses script {value_check:{variable, must:[{range:{...}}]}}. ' +
+      '\n\n**Excluding content from the diff:** put the exclusions in the "ignore" check\'s script.diff_check (the same place built-in ConfigSources use): ignore_line_with_regex (array of regexes matched against whole lines, e.g. ["^\\\\s*\\"cache_id\\"\\\\s*:.*"]), ignore_line_start_with (array of line prefixes), ignore_space (boolean), ignore_blank_lines (boolean). Note the API stores unknown keys in "script" without validating them, so a misspelled key is silently ignored - read the check back to confirm. ' +
+      '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction, as with DataSources), so it is not accepted here. If it is wrong, the ConfigSource must be deleted and recreated via "create\\_configsource". ' +
+      '\n\n**Workflow:** Use "get\\_configsource" (omit "fields") or "get\\_configsource\\_scripts" first to see the current definition, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
+      '\n\n**Related tools:** "get\\_configsource" (current definition), "get\\_configsource\\_scripts" (current scripts), "create\\_configsource", "delete\\_configsource".',
+    annotations: {
+      title: 'Update ConfigSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        configSourceId: {
+          type: 'number',
+          description: 'The ID of the ConfigSource to update',
+        },
+        name: { type: 'string', description: 'Internal name of the ConfigSource' },
+        displayName: { type: 'string', description: 'Human-readable display name' },
+        description: { type: 'string', description: 'Description of what config this ConfigSource tracks' },
+        appliesTo: { type: 'string', description: 'AppliesTo expression' },
+        group: { type: 'string', description: 'ConfigSource group/category name' },
+        technology: { type: 'string', description: 'Free-text notes on the monitored technology/setup requirements' },
+        tags: { type: 'string', description: 'Comma-separated tags' },
+        collectMethod: { type: 'string', description: 'Collection method, e.g. script|batchscript|cli|snmp|winreg (etc)' },
+        collectInterval: { type: 'number', description: 'Collection interval in seconds' },
+        collectorAttribute: {
+          type: 'object',
+          description: 'Collector attribute object - shape depends on collectMethod. See "get_configsource" for the current shape before modifying.',
+        },
+        enableAutoDiscovery: { type: 'boolean', description: 'Whether this ConfigSource uses Active Discovery' },
+        autoDiscoveryConfig: {
+          type: 'object',
+          description: 'Auto-discovery configuration. See "get_configsource" for the current shape before modifying.',
+        },
+        fileFormat: { type: 'string', description: 'Format of the collected config content for diffing, e.g. "text"|"xml"|"java-properties"|"ini"|"arbitrary"' },
+        timestampFormat: { type: 'string', description: 'Format string for extracting a timestamp from the raw config content' },
+        configChecks: {
+          type: 'array',
+          description: 'Full desired set of config checks - REPLACES the existing array; omitted existing checks are deleted. Include existing checks with their "id"; omit this field to leave checks unchanged. See the tool description for the check shape and diff_check ignore keys.',
+        },
+      },
+      additionalProperties: false,
+      required: ['configSourceId'],
+    },
+  },
+  {
+    name: 'delete_configsource',
+    description: 'Delete a ConfigSource LogicModule from LogicMonitor (LM) monitoring. ' +
+      '\n\n**⚠️ Warning:** This removes the config-tracking template entirely for all resources/devices it applies to - collected config versions and change history under it become orphaned and config-change alerts stop. Consider whether scoping "appliesTo" instead (via "update\\_configsource") meets the need before deleting. ' +
+      '\n\n**Related tools:** "get\\_configsource" (verify what you\'re about to delete), "update\\_configsource" (alternative: narrow appliesTo instead of deleting).',
+    annotations: {
+      title: 'Delete ConfigSource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        configSourceId: {
+          type: 'number',
+          description: 'The ID of the ConfigSource to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['configSourceId'],
     },
   },
 

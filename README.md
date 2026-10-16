@@ -575,6 +575,7 @@ The server provides 146 tools for comprehensive LogicMonitor operations. Tools a
 - `list_propertysources` - List property sources
 - `get_propertysource` - Get propertysource details (including script body)
 - `get_datasource_scripts` - Extract embedded scripts (collection/discovery/ERI/post-processor) from a DataSource definition
+- `get_configsource_scripts` - Extract embedded scripts (collection/discovery) from a ConfigSource definition
 
 **Write Operations:**
 - `update_resource_datasource` - Modify device datasource configuration
@@ -582,6 +583,8 @@ The server provides 146 tools for comprehensive LogicMonitor operations. Tools a
 - `update_datasource` - Modify a DataSource LogicModule
 - `delete_datasource` - Delete a DataSource LogicModule
 - `create_configsource` - Create a new ConfigSource LogicModule
+- `update_configsource` - Modify a ConfigSource LogicModule (including config checks)
+- `delete_configsource` - Delete a ConfigSource LogicModule
 
 ### Dashboards & Reporting
 

@@ -86,6 +86,8 @@ describe('LogicMonitorHandlers', () => {
       listConfigSources: jest.fn(),
       getConfigSource: jest.fn(),
       createConfigSource: jest.fn(),
+      updateConfigSource: jest.fn(),
+      deleteConfigSource: jest.fn(),
       listPropertySources: jest.fn(),
       getPropertySource: jest.fn(),
       listDeviceProperties: jest.fn(),
@@ -2174,6 +2176,103 @@ describe('LogicMonitorHandlers', () => {
         collectorAttribute: { name: 'batchscript', groovyScript: 'return 0' },
       }));
       expect(result).toEqual(mockCreated);
+    });
+
+    describe('get_configsource_scripts', () => {
+      it('should extract collection and discovery scripts', async () => {
+        mockClient.getConfigSource.mockResolvedValue({
+          id: 7,
+          collectorAttribute: { name: 'script', scriptType: 'embed', groovyScript: 'println 1' },
+          autoDiscoveryConfig: { method: { name: 'ad_script', groovyScript: 'println "a##b"' } },
+          configChecks: [{ name: 'x', type: 'fetch' }],
+        });
+
+        const result = await handlers.handleToolCall('get_configsource_scripts', { configSourceId: 7 });
+
+        expect(mockClient.getConfigSource).toHaveBeenCalledWith(7);
+        expect(result.configSourceId).toBe(7);
+        expect(result.scripts).toEqual([
+          {
+            location: 'collectorAttribute (collection method)',
+            field: 'groovyScript',
+            language: 'groovy',
+            scriptType: 'embed',
+            content: 'println 1',
+          },
+          {
+            location: 'autoDiscoveryConfig.method (discovery method)',
+            field: 'groovyScript',
+            language: 'groovy',
+            content: 'println "a##b"',
+          },
+        ]);
+      });
+
+      it('should return an empty list when there are no scripts', async () => {
+        mockClient.getConfigSource.mockResolvedValue({ id: 8, collectorAttribute: { name: 'snmp' } });
+        const result = await handlers.handleToolCall('get_configsource_scripts', { configSourceId: 8 });
+        expect(result.scripts).toEqual([]);
+      });
+
+      it('should propagate API errors', async () => {
+        mockClient.getConfigSource.mockRejectedValue(new Error('404 Not Found'));
+        await expect(handlers.handleToolCall('get_configsource_scripts', { configSourceId: 999 }))
+          .rejects.toThrow('404 Not Found');
+      });
+    });
+
+    describe('update_configsource', () => {
+      it('should send only the given fields, without the id', async () => {
+        const mockUpdated = { id: 5, description: 'updated' };
+        mockClient.updateConfigSource.mockResolvedValue(mockUpdated);
+
+        const result = await handlers.handleToolCall('update_configsource', {
+          configSourceId: 5,
+          description: 'updated',
+        });
+
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, { description: 'updated' });
+        expect(result).toEqual(mockUpdated);
+      });
+
+      it('should pass configChecks through unchanged', async () => {
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+        const configChecks = [
+          { id: 1, name: 'cantRetrieve', type: 'fetch' },
+          { name: 'anyChange', type: 'ignore', alertLevel: 1, alertEffectiveIval: 60, ackClearAlert: true },
+        ];
+
+        await handlers.handleToolCall('update_configsource', { configSourceId: 5, configChecks });
+
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, { configChecks });
+      });
+
+      it('should propagate API errors', async () => {
+        mockClient.updateConfigSource.mockRejectedValue(new Error('400 Bad Request'));
+        await expect(handlers.handleToolCall('update_configsource', { configSourceId: 5, fileFormat: 'bogus' }))
+          .rejects.toThrow('400 Bad Request');
+      });
+
+      it('should send an empty body when only the id is given (no id leaked into the payload)', async () => {
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('update_configsource', { configSourceId: 5 });
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, {});
+      });
+    });
+
+    describe('delete_configsource', () => {
+      it('should delete a configsource by ID', async () => {
+        mockClient.deleteConfigSource.mockResolvedValue({});
+        const result = await handlers.handleToolCall('delete_configsource', { configSourceId: 5 });
+        expect(mockClient.deleteConfigSource).toHaveBeenCalledWith(5);
+        expect(result).toEqual({});
+      });
+
+      it('should propagate API errors', async () => {
+        mockClient.deleteConfigSource.mockRejectedValue(new Error('404 Not Found'));
+        await expect(handlers.handleToolCall('delete_configsource', { configSourceId: 999 }))
+          .rejects.toThrow('404 Not Found');
+      });
     });
   });
 

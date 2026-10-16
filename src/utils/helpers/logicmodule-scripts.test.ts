@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { extractDataSourceScripts } from './logicmodule-scripts.js';
+import { extractDataSourceScripts, extractConfigSourceScripts } from './logicmodule-scripts.js';
 
 describe('extractDataSourceScripts', () => {
   it('returns an empty array for a DataSource with no scripts (e.g. plain snmp)', () => {
@@ -139,5 +139,22 @@ describe('extractDataSourceScripts', () => {
 
   it('handles a DataSource with no dataPoints, autoDiscoveryConfig, or eriDiscoveryConfig at all', () => {
     expect(extractDataSourceScripts({ name: 'Minimal', collectMethod: 'ping' })).toEqual([]);
+  });
+});
+
+describe('extractConfigSourceScripts', () => {
+  it('extracts collection and discovery scripts and ignores datapoint/ERI fields', () => {
+    const scripts = extractConfigSourceScripts({
+      collectorAttribute: { scriptType: 'embed', groovyScript: 'println 1' },
+      autoDiscoveryConfig: { method: { name: 'ad_script', winScript: 'ls', winCmdline: 'powershell' } },
+      eriDiscoveryConfig: { groovyScript: 'ignored' },
+    });
+    expect(scripts.map(s => s.field)).toEqual(['groovyScript', 'winScript']);
+    expect(scripts[1].cmdline).toBe('powershell');
+  });
+
+  it('returns an empty array for null/empty input', () => {
+    expect(extractConfigSourceScripts(null)).toEqual([]);
+    expect(extractConfigSourceScripts({ collectorAttribute: { name: 'snmp' } })).toEqual([]);
   });
 });

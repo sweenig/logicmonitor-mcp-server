@@ -7,7 +7,7 @@
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
-import { extractDataSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
+import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
@@ -1104,6 +1104,22 @@ export class LogicMonitorHandlers {
             timestampFormat: args.timestampFormat,
             configChecks: args.configChecks,
           });
+
+        case 'get_configsource_scripts': {
+          const configSource = await this.client.getConfigSource(args.configSourceId);
+          return {
+            configSourceId: args.configSourceId,
+            scripts: extractConfigSourceScripts(configSource),
+          };
+        }
+
+        case 'update_configsource': {
+          const { configSourceId, ...updates } = args;
+          return await this.client.updateConfigSource(configSourceId, updates);
+        }
+
+        case 'delete_configsource':
+          return await this.client.deleteConfigSource(args.configSourceId);
 
         // PropertySources
         case 'list_propertysources': {

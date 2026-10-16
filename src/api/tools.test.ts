@@ -497,6 +497,30 @@ describe('getLogicMonitorTools', () => {
         expect(deleteDS?.inputSchema.required).toEqual(['dataSourceId']);
       });
 
+      it('should include configsource management tools with correct read-only classification', () => {
+        const tools = getLogicMonitorTools(false);
+        const names = ['get_configsource_scripts', 'update_configsource', 'delete_configsource'];
+        const [getScripts, updateCS, deleteCS] = names.map(n => tools.find(t => t.name === n));
+
+        expect(getScripts?.annotations?.readOnlyHint).toBe(true);
+        expect(updateCS?.annotations?.readOnlyHint).toBe(false);
+        expect(deleteCS?.annotations?.readOnlyHint).toBe(false);
+        [getScripts, updateCS, deleteCS].forEach(t => expect(t?.inputSchema.required).toEqual(['configSourceId']));
+
+        // hasMultiInstances is create-only, so update must not accept it but must document why
+        expect((updateCS?.inputSchema.properties as any).hasMultiInstances).toBeUndefined();
+        expect(updateCS?.description).toContain('hasMultiInstances');
+        expect((updateCS?.inputSchema.properties as any).configChecks.type).toBe('array');
+        expect(updateCS?.description).toContain('REPLACEMENT');
+        expect(updateCS?.description).toContain('ignore_line_with_regex');
+
+        // read-only servers must not advertise the write tools
+        const ro = getLogicMonitorTools(true).map(t => t.name);
+        expect(ro).toContain('get_configsource_scripts');
+        expect(ro).not.toContain('update_configsource');
+        expect(ro).not.toContain('delete_configsource');
+      });
+
       it('should document hasMultiInstances on create_datasource and its create-only limit on update_datasource', () => {
         const tools = getLogicMonitorTools(false);
         const createDS = tools.find(t => t.name === 'create_datasource');
@@ -703,6 +727,7 @@ describe('getLogicMonitorTools', () => {
             tool.name !== 'get_widget_data' &&
             tool.name !== 'get_debug_command_result' &&
             tool.name !== 'get_datasource_scripts' &&
+            tool.name !== 'get_configsource_scripts' &&
             tool.name !== 'get_resource_group_datasource_thresholds') {
           expect(properties).toHaveProperty('fields');
         }

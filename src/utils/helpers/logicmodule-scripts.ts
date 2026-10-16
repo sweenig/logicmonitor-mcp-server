@@ -96,3 +96,18 @@ export function extractDataSourceScripts(dataSource: any): ExtractedScript[] {
 
   return scripts;
 }
+
+/**
+ * Extracts every embedded script from a LogicMonitor ConfigSource object (as returned by
+ * GET /setting/configsources/{id}): the collection method (collectorAttribute) and the
+ * discovery method (autoDiscoveryConfig.method). ConfigSources have no datapoints or ERI
+ * discovery; config checks hold diff/regex definitions, not executable scripts.
+ */
+export function extractConfigSourceScripts(configSource: any): ExtractedScript[] {
+  const scripts: ExtractedScript[] = [];
+
+  extractCollectorAttributeScripts(scripts, configSource?.collectorAttribute);
+  extractDiscoveryMethodScripts(scripts, configSource?.autoDiscoveryConfig?.method, 'autoDiscoveryConfig.method (discovery method)');
+
+  return scripts;
+}
