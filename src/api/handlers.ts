@@ -816,30 +816,101 @@ export class LogicMonitorHandlers {
           return await this.client.deleteWebsite(args.websiteId);
 
         case 'create_uptime_check': {
+          const useDefaultAlertSetting = this.resolveUptimeAlertSetting(args);
+          if (args.checkType === 'ping') {
+            if (!args.host) throw new Error('host is required when checkType is "ping"');
+            this.validatePingCount(args.count);
+          } else if (!args.domain) {
+            throw new Error('domain is required when checkType is "web" (the default)');
+          }
+          const isInternal = args.isInternal ?? false;
+          const { useDefaultLocationSetting, testLocation } = await this.resolveUptimeLocation(isInternal, args.testLocation);
+          if (args.checkType === 'ping') {
+            // Payload shape mirrors New-LMUptimeDevice in the LogicMonitor PowerShell module
+            const device: any = {
+              type: 'uptimepingcheck',
+              model: 'websiteDevice',
+              deviceType: 19,
+              id: 0,
+              name: args.name,
+              displayName: args.displayName,
+              host: args.host,
+              count: args.count ?? 5,
+              percentPktsNotReceiveInTime: args.percentPktsNotReceiveInTime ?? 80,
+              timeoutInMSPktsNotReceive: args.timeoutInMSPktsNotReceive ?? 500,
+              isInternal,
+              useDefaultAlertSetting,
+            };
+            if (args.pollingInterval !== undefined) device.pollingInterval = args.pollingInterval;
+            device.useDefaultLocationSetting = useDefaultLocationSetting;
+            device.testLocation = testLocation;
+            if (args.hostGroupIds) {
+              device.groupIds = String(args.hostGroupIds).split(',').map((id: string) => id.trim()).filter(Boolean);
+            }
+            if (args.description) device.description = args.description;
+            return await this.client.createDevice(device, { type: 'uptimepingcheck' });
+          }
           const device: any = {
             type: 'uptimewebcheck',
             displayName: args.displayName,
             name: args.name,
             domain: args.domain,
-            testLocation: args.testLocation || { all: true },
-            isInternal: args.isInternal ?? false,
-            useDefaultAlertSetting: args.useDefaultAlertSetting ?? true,
+            testLocation,
+            useDefaultLocationSetting,
+            isInternal,
+            useDefaultAlertSetting,
           };
           if (args.schema) device.schema = args.schema;
-          if (args.pollingInterval) device.pollingInterval = args.pollingInterval;
+          if (args.pollingInterval !== undefined) device.pollingInterval = args.pollingInterval;
           if (args.hostGroupIds) device.hostGroupIds = args.hostGroupIds;
           if (args.description) device.description = args.description;
           if (args.preferredCollectorId) device.preferredCollectorId = args.preferredCollectorId;
           if (args.steps) {
-            device.steps = args.steps.map((step: any) => ({
-              HTTPMethod: 'GET',
-              matchType: 'plain',
-              enable: true,
-              followRedirection: true,
-              ...step,
-            }));
+            device.steps = args.steps.map((step: any) => this.withStepDefaults(step));
           }
           return await this.client.createDevice(device);
+        }
+
+        case 'update_uptime_check': {
+          const existing: any = await this.client.getDevice(args.deviceId);
+          if (existing.type !== 'uptimewebcheck' && existing.type !== 'uptimepingcheck') {
+            throw new Error(
+              `Resource ${args.deviceId} is type "${existing.type}", not an LM Uptime check. Use update_resource for other resource types.`,
+            );
+          }
+          const isPing = existing.type === 'uptimepingcheck';
+          if (!isPing && (args.host !== undefined || args.count !== undefined
+              || args.percentPktsNotReceiveInTime !== undefined || args.timeoutInMSPktsNotReceive !== undefined)) {
+            throw new Error('host, count, percentPktsNotReceiveInTime and timeoutInMSPktsNotReceive only apply to ping checks');
+          }
+          if (isPing && (args.domain !== undefined || args.schema !== undefined || args.steps !== undefined)) {
+            throw new Error('domain, schema and steps only apply to web checks');
+          }
+          this.validatePingCount(args.count);
+          const patch: any = {};
+          for (const key of [
+            'displayName', 'name', 'description', 'host', 'count', 'percentPktsNotReceiveInTime',
+            'timeoutInMSPktsNotReceive', 'domain', 'schema', 'preferredCollectorId',
+          ]) {
+            if (args[key] !== undefined) patch[key] = args[key];
+          }
+          if (args.pollingInterval !== undefined) patch.pollingInterval = args.pollingInterval;
+          if (args.pollingInterval !== undefined || args.useDefaultAlertSetting !== undefined) {
+            patch.useDefaultAlertSetting = this.resolveUptimeAlertSetting(args);
+          }
+          if (args.testLocation !== undefined) {
+            const { useDefaultLocationSetting, testLocation } = await this.resolveUptimeLocation(
+              existing.isInternal === true,
+              args.testLocation,
+            );
+            patch.useDefaultLocationSetting = useDefaultLocationSetting;
+            patch.testLocation = testLocation;
+          }
+          if (args.steps) patch.steps = args.steps.map((step: any) => this.withStepDefaults(step));
+          if (Object.keys(patch).length === 0) {
+            throw new Error('No changes specified; provide at least one field to update');
+          }
+          return await this.client.updateDevice(args.deviceId, patch, { opType: 'replace' });
         }
 
         // Website Groups
@@ -1778,6 +1849,69 @@ export class LogicMonitorHandlers {
    * an MCPError explaining how to get equivalent results via separate calls
    * instead of sending a request that is guaranteed to fail.
    */
+  private withStepDefaults(step: any) {
+    return { HTTPMethod: 'GET', matchType: 'plain', enable: true, followRedirection: true, ...step };
+  }
+
+  private validatePingCount(count: number | undefined) {
+    if (count !== undefined && ![5, 10, 15, 20, 30, 50].includes(count)) {
+      throw new Error('count must be one of 5, 10, 15, 20, 30, 50');
+    }
+  }
+
+  /**
+   * LM ignores pollingInterval while default alert settings are on (it uses the account
+   * default), so a requested interval only takes effect with useDefaultAlertSetting false.
+   */
+  private resolveUptimeAlertSetting(args: any): boolean {
+    if (args.pollingInterval !== undefined && args.useDefaultAlertSetting === true) {
+      throw new Error(
+        'pollingInterval cannot be combined with useDefaultAlertSetting: true (LM would ignore it and use the account default interval). Omit pollingInterval, or set useDefaultAlertSetting: false.',
+      );
+    }
+    return args.pollingInterval !== undefined ? false : (args.useDefaultAlertSetting ?? true);
+  }
+
+  /**
+   * External checks follow the account default uptime locations unless specific smgIds are
+   * given. The API still requires smgIds in the payload even when the default-location flag
+   * is set (it ignores them in that case), so fill them in with the enabled checkpoints.
+   */
+  private async resolveUptimeLocation(isInternal: boolean, loc?: any) {
+    const collectorIds: number[] = loc?.collectorIds ?? [];
+    let smgIds: number[] = loc?.smgIds ?? [];
+    if (collectorIds.length && smgIds.length) {
+      throw new Error('testLocation.collectorIds and testLocation.smgIds cannot be used together');
+    }
+    if (isInternal && smgIds.length) {
+      throw new Error('testLocation.smgIds is only valid for external checks');
+    }
+    if (!isInternal && collectorIds.length) {
+      throw new Error('testLocation.collectorIds is only valid for internal checks (set isInternal: true)');
+    }
+    if (isInternal && !collectorIds.length) {
+      throw new Error('testLocation.collectorIds is required for internal checks');
+    }
+    const useDefaultLocationSetting = !isInternal && !smgIds.length;
+    if (useDefaultLocationSetting) {
+      const checkpoints = await this.client.listWebsiteCheckpoints();
+      smgIds = (checkpoints.items ?? [])
+        .filter((c: any) => c.isEnabledInRoot !== false)
+        .map((c: any) => c.id);
+      if (!smgIds.length) {
+        throw new Error('No enabled checkpoint locations found; specify testLocation.smgIds explicitly');
+      }
+    }
+    return {
+      useDefaultLocationSetting,
+      testLocation: {
+        collectorIds,
+        smgIds,
+        all: isInternal ? (loc?.all ?? smgIds.length === 0) : false,
+      },
+    };
+  }
+
   private combineQueryAndFilter(
     query: string | undefined,
     filter: string | undefined,

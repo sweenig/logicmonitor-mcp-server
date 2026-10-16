@@ -1697,6 +1697,7 @@ describe('LogicMonitorHandlers', () => {
 
     it('should create an uptime check with a content-match step', async () => {
       const mockDevice = { id: 1, displayName: 'Portal Login Page' };
+      mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 2, items: [{ id: 2 }, { id: 4 }] });
       mockClient.createDevice.mockResolvedValue(mockDevice);
 
       const result = await handlers.handleToolCall('create_uptime_check', {
@@ -1714,7 +1715,8 @@ describe('LogicMonitorHandlers', () => {
         displayName: 'Portal Login Page',
         name: 'Portal Login Page',
         domain: 'example.com/login',
-        testLocation: { all: true },
+        testLocation: { collectorIds: [], smgIds: [2, 4], all: false },
+        useDefaultLocationSetting: true,
         isInternal: false,
         useDefaultAlertSetting: true,
         steps: [
@@ -1749,7 +1751,8 @@ describe('LogicMonitorHandlers', () => {
         displayName: 'Simple ping',
         name: 'Simple ping',
         domain: 'example.com',
-        testLocation: { smgIds: [2, 3] },
+        testLocation: { collectorIds: [], smgIds: [2, 3], all: false },
+        useDefaultLocationSetting: false,
         isInternal: false,
         useDefaultAlertSetting: true,
       });
@@ -1774,11 +1777,193 @@ describe('LogicMonitorHandlers', () => {
         displayName: 'Internal app check',
         name: 'Internal app check',
         domain: 'internal.example.com',
-        testLocation: { collectorIds: [5] },
+        testLocation: { collectorIds: [5], smgIds: [], all: true },
+        useDefaultLocationSetting: false,
         isInternal: true,
         useDefaultAlertSetting: true,
         preferredCollectorId: 5,
       });
+    });
+  });
+
+  describe('Uptime ping checks', () => {
+    it('should create an external ping uptime check', async () => {
+      mockClient.createDevice.mockResolvedValue({ id: 10 });
+
+      await handlers.handleToolCall('create_uptime_check', {
+        checkType: 'ping',
+        displayName: 'Google',
+        name: 'Google',
+        host: '8.8.8.8',
+        hostGroupIds: '17, 18',
+        testLocation: { smgIds: [2, 4] },
+      });
+
+      expect(mockClient.createDevice).toHaveBeenCalledWith(
+        {
+          type: 'uptimepingcheck',
+          model: 'websiteDevice',
+          deviceType: 19,
+          id: 0,
+          name: 'Google',
+          displayName: 'Google',
+          host: '8.8.8.8',
+          count: 5,
+          percentPktsNotReceiveInTime: 80,
+          timeoutInMSPktsNotReceive: 500,
+          isInternal: false,
+          useDefaultAlertSetting: true,
+          useDefaultLocationSetting: false,
+          testLocation: { collectorIds: [], smgIds: [2, 4], all: false },
+          groupIds: ['17', '18'],
+        },
+        { type: 'uptimepingcheck' },
+      );
+    });
+
+    it('should follow default locations (filled with enabled checkpoints) when no external locations are given', async () => {
+      mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 3,
+        items: [{ id: 2, isEnabledInRoot: true }, { id: 3, isEnabledInRoot: false }, { id: 4, isEnabledInRoot: true }],
+      });
+      mockClient.createDevice.mockResolvedValue({ id: 11 });
+      for (const testLocation of [undefined, { all: true }]) {
+        mockClient.createDevice.mockClear();
+        await handlers.handleToolCall('create_uptime_check', {
+          checkType: 'ping', displayName: 'g', name: 'g', host: '8.8.8.8', testLocation,
+        });
+        const payload = mockClient.createDevice.mock.calls[0][0];
+        expect(payload.useDefaultLocationSetting).toBe(true);
+        expect(payload.testLocation).toEqual({ collectorIds: [], smgIds: [2, 4], all: false });
+      }
+    });
+
+    it('should only send pollingInterval with custom alert settings', async () => {
+      mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 1, items: [{ id: 2 }] });
+      mockClient.createDevice.mockResolvedValue({ id: 13 });
+      const args = { checkType: 'ping', displayName: 'p', name: 'p', host: '8.8.8.8' };
+
+      await handlers.handleToolCall('create_uptime_check', args);
+      let payload = mockClient.createDevice.mock.calls[0][0];
+      expect(payload.useDefaultAlertSetting).toBe(true);
+      expect('pollingInterval' in payload).toBe(false);
+
+      await handlers.handleToolCall('create_uptime_check', { ...args, pollingInterval: 1 });
+      payload = mockClient.createDevice.mock.calls[1][0];
+      expect(payload.useDefaultAlertSetting).toBe(false);
+      expect(payload.pollingInterval).toBe(1);
+
+      await expect(
+        handlers.handleToolCall('create_uptime_check', { ...args, pollingInterval: 1, useDefaultAlertSetting: true }),
+      ).rejects.toThrow(/pollingInterval cannot be combined/);
+    });
+
+    it('should create an internal ping check', async () => {
+      mockClient.createDevice.mockResolvedValue({ id: 12 });
+      await handlers.handleToolCall('create_uptime_check', {
+        checkType: 'ping', displayName: 'i', name: 'i', host: 'intranet.local',
+        isInternal: true, testLocation: { collectorIds: [5] },
+      });
+      const payload = mockClient.createDevice.mock.calls[0][0];
+      expect(payload.isInternal).toBe(true);
+      expect(payload.testLocation).toEqual({ collectorIds: [5], smgIds: [], all: true });
+    });
+
+    it('should reject invalid ping configurations', async () => {
+      const base = { checkType: 'ping', displayName: 'x', name: 'x' };
+      await expect(handlers.handleToolCall('create_uptime_check', base)).rejects.toThrow(/host is required/);
+      await expect(handlers.handleToolCall('create_uptime_check', { ...base, host: 'h', count: 7 })).rejects.toThrow(/count/);
+      await expect(handlers.handleToolCall('create_uptime_check', { ...base, host: 'h', isInternal: true })).rejects.toThrow(/collectorIds is required/);
+      await expect(handlers.handleToolCall('create_uptime_check', { ...base, host: 'h', testLocation: { collectorIds: [1] } })).rejects.toThrow(/internal/);
+      expect(mockClient.createDevice).not.toHaveBeenCalled();
+    });
+
+    it('should require domain for web checks', async () => {
+      await expect(handlers.handleToolCall('create_uptime_check', { displayName: 'x', name: 'x' })).rejects.toThrow(/domain is required/);
+    });
+  });
+
+  describe('Uptime check updates', () => {
+    const pingDevice = { id: 50, type: 'uptimepingcheck', isInternal: false };
+    const webDevice = { id: 51, type: 'uptimewebcheck', isInternal: false };
+    const internalDevice = { id: 52, type: 'uptimepingcheck', isInternal: true };
+
+    beforeEach(() => {
+      mockClient.updateDevice.mockResolvedValue({ id: 50 });
+      mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 2, items: [{ id: 2 }, { id: 4 }] });
+    });
+
+    it('should send only the changed fields', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 50, host: '1.1.1.1', count: 10 });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(50, { host: '1.1.1.1', count: 10 }, { opType: 'replace' });
+    });
+
+    it('should switch to custom alert settings when only an interval is given', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 50, pollingInterval: 1 });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(
+        50, { pollingInterval: 1, useDefaultAlertSetting: false }, { opType: 'replace' });
+    });
+
+    it('should return to default alert settings without an interval', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 50, useDefaultAlertSetting: true });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(50, { useDefaultAlertSetting: true }, { opType: 'replace' });
+    });
+
+    it('should reject an interval combined with default alert settings', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await expect(handlers.handleToolCall('update_uptime_check', {
+        deviceId: 50, pollingInterval: 1, useDefaultAlertSetting: true,
+      })).rejects.toThrow(/pollingInterval cannot be combined/);
+    });
+
+    it('should switch an external check back to default locations with all: true', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 50, testLocation: { all: true } });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(50, {
+        useDefaultLocationSetting: true,
+        testLocation: { collectorIds: [], smgIds: [2, 4], all: false },
+      }, { opType: 'replace' });
+    });
+
+    it('should pin specific checkpoints', async () => {
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 50, testLocation: { smgIds: [3] } });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(50, {
+        useDefaultLocationSetting: false,
+        testLocation: { collectorIds: [], smgIds: [3], all: false },
+      }, { opType: 'replace' });
+    });
+
+    it('should change collectors on an internal check and reject checkpoints', async () => {
+      mockClient.getDevice.mockResolvedValue(internalDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 52, testLocation: { collectorIds: [7] } });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(52, {
+        useDefaultLocationSetting: false,
+        testLocation: { collectorIds: [7], smgIds: [], all: true },
+      }, { opType: 'replace' });
+      await expect(handlers.handleToolCall('update_uptime_check', { deviceId: 52, testLocation: { smgIds: [2] } }))
+        .rejects.toThrow(/only valid for external/);
+    });
+
+    it('should apply step defaults and reject ping-only fields on web checks', async () => {
+      mockClient.getDevice.mockResolvedValue(webDevice);
+      await handlers.handleToolCall('update_uptime_check', { deviceId: 51, domain: 'example.org', steps: [{ url: '/x' }] });
+      expect(mockClient.updateDevice).toHaveBeenCalledWith(51, {
+        domain: 'example.org',
+        steps: [{ HTTPMethod: 'GET', matchType: 'plain', enable: true, followRedirection: true, url: '/x' }],
+      }, { opType: 'replace' });
+      await expect(handlers.handleToolCall('update_uptime_check', { deviceId: 51, host: 'h' })).rejects.toThrow(/only apply to ping/);
+    });
+
+    it('should reject non-uptime resources, ping/web mismatches and empty updates', async () => {
+      mockClient.getDevice.mockResolvedValue({ id: 9, type: 'server' });
+      await expect(handlers.handleToolCall('update_uptime_check', { deviceId: 9, host: 'h' })).rejects.toThrow(/not an LM Uptime check/);
+      mockClient.getDevice.mockResolvedValue(pingDevice);
+      await expect(handlers.handleToolCall('update_uptime_check', { deviceId: 50, domain: 'x.com' })).rejects.toThrow(/only apply to web/);
+      await expect(handlers.handleToolCall('update_uptime_check', { deviceId: 50 })).rejects.toThrow(/No changes/);
+      expect(mockClient.updateDevice).not.toHaveBeenCalled();
     });
   });
 

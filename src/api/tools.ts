@@ -2704,22 +2704,25 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'create_uptime_check',
-    description: 'Create a new LM Uptime resource (synthetic HTTP check) in LogicMonitor (LM) monitoring. ' +
+    description: 'Create a new LM Uptime resource (synthetic HTTP or ICMP ping check) in LogicMonitor (LM) monitoring. ' +
       '\n\n**What this does:** Adds a monitored resource of type "uptimewebcheck" (LM\'s newer Uptime feature, distinct from the legacy Website/checkpoint monitors created by "create\\_website"). Runs one or more HTTP steps against a domain from global checkpoint locations or internal collectors, and can assert on status code and/or response body content (e.g. verifying a specific keyword, HTML element, or attribute appears on the page). ' +
+      '\n\n**Check types:** checkType "web" (default, HTTP steps, requires domain) or "ping" (ICMP ping, requires host; resource type "uptimepingcheck"). Both can be external (global checkpoints) or internal (your collector, isInternal: true with testLocation.collectorIds).' +
       '\n\n**Required parameters:** ' +
       '\n- displayName: Friendly name shown in LM' +
       '\n- name: Internal/unique name (often same as displayName or the domain)' +
-      '\n- domain: Base domain or URL of the service (e.g. "example.com" or "example.com/app")' +
+      '\n- domain: (web checks) Base domain or URL of the service (e.g. "example.com" or "example.com/app")' +
+      '\n- host: (ping checks) Hostname or IP address to ping (e.g. "8.8.8.8")' +
+      '\n\n**Ping-only parameters:** count (pings per collection: 5, 10, 15, 20, 30, 50; default 5), percentPktsNotReceiveInTime (packet-loss % threshold, default 80), timeoutInMSPktsNotReceive (packet response timeout in ms, default 500). Steps/schema do not apply to ping checks. For ping, omit testLocation to use the account default locations; hostGroupIds is converted to the groupIds array.' +
       '\n\n**Optional parameters:** ' +
       '\n- schema: "http" or "https" (default: "https")' +
-      '\n- testLocation: {all: true} to test from all global checkpoints (default), {smgIds: [2,3,4,5,6]} for specific checkpoint locations, or {collectorIds: [id]} to test from an internal collector instead' +
+      '\n- testLocation: omit (default) or {all: true} to follow the account default uptime checkpoints (recommended; settings stay centrally manageable), {smgIds: [2,3,4,5,6]} for specific checkpoint locations (look up IDs by city name with list_website_checkpoints; this makes the check use a custom location setting), or {collectorIds: [id]} to test from an internal collector instead' +
       '\n- isInternal: false (default) for an external check run from LM\'s global SaaS checkpoints (no collector involved); true only for a private/internal check run from your own collector(s)' +
       '\n- useDefaultAlertSetting: true (default) to inherit alert thresholds and SSL alert behavior from LM\'s default alert settings — what you want almost always. Set to false only when you need per-check overrides (e.g. a custom SSL expiration alert), since false without explicit overrides will disable SSL error/expiration alerting entirely.' +
-      '\n- pollingInterval: Minutes between checks, 1-10 (default: 5)' +
+      '\n- pollingInterval: Minutes between checks, 1-10. Omit to use the account default uptime interval (set under default alert settings). LM only honors a custom interval when useDefaultAlertSetting is false, so providing pollingInterval automatically sets useDefaultAlertSetting to false (and explicitly combining it with useDefaultAlertSetting: true is rejected).' +
       '\n- hostGroupIds: Comma-separated resource/website folder IDs' +
       '\n- description: Notes about what this check verifies' +
       '\n- preferredCollectorId: Only for internal checks (isInternal: true) — do not set this for external checkpoint-based checks' +
-      '\n- steps: Array of HTTP steps (at least one is required). Each step: ' +
+      '\n- steps: (web checks) Array of HTTP steps (at least one is required). Each step: ' +
       '\n  - name: Step label' +
       '\n  - url: Path or full URL for this step (e.g. "/" or "/login")' +
       '\n  - HTTPMethod: "GET" | "HEAD" | "POST" (default: "GET")' +
@@ -2732,7 +2735,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n  - followRedirection: Whether to follow redirects (default: true)' +
       '\n\n**Example — verify a login page renders its username field:** ' +
       '{displayName: "Portal Login Page", name: "Portal Login Page", domain: "example.com/login", steps: [{name: "Check login form", url: "/", matchType: "plain", keyword: "id=\\"username\\"", statusCode: "200"}]} ' +
-      '\n\n**After creation:** Use "get\\_resource" or "generate\\_resource\\_link" to view the new check. ' +
+      '\n\n**After creation:** Use "get\\_resource" or "generate\\_resource\\_link" to view the new check, "update\\_uptime\\_check" to change its settings later ("update\\_resource" cannot), and "delete\\_resource" to remove it. To find existing Uptime checks use "list\\_resources" with filter deviceType:19 (ping) or deviceType:18 (web), or displayName:"...". ' +
       '\n\n**Related tools:** "list\\_website\\_checkpoints" (find checkpoint location IDs for testLocation.smgIds), "list\\_collectors" (find preferredCollectorId for internal checks), "create\\_website" (legacy Website/checkpoint monitor, different object model).',
     annotations: {
       title: 'Create LM Uptime check',
@@ -2749,9 +2752,30 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'string',
           description: 'Internal/unique name for the resource',
         },
+        checkType: {
+          type: 'string',
+          enum: ['web', 'ping'],
+          description: '"web" (HTTP check, default) or "ping" (ICMP ping check)',
+        },
         domain: {
           type: 'string',
-          description: 'Base domain or URL of the service to check',
+          description: 'Web checks: base domain or URL of the service to check',
+        },
+        host: {
+          type: 'string',
+          description: 'Ping checks: hostname or IP address to ping',
+        },
+        count: {
+          type: 'number',
+          description: 'Ping checks: pings per collection (5, 10, 15, 20, 30, 50; default 5)',
+        },
+        percentPktsNotReceiveInTime: {
+          type: 'number',
+          description: 'Ping checks: packet loss percentage threshold, 0-100 (default 80)',
+        },
+        timeoutInMSPktsNotReceive: {
+          type: 'number',
+          description: 'Ping checks: packet response timeout threshold in ms (default 500)',
         },
         schema: {
           type: 'string',
@@ -2768,7 +2792,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         pollingInterval: {
           type: 'number',
-          description: 'Minutes between checks, 1-10 (default: 5)',
+          description: 'Minutes between checks, 1-10. Omit to use the account default interval. Setting it makes the check use custom alert settings (useDefaultAlertSetting false).',
         },
         hostGroupIds: {
           type: 'string',
@@ -2816,7 +2840,85 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
       },
       additionalProperties: false,
-      required: ['displayName', 'name', 'domain'],
+      required: ['displayName', 'name'],
+    },
+  },
+  {
+    name: 'update_uptime_check',
+    description: 'Modify an existing LM Uptime check (resource type "uptimewebcheck" or "uptimepingcheck") in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Partially updates an Uptime check: only the fields you provide change; everything else is left as-is. Use this instead of "update\\_resource" for Uptime settings (host/domain, locations, interval, alert settings, HTTP steps) - "update\\_resource" cannot change those. The check type and internal/external mode cannot be changed; delete and recreate the check for that.' +
+      '\n\n**Required:** deviceId (from the create\\_uptime\\_check result, or "list\\_resources" with filter deviceType:19 for ping checks / deviceType:18 for web checks, or displayName:"..."; filtering on the "type" field does not match Uptime checks)' +
+      '\n\n**Updatable (all optional):** displayName, name, description, preferredCollectorId; ping checks: host, count, percentPktsNotReceiveInTime, timeoutInMSPktsNotReceive; web checks: domain, schema, steps (REPLACES the entire step list); both: testLocation, pollingInterval, useDefaultAlertSetting.' +
+      '\n\n**Locations (testLocation):** {all: true} switches an external check back to the account default uptime checkpoints (recommended; they stay centrally managed). {smgIds: [..]} pins specific checkpoint locations (look up IDs by city name with "list\\_website\\_checkpoints"). {collectorIds: [..]} changes the collectors of an internal check. Omit testLocation to leave locations unchanged.' +
+      '\n\n**Polling interval and alert settings:** LM only honors a custom pollingInterval (1-10 minutes) when useDefaultAlertSetting is false, so providing pollingInterval automatically sets useDefaultAlertSetting to false (this also makes the check use custom alert thresholds); combining it with useDefaultAlertSetting: true is rejected. To return to the account defaults for both interval and thresholds, send useDefaultAlertSetting: true without pollingInterval.' +
+      '\n\n**Examples:** ' +
+      '\n- Point a ping check at a new IP: {deviceId: 123, host: "1.1.1.1"}' +
+      '\n- Follow default locations again: {deviceId: 123, testLocation: {all: true}}' +
+      '\n- Check every minute: {deviceId: 123, pollingInterval: 1}' +
+      '\n- Back to defaults: {deviceId: 123, useDefaultAlertSetting: true}' +
+      '\n\n**Related tools:** "create\\_uptime\\_check", "get\\_resource" (verify), "list\\_website\\_checkpoints", "delete\\_resource".',
+    annotations: {
+      title: 'Update LM Uptime check',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: { type: 'number', description: 'ID of the Uptime check (resource) to update' },
+        displayName: { type: 'string', description: 'New friendly name' },
+        name: { type: 'string', description: 'New internal name' },
+        description: { type: 'string', description: 'New description' },
+        host: { type: 'string', description: 'Ping checks: new hostname or IP address to ping' },
+        count: { type: 'number', description: 'Ping checks: pings per collection (5, 10, 15, 20, 30, 50)' },
+        percentPktsNotReceiveInTime: { type: 'number', description: 'Ping checks: packet loss percentage threshold, 0-100' },
+        timeoutInMSPktsNotReceive: { type: 'number', description: 'Ping checks: packet response timeout threshold in ms' },
+        domain: { type: 'string', description: 'Web checks: new base domain or URL' },
+        schema: { type: 'string', description: 'Web checks: "http" or "https"' },
+        steps: {
+          type: 'array',
+          description: 'Web checks: HTTP steps; REPLACES the whole existing step list.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Step label' },
+              description: { type: 'string' },
+              url: { type: 'string', description: 'Path or full URL for this step' },
+              HTTPMethod: { type: 'string', description: '"GET" | "HEAD" | "POST" (default: "GET")' },
+              HTTPHeaders: { type: 'string' },
+              HTTPBody: { type: 'string' },
+              matchType: { type: 'string', description: '"plain" (substring match) or "regex" (default: "plain")' },
+              keyword: { type: 'string', description: 'Text or regex that must appear in the response body' },
+              invertMatch: { type: 'boolean', description: 'Fail when the keyword IS found (default: false)' },
+              statusCode: { type: 'string', description: 'Expected HTTP status code, e.g. "200"' },
+              timeout: { type: 'number', description: 'Request timeout in seconds' },
+              followRedirection: { type: 'boolean', description: 'Whether to follow redirects (default: true)' },
+              requireAuth: { type: 'boolean' },
+              enable: { type: 'boolean', description: 'Whether this step is active (default: true)' },
+            },
+            required: ['url'],
+          },
+        },
+        testLocation: {
+          type: 'object',
+          description: '{all: true} = account default checkpoints (external), {smgIds: [...]} = specific checkpoints (external), {collectorIds: [...]} = collectors (internal checks). Omit to leave unchanged.',
+          properties: {
+            all: { type: 'boolean' },
+            smgIds: { type: 'array', items: { type: 'number' } },
+            collectorIds: { type: 'array', items: { type: 'number' } },
+          },
+        },
+        pollingInterval: {
+          type: 'number',
+          description: 'Minutes between checks, 1-10. Setting it also sets useDefaultAlertSetting to false.',
+        },
+        useDefaultAlertSetting: {
+          type: 'boolean',
+          description: 'true to inherit interval and alert thresholds from the account defaults; false for per-check overrides',
+        },
+        preferredCollectorId: { type: 'number', description: 'Internal checks only: preferred collector ID' },
+      },
+      additionalProperties: false,
+      required: ['deviceId'],
     },
   },
   {

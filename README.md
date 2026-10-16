@@ -21,7 +21,7 @@ Model Context Protocol (MCP) server for LogicMonitor - enables AI assistants to 
 
 ## Features
 
-- **145 MCP Tools** for comprehensive LogicMonitor operations (79 read-only, 66 write)
+- **146 MCP Tools** for comprehensive LogicMonitor operations (79 read-only, 67 write)
 - **Unified Server**: Single server implementation supporting all transport modes (STDIO, SSE, HTTP)
 - **Multiple Transport Modes**: STDIO for local use, SSE/HTTP for remote access
 - **Flexible Authentication**: No auth (dev), bearer token, or OAuth/OIDC
@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 145 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 146 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
@@ -646,7 +646,8 @@ The server provides 145 tools for comprehensive LogicMonitor operations. Tools a
 - `create_website` - Create new website monitor
 - `update_website` - Modify website monitor
 - `delete_website` - Delete website monitor
-- `create_uptime_check` - Create a new LM Uptime synthetic HTTP check (distinct from legacy website/checkpoint monitors)
+- `create_uptime_check` - Create a new LM Uptime synthetic HTTP or ping check, internal or external (distinct from legacy website/checkpoint monitors)
+- `update_uptime_check` - Modify an existing LM Uptime check (host/domain, locations, interval, alert settings, HTTP steps)
 
 ### Services (Business Logic)
 
@@ -763,8 +764,8 @@ The server provides 145 tools for comprehensive LogicMonitor operations. Tools a
 ### Summary
 
 - **79 read-only tools** - Safe for production monitoring
-- **66 write tools** - Require caution (disabled by default with `--read-only`)
-- **145 total tools**
+- **67 write tools** - Require caution (disabled by default with `--read-only`)
+- **146 total tools**
 
 ## Security Considerations
 

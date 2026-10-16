@@ -16,10 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `update_uptime_check` tool - partially update an LM Uptime web/ping check (host/domain, locations, interval, alert settings, HTTP steps) with the same default-settings rules as create
+- `create_uptime_check` supports `checkType: "ping"` and internal checks
 - `schedule_resource_discovery` tool - trigger Active Discovery on a resource/device via `POST /device/devices/{id}/scheduleAutoDiscovery`; classified read-only (it only requests a discovery run) so it is available in read-only mode
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
 ### Changed
+- `create_uptime_check` now follows the account default uptime checkpoints and alert settings unless told otherwise: external checks get explicit checkpoint IDs filled in (the API rejects empty `smgIds`), and `pollingInterval` is only sent when requested and switches the check to custom alert settings (LM ignores it otherwise)
 - `update_datasource` description now notes that `hasMultiInstances` cannot be changed after creation (LogicMonitor limitation)
 
 ### Fixed

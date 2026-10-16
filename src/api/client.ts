@@ -394,8 +394,8 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/device/devices/${deviceId}`, undefined, params);
   }
 
-  async createDevice(device: any) {
-    return this.request<LMResponse<any>>('POST', '/device/devices', device);
+  async createDevice(device: any, params?: { type?: string }) {
+    return this.request<LMResponse<any>>('POST', '/device/devices', device, params);
   }
 
   async updateDevice(deviceId: number, device: any, params?: { opType?: string }) {
