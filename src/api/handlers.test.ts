@@ -2814,5 +2814,27 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.listCollectorVersions).toHaveBeenCalled();
     });
   });
+
+  describe('required argument validation', () => {
+    it('rejects update_datasource without dataSourceId before calling the client', async () => {
+      await expect(handlers.handleToolCall('update_datasource', {})).rejects.toThrow(
+        /Missing required argument for update_datasource: dataSourceId/,
+      );
+      expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+    });
+
+    it('rejects null, NaN and blank required values', async () => {
+      await expect(handlers.handleToolCall('delete_datasource', { dataSourceId: null })).rejects.toThrow(MCPError);
+      await expect(handlers.handleToolCall('delete_datasource', { dataSourceId: NaN })).rejects.toThrow(MCPError);
+      await expect(handlers.handleToolCall('delete_datasource', { dataSourceId: ' ' })).rejects.toThrow(MCPError);
+      expect(mockClient.deleteDataSource).not.toHaveBeenCalled();
+    });
+
+    it('allows the call when required arguments are present, including 0', async () => {
+      mockClient.updateDataSource.mockResolvedValue({ id: 1 } as any);
+      await handlers.handleToolCall('update_datasource', { dataSourceId: 1, description: 'x' });
+      expect(mockClient.updateDataSource).toHaveBeenCalledWith(1, { description: 'x' });
+    });
+  });
 });
 

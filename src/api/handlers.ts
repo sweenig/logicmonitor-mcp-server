@@ -9,6 +9,9 @@ import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
+import { findMissingRequired } from '../utils/helpers/validate-args.js';
+import { getLogicMonitorTools } from './tools.js';
+import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
 
@@ -132,6 +135,12 @@ function filterFields<T extends Record<string, any>>(obj: T, fields: string[]): 
   return filtered;
 }
 
+let toolIndex: Map<string, Tool> | undefined;
+function toolsByName(): Map<string, Tool> {
+  toolIndex ??= new Map(getLogicMonitorTools().map(t => [t.name, t]));
+  return toolIndex;
+}
+
 // Type for progress notification callback
 type ProgressCallback = (progress: number, total: number) => Promise<void>;
 
@@ -144,6 +153,24 @@ export class LogicMonitorHandlers {
     progressCallback?: ProgressCallback,
   ): Promise<any> {
     try {
+      // Reject calls missing required arguments before any request is built, since
+      // request paths interpolate IDs (a missing one would hit /.../undefined).
+      const missing = findMissingRequired(
+        toolsByName().get(name),
+        args,
+      );
+      if (missing.length) {
+        throw new MCPError(
+          `Missing required argument${missing.length > 1 ? 's' : ''} for ${name}: ${missing.join(', ')}`,
+          ErrorCodes.MISSING_REQUIRED_FIELD,
+          { toolName: name, missing },
+          [
+            `Provide: ${missing.join(', ')}`,
+            `Check the inputSchema for ${name} for the full parameter list`,
+          ],
+        );
+      }
+
       switch (name) {
         // Resource Management
         case 'list_resources': {

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
 ### Changed
+- Tool calls missing a required argument (per the tool's `inputSchema`) are now rejected with a `MISSING_REQUIRED_FIELD` error before any request is built, and the API client refuses paths containing an unset ID (`/undefined`, `/null`, `/NaN`). Previously a call like `update_datasource` with no `dataSourceId` sent `PATCH /setting/datasources/undefined` to LogicMonitor
 - `create_uptime_check` now follows the account default uptime checkpoints and alert settings unless told otherwise: external checks get explicit checkpoint IDs filled in (the API rejects empty `smgIds`), and `pollingInterval` is only sent when requested and switches the check to custom alert settings (LM ignores it otherwise)
 - `update_datasource` description now notes that `hasMultiInstances` cannot be changed after creation (LogicMonitor limitation)
 

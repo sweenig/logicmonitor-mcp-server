@@ -51,6 +51,20 @@ describe('LogicMonitor Client Utils', () => {
     });
   });
 
+  describe('unset ID guard', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => { global.fetch = originalFetch; });
+
+    it('throws without sending a request when a path ID is undefined', async () => {
+      global.fetch = jest.fn() as unknown as typeof fetch;
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+
+      await expect(client.updateDataSource(undefined as unknown as number, {})).rejects.toThrow(/unset ID/);
+      await expect(client.getDataSource(NaN)).rejects.toThrow(/unset ID/);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('rate limit retry', () => {
     const originalFetch = global.fetch;
 

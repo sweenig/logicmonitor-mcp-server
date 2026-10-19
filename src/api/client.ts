@@ -81,6 +81,11 @@ export class LogicMonitorClient {
     body?: unknown,
     params?: Record<string, string | number | boolean>,
   ): Promise<T> {
+    // An unset ID interpolated into a path (e.g. /setting/datasources/undefined) is always a
+    // caller bug; fail before it reaches the LogicMonitor API.
+    if (/\/(undefined|null|NaN)(\/|$)/.test(path)) {
+      throw new Error(`Refusing to send ${method} ${path}: path contains an unset ID`);
+    }
     return rateLimiter.executeWithRetry(
       () => this.attemptRequest<T>(method, path, body, params),
       'api-request',
