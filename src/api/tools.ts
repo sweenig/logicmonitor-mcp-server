@@ -1336,7 +1336,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'get_datasource',
     description: 'Get detailed information about a specific datasource by its ID in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Complete datasource details: name, displayName, description, appliesTo logic, collection method, datapoints (metrics), thresholds, alert rules, polling interval. ' +
+      '\n\n**Returns:** A compact view by default: name, displayName, description, appliesTo logic, collection method, intervals, discovery settings, and each datapoint with its post-processor and alert threshold. Script bodies are replaced by a size marker, and alert message templates, per-datapoint housekeeping fields and access-group details are left out, because the full definition of a typical datasource is tens of thousands of characters. ' +
+      '\n\n**Getting more:** Use "get\\_datasource\\_scripts" for the embedded scripts. Pass the "fields" parameter to receive exactly those fields as the API returns them (fields="*" returns the complete raw definition, which can be very large). ' +
       '\n\n**When to use:** ' +
       '\n- Understand what datasource monitors' +
       '\n- Review alert thresholds' +
@@ -1345,9 +1346,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Troubleshoot why datasource applies/doesn\'t apply to device' +
       '\n\n**Key information returned:** ' +
       '\n- appliesTo: Logic determining which resource/device get this datasource (e.g., "system.hostname =\\~\\"\\*prod\\*\\"")' +
-      '\n- dataSourceType: Collection method (SNMP, WMI, JDBC, API, script)' +
+      '\n- collectMethod: Collection method (snmp, wmi, jdbc, script, batchscript, ...)' +
       '\n- dataPoints: List of metrics collected (e.g., CPUBusyPercent, MemoryUsedPercent)' +
-      '\n- alertExpr: Threshold formulas (when to alert)' +
+      '\n- alertExpr (per datapoint): Threshold formulas (when to alert)' +
       '\n- collectInterval: How often data is collected (seconds)' +
       '\n\n**Understanding appliesTo logic:** Shows why datasource does/doesn\'t monitor certain resources/devices. Common patterns: ' +
       '\n- isWindows() - Only Windows resource/device' +
@@ -1380,7 +1381,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Before debugging or modifying a DataSource\'s script, to see exactly what script(s) it contains without manually parsing collectorAttribute/autoDiscoveryConfig/dataPoints' +
       '\n- To pull a script out for testing via "execute\\_groovy\\_script" / "execute\\_powershell\\_script"' +
       '\n\n**Workflow:** Use "list\\_datasources" to find dataSourceId, this tool to extract its scripts, then "execute\\_groovy\\_script"/"execute\\_powershell\\_script" to test one against a device. ' +
-      '\n\n**Related tools:** "get\\_datasource" (full raw definition), "update\\_datasource" (write a modified script back), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (test extracted scripts).',
+      '\n\n**Related tools:** "get\\_datasource" (compact view; fields="*" for the full raw definition), "update\\_datasource" (write a modified script back), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (test extracted scripts).',
     annotations: {
       title: 'Extract DataSource embedded scripts',
       readOnlyHint: true,

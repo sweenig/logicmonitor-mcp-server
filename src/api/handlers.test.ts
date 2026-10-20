@@ -958,6 +958,36 @@ describe('LogicMonitorHandlers', () => {
 
         expect(result).toEqual(mockDataSource);
       });
+
+      it('should return a compact view by default (scripts replaced, datapoints summarized)', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          id: 2,
+          name: 'scripted',
+          collectorAttribute: { name: 'batchscript', groovyScript: 'println "hello"' },
+          dataPoints: [{ id: 5, name: 'dp', alertBody: 'long template', originId: 'x', alertExpr: '> 1' }],
+        });
+
+        const result = await handlers.handleToolCall('get_datasource', { dataSourceId: 2 });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(2, { fields: undefined });
+        expect(result.collectorAttribute.groovyScript).toBe('<15 chars; use get_datasource_scripts>');
+        expect(result.dataPoints).toEqual([{ id: 5, name: 'dp', alertExpr: '> 1' }]);
+        expect(result.note).toContain('fields');
+      });
+
+      it('should return the fields as the API sent them when fields is given', async () => {
+        const raw = {
+          id: 2,
+          collectorAttribute: { groovyScript: 'println "hello"' },
+          dataPoints: [{ id: 5, name: 'dp', alertBody: 'long template' }],
+        };
+        mockClient.getDataSource.mockResolvedValue(raw);
+
+        const result = await handlers.handleToolCall('get_datasource', { dataSourceId: 2, fields: '*' });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(2, { fields: '*' });
+        expect(result).toEqual(raw);
+      });
     });
 
     describe('get_datasource_scripts', () => {

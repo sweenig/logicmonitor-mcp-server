@@ -9,6 +9,7 @@ import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
+import { curateDataSource } from '../utils/helpers/datasource-view.js';
 import { findMissingRequired } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -562,10 +563,14 @@ export class LogicMonitorHandlers {
           };
         }
 
-        case 'get_datasource':
-          return await this.client.getDataSource(args.dataSourceId, {
+        case 'get_datasource': {
+          const dataSource = await this.client.getDataSource(args.dataSourceId, {
             fields: args.fields,
           });
+          // An explicit fields selection is returned as asked; the full definition (every script,
+          // alert template and access group) is too large to be a useful default.
+          return args.fields ? dataSource : curateDataSource(dataSource);
+        }
 
         case 'get_datasource_scripts': {
           const dataSource = await this.client.getDataSource(args.dataSourceId);
