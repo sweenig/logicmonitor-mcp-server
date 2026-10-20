@@ -10,6 +10,7 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource } from '../utils/helpers/datasource-view.js';
+import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { findMissingRequired } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -501,10 +502,18 @@ export class LogicMonitorHandlers {
 
         // Debug Commands
         case 'execute_debug_command':
-          return await this.client.executeDebugCommand(args.cmdline, args.collectorId);
+          return await runDebugCommand(this.client, args.cmdline, args.collectorId, {
+            waitSeconds: args.waitSeconds,
+            includeCommand: args.includeCommand,
+          });
 
         case 'get_debug_command_result':
-          return await this.client.getDebugCommandResult(args.id, args.collectorId);
+          return await fetchDebugResult(
+            this.client,
+            args.id,
+            args.collectorId,
+            normalizeWaitSeconds(args.waitSeconds, 0),
+          );
 
         case 'execute_groovy_script': {
           if (!!args.scriptPath === !!args.scriptBody) {
@@ -529,7 +538,10 @@ export class LogicMonitorHandlers {
             ? `${options.join(' ')} ${args.scriptPath}`
             : `${options.join(' ')} \n${args.scriptBody}`;
 
-          return await this.client.executeDebugCommand(cmdline, args.collectorId);
+          return await runDebugCommand(this.client, cmdline, args.collectorId, {
+            waitSeconds: args.waitSeconds,
+            includeCommand: args.includeCommand,
+          });
         }
 
         case 'execute_powershell_script': {
@@ -539,7 +551,10 @@ export class LogicMonitorHandlers {
 
           const cmdline = `${options.join(' ')} ${args.scriptPath}`;
 
-          return await this.client.executeDebugCommand(cmdline, args.collectorId);
+          return await runDebugCommand(this.client, cmdline, args.collectorId, {
+            waitSeconds: args.waitSeconds,
+            includeCommand: args.includeCommand,
+          });
         }
 
         // DataSources

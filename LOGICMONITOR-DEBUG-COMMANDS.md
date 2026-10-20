@@ -4,8 +4,10 @@ LogicMonitor collectors expose a "debug command" facility — the same interacti
 
 This MCP server exposes the facility generically via two tools:
 
-- **`execute_debug_command`** — `{collectorId, cmdline}`. Runs a command. Quick commands (like `help`) return their output synchronously in the `output` field. Longer-running or session-based commands instead return a `sessionId`/`cmdContext`, which must be polled.
-- **`get_debug_command_result`** — `{id, collectorId}`. Polls for output using the `sessionId`/`cmdContext` from a prior `execute_debug_command` call.
+- **`execute_debug_command`** — `{collectorId, cmdline, waitSeconds?, includeCommand?}`. Runs a command and waits for its output. The collector runs every command asynchronously (the start request never returns output, even for `help`), so the tool polls for the result for up to `waitSeconds` (default 30, maximum 120; usually 3-5 seconds) and returns `{output, sessionId, pending: false}`. If the command is still running it returns `pending: true` with the `sessionId`. `waitSeconds: 0` returns the `sessionId` immediately. The command line is not echoed back unless `includeCommand` is true.
+- **`get_debug_command_result`** — `{id, collectorId, waitSeconds?}`. Fetches the output of a command that was still `pending`, using the `sessionId`. Each request already waits a few seconds on the server; `waitSeconds` (default 0, maximum 120) keeps waiting. A running command is reported as `pending: true` (LogicMonitor answers HTTP 202 with errorCode 1202 "agent has fetched the task, waiting for response", which is normal progress, not an error).
+
+**What comes back:** only standard output. For scripts (`!groovy`, `!posh`) the output starts with a line `returns N` (the script's return value) followed by what the script printed. **Standard error is not returned**, so a failing script shows only its return code: print diagnostics with `println` / `Write-Output`. Every debug command, including its script body, is written to the portal's audit log.
 
 Both tools are classified read-write (`readOnlyHint: false`), since `cmdline` can execute arbitrary code/commands on the collector host with the collector process's privileges — treat them with the same care as shell access to that machine.
 
@@ -909,6 +911,6 @@ To get the Decrypted SHA of specific file. If filename not mentioned, SHA of all
 ## Related tools
 
 - **`execute_debug_command`** — run any of the commands above (as `cmdline`, e.g. `"help !ping"` or the real invocation) against a `collectorId`.
-- **`get_debug_command_result`** — poll for output using the `sessionId`/`cmdContext` returned by `execute_debug_command`, when a command doesn't return its output synchronously.
+- **`get_debug_command_result`** — fetch the output using the `sessionId` returned by `execute_debug_command` when it came back `pending: true` (the command was still running when its wait ended).
 - **`list_collectors`** / **`get_collector`** — find a valid `collectorId` to target.
 - **`get_resource`** / **`list_resources`** — find a `hostId` or hostname to embed inside a `cmdline` (e.g. `!groovy hostId=6412 ...`, `!ping <host>`).

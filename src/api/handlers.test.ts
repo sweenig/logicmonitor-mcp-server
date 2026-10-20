@@ -862,12 +862,14 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(mockClient.executeDebugCommand).toHaveBeenCalledWith('help', 129);
-        expect(result).toEqual(mockResult);
+        // The echoed command line is dropped and the result is marked finished.
+        expect(result).toEqual({ output: 'available commands...', pending: false });
       });
 
-      it('should execute a debug command that returns a session for polling', async () => {
-        const mockResult = { cmdline: '!groovy hostId=6412\nreturn 0', cmdContext: 'ctx-1', sessionId: 'sess-1' };
+      it('should wait for a debug command that returns a session and return its output', async () => {
+        const mockResult = { cmdline: '!groovy hostId=6412\nreturn 0', cmdContext: 'ctx-1', sessionId: 'sess-1', output: '' };
         mockClient.executeDebugCommand.mockResolvedValue(mockResult);
+        mockClient.getDebugCommandResult.mockResolvedValue({ output: 'returns 0\noutput:\n', sessionId: 'sess-1', cmdline: null });
 
         const result = await handlers.handleToolCall('execute_debug_command', {
           collectorId: 129,
@@ -875,7 +877,35 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(mockClient.executeDebugCommand).toHaveBeenCalledWith('!groovy hostId=6412\nreturn 0', 129);
-        expect(result).toEqual(mockResult);
+        expect(mockClient.getDebugCommandResult).toHaveBeenCalledWith('sess-1', 129);
+        expect(result).toMatchObject({ output: 'returns 0\noutput:\n', sessionId: 'sess-1', pending: false });
+        expect(result.cmdline).toBeUndefined();
+      });
+
+      it('should return the session without waiting when waitSeconds is 0', async () => {
+        mockClient.executeDebugCommand.mockResolvedValue({ cmdline: 'x', sessionId: 'sess-2', output: '' });
+        mockClient.getDebugCommandResult.mockClear();
+
+        const result = await handlers.handleToolCall('execute_debug_command', {
+          collectorId: 129,
+          cmdline: '!tlist',
+          waitSeconds: 0,
+        });
+
+        expect(mockClient.getDebugCommandResult).not.toHaveBeenCalled();
+        expect(result).toMatchObject({ sessionId: 'sess-2', pending: true, output: '' });
+      });
+
+      it('should echo the command only when includeCommand is true', async () => {
+        mockClient.executeDebugCommand.mockResolvedValue({ cmdline: 'ignored', output: 'ok' });
+
+        const result = await handlers.handleToolCall('execute_debug_command', {
+          collectorId: 129,
+          cmdline: '!tlist',
+          includeCommand: true,
+        });
+
+        expect(result.cmdline).toBe('!tlist');
       });
     });
 
@@ -890,7 +920,23 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(mockClient.getDebugCommandResult).toHaveBeenCalledWith('sess-1', 129);
-        expect(result).toEqual(mockResult);
+        expect(result).toEqual({ output: 'hello world!', sessionId: 'sess-1', pending: false });
+      });
+
+      it('should report a command that is still running as pending, not as an error', async () => {
+        mockClient.getDebugCommandResult.mockResolvedValue({
+          errorMessage: 'agent has fetched the task, waiting for response',
+          errorCode: 1202,
+          errorDetail: null,
+        });
+
+        const result = await handlers.handleToolCall('get_debug_command_result', {
+          id: 'sess-1',
+          collectorId: 129,
+        });
+
+        expect(result).toMatchObject({ sessionId: 'sess-1', pending: true, output: '' });
+        expect(result.errorCode).toBeUndefined();
       });
     });
 

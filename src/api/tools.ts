@@ -47,6 +47,18 @@ const fieldsSchema = {
   },
 };
 
+// Options shared by the debug command tools (see src/utils/helpers/debug-command.ts).
+const debugRunSchema = {
+  waitSeconds: {
+    type: 'number',
+    description: 'Seconds to wait for the command to finish and return its output (default 30, maximum 120). The collector runs the command asynchronously, so output usually takes 3-5 seconds. If it is not ready in time the result has pending: true and a sessionId to pass to "get_debug_command_result". Use 0 to return the sessionId immediately without waiting.',
+  },
+  includeCommand: {
+    type: 'boolean',
+    description: 'Include the command line that was sent in the result as "cmdline" (default false; it is omitted because scripts can be long).',
+  },
+};
+
 const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   // Device Management Tools
   {
@@ -1156,14 +1168,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     name: 'execute_debug_command',
     description: 'Execute a debug command on a LogicMonitor (LM) collector for advanced troubleshooting and scripting. ' +
       '\n\n**⚠️ Safety warning:** This executes arbitrary code/commands directly on the target collector\'s host operating system, with the same privileges as the collector process. Commands can read, modify, or delete data, invoke scripts (e.g. "!groovy"), and affect monitoring behavior for that collector and any resources/devices it services. Only run commands you understand, double-check the collectorId, and avoid destructive commands unless intentional. ' +
-      '\n\n**Returns:** Debug object with: cmdline (echo of the command sent), output (command output, if it returned synchronously), cmdContext and sessionId (present for long-running/session-based commands - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**Returns:** `{ output, sessionId, pending }`. The collector runs the command asynchronously (POST never returns output, even for "help"), so this tool waits for the result - up to "waitSeconds", default 30 s, usually 3-5 s - and returns the finished output with pending: false. If the command is still running when the wait ends it returns pending: true with the sessionId; fetch the output later with "get\\_debug\\_command\\_result". The command line is not echoed back unless includeCommand is true. ' +
       '\n\n**When to use:** ' +
       '\n- Discover available debug commands and their syntax: use cmdline "help" for the full list, or "help <command>" for usage of a specific command' +
       '\n- Test a Groovy/PowerShell script against a resource/device before deploying it in a DataSource, EventSource, or PropertySource' +
       '\n- Interactively debug a discovery or collection script' +
       '\n- Inspect low-level collector state not exposed by other API endpoints' +
       '\n\n**Command syntax:** Debug commands are free-form strings typed exactly as they would be in the collector\'s built-in debug console. Multi-line commands (e.g. Groovy scripts) use "\\n" line separators within the cmdline string. Any device/instance targeting (e.g. "hostId=6412") is embedded directly inside the cmdline string - do NOT pass it as a separate parameter. ' +
-      '\n\n**Synchronous vs session-based:** Quick commands (e.g. "help", simple lookups) return their full output immediately in this call\'s "output" field. Long-running or interactive commands instead return a "sessionId"/"cmdContext" - pass that value as "id" to "get\\_debug\\_command\\_result" (with the same collectorId) to retrieve additional output. ' +
+      '\n\n**Output:** Only standard output comes back, and for scripts ("!groovy", "!posh") a first line "returns N" with the script\'s return value. Standard error is NOT returned, so a failing script shows only its return code: print diagnostics to standard output (println / Write-Output). ' +
       '\n\n**Full command reference:** MCP resource "lm://docs/debug-commands" has the complete syntax reference for every debug command. Read it once if unfamiliar with debug command syntax; skip it if you already know the syntax you need. ' +
       '\n\n**Related tools:** "get\\_debug\\_command\\_result" (poll for more output on long-running commands), "execute\\_groovy\\_script" / "execute\\_powershell\\_script" (typed wrappers for the two most common scripting commands), "list\\_collectors" / "get\\_collector" (find a valid collectorId), "get\\_resource" (find a hostId to embed in cmdline).',
     annotations: {
@@ -1173,6 +1185,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        ...debugRunSchema,
         collectorId: {
           type: 'number',
           description: 'ID of the collector to run the debug command on (from "list_collectors" or "get_collector"). Required to route the command, even though LogicMonitor\'s API marks it optional.',
@@ -1190,11 +1203,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     name: 'get_debug_command_result',
     description: 'Retrieve additional output from a previously started LogicMonitor (LM) collector debug command session, by polling with the sessionId/cmdContext returned from "execute\\_debug\\_command". ' +
       '\n\n**⚠️ Safety note:** Classified as a write/execute operation (not read-only) because it continues to drive an active debug command session on the collector, even though the HTTP verb is GET. ' +
-      '\n\n**Returns:** Debug object with: output (additional output accumulated since the last poll), cmdline (echo of the original command), cmdContext, sessionId. ' +
+      '\n\n**Returns:** `{ output, sessionId, pending }`: the output once the command has finished (pending: false), or pending: true while the collector is still running it. LogicMonitor reports the running state as HTTP 202 / errorCode 1202 "agent has fetched the task, waiting for response"; that is normal progress, not an error. Each request already waits a few seconds on the server; "waitSeconds" (default 0 = a single check, maximum 120) keeps waiting up to that long. ' +
       '\n\n**When to use:** ' +
       '\n- After "execute\\_debug\\_command" returns a sessionId/cmdContext instead of (or in addition to) final output, indicating the command is long-running or session-based' +
       '\n- Repeatedly poll this tool with the same id/collectorId until output stabilizes or the session ends' +
-      '\n\n**Workflow:** Call "execute\\_debug\\_command" first; if the response includes a sessionId/cmdContext, pass that value as "id" (with the same collectorId) to this tool to fetch further output. ' +
+      '\n\n**Workflow:** "execute\\_debug\\_command" (and the script wrappers) already wait for the output, so this is only needed when they returned pending: true: pass the sessionId as "id" (with the same collectorId), optionally with waitSeconds. ' +
       '\n\n**Related tools:** "execute\\_debug\\_command" (start a debug command session).',
     annotations: {
       title: 'Get collector debug command result',
@@ -1203,6 +1216,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        waitSeconds: {
+          type: 'number',
+          description: 'Seconds to keep waiting for the command to finish (default 0 = check once, maximum 120). Returns pending: true if it is still running.',
+        },
         id: {
           type: 'string',
           description: 'The sessionId/cmdContext returned from a prior "execute_debug_command" (or "get_debug_command_result") call, used to poll for additional output.',
@@ -1220,7 +1237,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     name: 'execute_groovy_script',
     description: 'Execute a Groovy script on a LogicMonitor (LM) collector - a typed wrapper around "execute\\_debug\\_command"\'s "!groovy" command that builds the cmdline string for you. ' +
       '\n\n**⚠️ Safety warning:** Same as "execute\\_debug\\_command" - this runs arbitrary code on the collector host with the collector process\'s privileges. ' +
-      '\n\n**Returns:** Debug object with: cmdline, output (if synchronous), cmdContext and sessionId (present for long-running scripts - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**Returns:** `{ output, sessionId, pending }` - waits for the script to finish (up to "waitSeconds", default 30 s) and returns its output with pending: false; if it is still running it returns pending: true with the sessionId for "get\\_debug\\_command\\_result". The output is "returns N" (the script\'s return value) followed by what the script printed. Standard error is NOT returned, so print diagnostics with println. The command line is not echoed back unless includeCommand is true. ' +
       '\n\n**When to use:** ' +
       '\n- Test a Groovy script (a DataSource/EventSource/PropertySource collection or discovery script, or a standalone script) against a device before deploying it as a LogicModule' +
       '\n- Run a script already present on the collector filesystem ("scriptPath"), or an inline script body ("scriptBody") ' +
@@ -1234,6 +1251,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        ...debugRunSchema,
         collectorId: {
           type: 'number',
           description: 'ID of the collector to run the script on (from "list_collectors" or "get_collector").',
@@ -1272,7 +1290,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     name: 'execute_powershell_script',
     description: 'Execute a PowerShell script on a LogicMonitor (LM) collector - a typed wrapper around "execute\\_debug\\_command"\'s "!posh" command that builds the cmdline string for you. Windows collectors only - fails with "!posh is not supported on linux" on Linux/Unix collectors. ' +
       '\n\n**⚠️ Safety warning:** Same as "execute\\_debug\\_command" - this runs arbitrary code on the collector host with the collector process\'s privileges. ' +
-      '\n\n**Returns:** Debug object with: cmdline, output (if synchronous), cmdContext and sessionId (present for long-running scripts - pass either to "get\\_debug\\_command\\_result" to poll for further output). ' +
+      '\n\n**Returns:** `{ output, sessionId, pending }` - waits for the script to finish (up to "waitSeconds", default 30 s) and returns its output with pending: false; if it is still running it returns pending: true with the sessionId for "get\\_debug\\_command\\_result". The output is "returns N" (the script\'s return value) followed by what the script printed. Standard error is NOT returned, so print diagnostics with Write-Output. The command line is not echoed back unless includeCommand is true. ' +
       '\n\n**When to use:** ' +
       '\n- Test a PowerShell script (a DataSource/EventSource/PropertySource collection or discovery script, or a standalone script) against a device before deploying it as a LogicModule, on a Windows collector' +
       '\n\n**Note:** unlike "execute\\_groovy\\_script", "!posh" only supports a script file already on the collector filesystem - there is no inline script body option. ' +
@@ -1284,6 +1302,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        ...debugRunSchema,
         collectorId: {
           type: 'number',
           description: 'ID of the collector to run the script on (from "list_collectors" or "get_collector"). Must be a Windows collector.',

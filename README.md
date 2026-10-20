@@ -630,8 +630,8 @@ The server provides 146 tools for comprehensive LogicMonitor operations. Tools a
 - `update_netscan` - Modify NetScan
 - `delete_netscan` - Delete netscan
 - `delete_collector_group` - Delete an empty collector group
-- `execute_debug_command` - Run a debug command on a collector (e.g. test a Groovy/PowerShell script)
-- `get_debug_command_result` - Poll for output from a long-running/session-based debug command
+- `execute_debug_command` - Run a debug command on a collector and wait for its output (e.g. test a Groovy/PowerShell script)
+- `get_debug_command_result` - Fetch the output of a debug command that was still running (`pending: true`)
 - `execute_groovy_script` - Typed wrapper to run a Groovy script (path or inline body) on a collector
 - `execute_powershell_script` - Typed wrapper to run a PowerShell script on a Windows collector
 
