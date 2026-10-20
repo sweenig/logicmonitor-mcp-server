@@ -199,3 +199,84 @@ describe('LogicMonitor Client Utils', () => {
   });
 });
 
+describe('property upsert', () => {
+  const originalFetch = global.fetch;
+  afterEach(() => { global.fetch = originalFetch; });
+
+  const reply = (status: number, body: any) => ({
+    ok: status < 400,
+    status,
+    headers: new Headers(),
+    json: async () => body,
+  } as unknown as Response);
+
+  const mockFetch = (...responses: Response[]) => {
+    const calls: { method: string; url: string; body: any }[] = [];
+    let i = 0;
+    global.fetch = jest.fn(async (url: any, init: any) => {
+      calls.push({ method: init.method, url: String(url), body: init.body ? JSON.parse(init.body) : undefined });
+      return responses[i++];
+    }) as unknown as typeof fetch;
+    return calls;
+  };
+
+  const notFound = reply(404, { errorMessage: 'Property(name=my.prop) is not found in device<6>', errorCode: 1404 });
+  const newClient = () => new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+
+  it.each([
+    ['device', 'updateDeviceProperty', '/device/devices/6/properties'],
+    ['group', 'updateDeviceGroupProperty', '/device/groups/6/properties'],
+  ] as const)('updates an existing %s property with a single PATCH', async (_kind, method, path) => {
+    const calls = mockFetch(reply(200, { name: 'my.prop', value: 'v' }));
+    const result = await newClient()[method](6, 'my.prop', 'v');
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe('PATCH');
+    expect(calls[0].url).toContain(`${path}/my.prop`);
+    expect(result).toMatchObject({ name: 'my.prop', action: 'updated' });
+  });
+
+  it.each([
+    ['device', 'updateDeviceProperty', '/device/devices/6/properties'],
+    ['group', 'updateDeviceGroupProperty', '/device/groups/6/properties'],
+  ] as const)('creates a missing %s property via POST after a property-not-found 404', async (_kind, method, path) => {
+    const calls = mockFetch(notFound, reply(200, { name: 'my.prop', value: 'v' }));
+    const result = await newClient()[method](6, 'my.prop', 'v');
+
+    expect(calls.map(c => c.method)).toEqual(['PATCH', 'POST']);
+    expect(calls[1].url).toContain(path);
+    expect(calls[1].url).not.toContain('my.prop');
+    expect(calls[1].body).toEqual({ name: 'my.prop', value: 'v' });
+    expect(result).toMatchObject({ name: 'my.prop', action: 'created' });
+  });
+
+  it.each([
+    ['device', 'updateDeviceProperty'],
+    ['group', 'updateDeviceGroupProperty'],
+  ] as const)('does not create on a 404 that is not property-not-found (%s)', async (_kind, method) => {
+    const calls = mockFetch(reply(404, { errorMessage: 'Device is not found' }));
+    await expect(newClient()[method](6, 'my.prop', 'v')).rejects.toMatchObject({ status: 404 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it.each([
+    ['device', 'updateDeviceProperty'],
+    ['group', 'updateDeviceGroupProperty'],
+  ] as const)('does not create on a non-404 error (%s)', async (_kind, method) => {
+    const calls = mockFetch(reply(403, { errorMessage: 'Forbidden' }));
+    await expect(newClient()[method](6, 'my.prop', 'v')).rejects.toMatchObject({ status: 403 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it.each([
+    ['device', 'deleteDeviceProperty', '/device/devices/6/properties/my.prop'],
+    ['group', 'deleteDeviceGroupProperty', '/device/groups/6/properties/my.prop'],
+  ] as const)('deletes a %s property with DELETE on the named path', async (_kind, method, path) => {
+    const calls = mockFetch(reply(200, {}));
+    await newClient()[method](6, 'my.prop');
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].method).toBe('DELETE');
+    expect(calls[0].url).toContain(path);
+  });
+});

@@ -723,9 +723,11 @@ The server provides 146 tools for comprehensive LogicMonitor operations. Tools a
 - `list_resource_group_properties` - List properties for device group
 
 **Write Operations:**
-- `update_resource_property` - Update device property value
+- `update_resource_property` - Set device property value (creates it if missing)
+- `delete_resource_property` - Delete a device custom property
 - `schedule_resource_discovery` - Trigger Active Discovery on a device (read-only; asynchronous)
-- `update_resource_group_property` - Update device group property value
+- `update_resource_group_property` - Set device group property value (creates it if missing)
+- `delete_resource_group_property` - Delete a device group custom property
 
 ### Group-Level Alert Thresholds
 

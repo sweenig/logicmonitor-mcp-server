@@ -1204,6 +1204,9 @@ export class LogicMonitorHandlers {
             args.value,
           );
 
+        case 'delete_resource_property':
+          return await this.client.deleteDeviceProperty(args.deviceId, args.propertyName);
+
         case 'schedule_resource_discovery':
           return await this.client.scheduleDeviceDiscovery(args.deviceId);
 
@@ -1671,6 +1674,9 @@ export class LogicMonitorHandlers {
             args.propertyName,
             args.value,
           );
+
+        case 'delete_resource_group_property':
+          return await this.client.deleteDeviceGroupProperty(args.groupId, args.propertyName);
 
         // Device Group DataSources (group-level datasource associations & threshold overrides)
         case 'list_resource_group_datasources':

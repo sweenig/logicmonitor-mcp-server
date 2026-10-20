@@ -67,6 +67,8 @@ describe('getLogicMonitorTools', () => {
       expect(toolNames).not.toContain('create_resource_group');
       expect(toolNames).not.toContain('update_resource_group');
       expect(toolNames).not.toContain('delete_resource_group');
+      expect(toolNames).not.toContain('delete_resource_property');
+      expect(toolNames).not.toContain('delete_resource_group_property');
     });
 
     it('should include list/get tools in read-only mode', () => {

@@ -3802,8 +3802,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'update_resource_property',
-    description: 'Update or create a custom property for a specific resource/device in LogicMonitor (LM) monitoring. ' +
-      '\n\n**What this does:** Set/update a single resource/device-level custom property. Simpler alternative to "update\\_resource" when only changing one property. ' +
+    description: 'Set (update or create) a custom property for a specific resource/device in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Set a single resource/device-level custom property: updates it if it already exists, otherwise creates it (the result includes `action`: "updated" or "created"). Simpler alternative to "update\\_resource" when only changing one property. ' +
       '\n\n**When to use:** ' +
       '\n- Update single property value' +
       '\n- Add new property to device' +
@@ -3812,42 +3812,42 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Change resource/device tags/metadata' +
       '\n\n**Required parameters:** ' +
       '\n- deviceId: Device ID (from "list\\_resources")' +
-      '\n- name: Property name (e.g., "ssh.user", "env", "owner")' +
+      '\n- propertyName: Property name (e.g., "ssh.user", "env", "owner")' +
       '\n- value: Property value' +
       '\n\n**Property types and examples:** ' +
       '\n\n**Credentials (override group defaults):** ' +
-      '\n- SSH: name="ssh.user", value="admin"' +
-      '\n- SNMP: name="snmp.community", value="public"' +
-      '\n- WMI: name="wmi.user", value="DOMAIN\\\\monitoring"' +
-      '\n- Database: name="jdbc.user", value="dbmonitor"' +
+      '\n- SSH: propertyName="ssh.user", value="admin"' +
+      '\n- SNMP: propertyName="snmp.community", value="public"' +
+      '\n- WMI: propertyName="wmi.user", value="DOMAIN\\\\monitoring"' +
+      '\n- Database: propertyName="jdbc.user", value="dbmonitor"' +
       '\n\n**Tags and metadata:** ' +
-      '\n- Environment: name="env", value="production"' +
-      '\n- Owner: name="owner", value="platform-team"' +
-      '\n- Cost center: name="cost.center", value="engineering"' +
-      '\n- Application: name="app", value="web-frontend"' +
+      '\n- Environment: propertyName="env", value="production"' +
+      '\n- Owner: propertyName="owner", value="platform-team"' +
+      '\n- Cost center: propertyName="cost.center", value="engineering"' +
+      '\n- Application: propertyName="app", value="web-frontend"' +
       '\n\n**Integration IDs:** ' +
-      '\n- ServiceNow: name="servicenow.ci_id", value="ci12345"' +
-      '\n- JIRA: name="jira.project", value="INFRA"' +
-      '\n- CMDB: name="cmdb.id", value="server-001"' +
+      '\n- ServiceNow: propertyName="servicenow.ci_id", value="ci12345"' +
+      '\n- JIRA: propertyName="jira.project", value="INFRA"' +
+      '\n- CMDB: propertyName="cmdb.id", value="server-001"' +
       '\n\n**Datasource-specific settings:** ' +
-      '\n- Custom threshold: name="threshold.cpu", value="90"' +
-      '\n- Collection interval: name="poll.interval", value="5"' +
-      '\n- Monitoring scope: name="monitor.ports", value="80,443"' +
+      '\n- Custom threshold: propertyName="threshold.cpu", value="90"' +
+      '\n- Collection interval: propertyName="poll.interval", value="5"' +
+      '\n- Monitoring scope: propertyName="monitor.ports", value="80,443"' +
       '\n\n**Device-level vs Group-level:** ' +
       '\n- **Device property** (this tool): Applies only to this resource/device, overrides group property' +
       '\n- **Group property** (update_resource_group): Inherited by all resource/device in group' +
       '\n- Device properties take precedence over group properties' +
       '\n\n**Common scenarios:** ' +
       '\n\n**Override SSH credentials for one resource/device:** ' +
-      '{deviceId: 123, name: "ssh.user", value: "specialadmin"} ' +
+      '{deviceId: 123, propertyName: "ssh.user", value: "specialadmin"} ' +
       '\n\n**Tag resource/device as production:** ' +
-      '{deviceId: 123, name: "env", value: "production"} ' +
+      '{deviceId: 123, propertyName: "env", value: "production"} ' +
       '\n\n**Link to ServiceNow CI:** ' +
-      '{deviceId: 123, name: "servicenow.ci_id", value: "ci-web-01"} ' +
+      '{deviceId: 123, propertyName: "servicenow.ci_id", value: "ci-web-01"} ' +
       '\n\n**Set custom alert threshold:** ' +
-      '{deviceId: 123, name: "cpu.threshold", value: "85"} ' +
-      '\n\n**Workflow:** Use "list\\_device\\_properties" to see current properties, then update or add new ones. ' +
-      '\n\n**Related tools:** "list\\_device\\_properties" (view all properties), "update\\_resource" (update multiple properties), "update\\_resource\\_group" (set group-level properties).',
+      '{deviceId: 123, propertyName: "cpu.threshold", value: "85"} ' +
+      '\n\n**Workflow:** Use "list\\_resource\\_properties" to see current properties; update and add use the same call. ' +
+      '\n\n**Related tools:** "list\\_resource\\_properties" (view all properties), "update\\_resource" (update multiple properties), "update\\_resource\\_group" (set group-level properties).',
     annotations: {
       title: 'Update resource/device properties',
       readOnlyHint: false,
@@ -3861,7 +3861,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         propertyName: {
           type: 'string',
-          description: 'The name of the property to update',
+          description: 'The name of the property to set (created if it does not exist)',
         },
         value: {
           type: 'string',
@@ -3870,6 +3870,40 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       },
       additionalProperties: false,
       required: ['deviceId', 'propertyName', 'value'],
+    },
+  },
+  {
+    name: 'delete_resource_property',
+    description: 'Delete a custom property from a resource/device in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Removes one resource/device-level custom property by name. Other properties are untouched (unlike "update\\_resource", which replaces the whole list). ' +
+      '\n\n**⚠️ Notes:** ' +
+      '\n- Only custom properties set at this level can be deleted; system properties and values inherited from a parent group cannot' +
+      '\n- If a parent group defines the same property, that inherited value applies again after deletion' +
+      '\n- Deleting a property that credentials, appliesTo logic, or alert rules depend on can change monitoring immediately' +
+      '\n- Fails with 404 if the property does not exist at this level' +
+      '\n\n**Required parameters:** ' +
+      '\n- deviceId: The resource/device ID (from "list\\_resources")' +
+      '\n- propertyName: Property name to delete (e.g., "env", "owner")' +
+      '\n\n**Example:** {deviceId: 123, propertyName: "env"} ' +
+      '\n\n**Related tools:** "list\\_resource\\_properties" (view properties), "update\\_resource\\_property" (set a property).',
+    annotations: {
+      title: 'Delete resource/device property',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: {
+          type: 'number',
+          description: 'The resource/device ID (from "list\\_resources")',
+        },
+        propertyName: {
+          type: 'string',
+          description: 'The name of the property to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['deviceId', 'propertyName'],
     },
   },
   {
@@ -6989,8 +7023,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'update_resource_group_property',
-    description: 'Update a custom property value for a resource/device group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**What this does:** Modifies group-level property inherited by all resource/device in group. Changes immediately affect all member resources/devices. ' +
+    description: 'Set (update or create) a custom property for a resource/device group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Updates the group-level property if it exists, otherwise creates it (the result includes `action`: "updated" or "created"). The property is inherited by all resource/device in group. Changes immediately affect all member resources/devices. ' +
       '\n\n**When to use:**' +
       '\n- Update credentials for all resource/device in group' +
       '\n- Change environment tags' +
@@ -7000,28 +7034,28 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- groupId: Device group ID (from "list\\_resource\\_groups") ' +
-      '\n- name: Property name (e.g., "ssh.user", "env", "owner") ' +
-      '\n- value: New property value ' +
+      '\n- propertyName: Property name (e.g., "ssh.user", "env", "owner") ' +
+      '\n- value: Property value ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update credentials for entire group:** ' +
-      '{groupId: 123, name: "ssh.user", value: "monitoring-v2"} ' +
+      '{groupId: 123, propertyName: "ssh.user", value: "monitoring-v2"} ' +
       '// All resource/device in group now use new SSH user ' +
       '\n\n**Change environment tag:** ' +
-      '{groupId: 123, name: "env", value: "production"} ' +
+      '{groupId: 123, propertyName: "env", value: "production"} ' +
       '// Mark entire group as production ' +
       '\n\n**Update owner/team:** ' +
-      '{groupId: 123, name: "owner", value: "platform-team"} ' +
+      '{groupId: 123, propertyName: "owner", value: "platform-team"} ' +
       '\n\n**⚠️ Important - Inheritance Impact:** ' +
       '\n- All resource/device in group inherit updated property ' +
       '\n- resources/Devices with device-level override keep their value (device wins) ' +
       '\n- Subgroup resource/device also inherit unless overridden ' +
       '\n- Credential changes affect monitoring immediately ' +
       '\n\n**Best practice workflow:** ' +
-      '1. Use "list\\_device\\_group\\_properties" to see current properties ' +
-      '2. Update property value ' +
+      '1. Use "list\\_resource\\_group\\_properties" to see current properties ' +
+      '2. Set the property value (creates it if missing) ' +
       '3. Changes propagate to all member resource/device immediately ' +
       '4. Test monitoring still works (especially for credential changes) ' +
-      '\n\n**Related tools:** "list\\_device\\_group\\_properties" (view all), "list\\_device\\_properties" (device-level view), "get\\_resource\\_group" (group details).',
+      '\n\n**Related tools:** "list\\_resource\\_group\\_properties" (view all), "list\\_resource\\_properties" (device-level view), "get\\_resource\\_group" (group details).',
     annotations: {
       title: 'Update resource/device group property',
       readOnlyHint: false,
@@ -7035,7 +7069,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         propertyName: {
           type: 'string',
-          description: 'The name of the property to update',
+          description: 'The name of the property to set (created if it does not exist)',
         },
         value: {
           type: 'string',
@@ -7044,6 +7078,40 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       },
       additionalProperties: false,
       required: ['groupId', 'propertyName', 'value'],
+    },
+  },
+  {
+    name: 'delete_resource_group_property',
+    description: 'Delete a custom property from a resource/device group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**What this does:** Removes one group-level custom property by name. Other properties are untouched (unlike "update\\_resource", which replaces the whole list). ' +
+      '\n\n**⚠️ Notes:** ' +
+      '\n- Only custom properties set at this level can be deleted; system properties and values inherited from a parent group cannot' +
+      '\n- If a parent group defines the same property, that inherited value applies again after deletion' +
+      '\n- Deleting a property that credentials, appliesTo logic, or alert rules depend on can change monitoring immediately' +
+      '\n- Fails with 404 if the property does not exist at this level' +
+      '\n\n**Required parameters:** ' +
+      '\n- groupId: The resource/device group ID (from "list\\_resource\\_groups")' +
+      '\n- propertyName: Property name to delete (e.g., "env", "owner")' +
+      '\n\n**Example:** {groupId: 123, propertyName: "env"} ' +
+      '\n\n**Related tools:** "list\\_resource\\_group\\_properties" (view properties), "update\\_resource\\_group\\_property" (set a property).',
+    annotations: {
+      title: 'Delete resource/device group property',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The resource/device group ID (from "list\\_resource\\_groups")',
+        },
+        propertyName: {
+          type: 'string',
+          description: 'The name of the property to delete',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId', 'propertyName'],
     },
   },
 

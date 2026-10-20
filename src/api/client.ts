@@ -1170,10 +1170,35 @@ export class LogicMonitorClient {
     return this.request<LMListResponse<any>>('GET', `/device/devices/${deviceId}/properties`, undefined, cleanedParams);
   }
 
+  /**
+   * Set a custom property, creating it if it doesn't exist yet. LogicMonitor's PATCH on
+   * `.../properties/{name}` only updates existing properties (404 "Property(name=...) is not found"),
+   * and creation is a separate POST to the collection. PATCH first so the common update case is one
+   * call; only a property-not-found 404 falls back to POST (other errors, including a 404 for a
+   * missing device/group, propagate unchanged). Result carries `action: 'updated' | 'created'`.
+   */
+  private async upsertProperty(collectionPath: string, propertyName: string, value: string) {
+    try {
+      const updated = await this.request<LMResponse<any>>('PATCH', `${collectionPath}/${propertyName}`, { value });
+      return { ...updated, action: 'updated' as const };
+    } catch (error) {
+      const propertyMissing = error instanceof LogicMonitorApiError
+        && error.status === 404
+        && /Property\(name=.*\) is not found/i.test(error.errorMessage ?? '');
+      if (!propertyMissing) {
+        throw error;
+      }
+      const created = await this.request<LMResponse<any>>('POST', collectionPath, { name: propertyName, value });
+      return { ...created, action: 'created' as const };
+    }
+  }
+
   async updateDeviceProperty(deviceId: number, propertyName: string, value: string) {
-    return this.request<LMResponse<any>>('PATCH', `/device/devices/${deviceId}/properties/${propertyName}`, {
-      value,
-    });
+    return this.upsertProperty(`/device/devices/${deviceId}/properties`, propertyName, value);
+  }
+
+  async deleteDeviceProperty(deviceId: number, propertyName: string) {
+    return this.request<LMResponse<any>>('DELETE', `/device/devices/${deviceId}/properties/${propertyName}`);
   }
 
   async scheduleDeviceDiscovery(deviceId: number) {
@@ -1623,9 +1648,11 @@ export class LogicMonitorClient {
   }
 
   async updateDeviceGroupProperty(groupId: number, propertyName: string, value: string) {
-    return this.request<LMResponse<any>>('PATCH', `/device/groups/${groupId}/properties/${propertyName}`, {
-      value,
-    });
+    return this.upsertProperty(`/device/groups/${groupId}/properties`, propertyName, value);
+  }
+
+  async deleteDeviceGroupProperty(groupId: number, propertyName: string) {
+    return this.request<LMResponse<any>>('DELETE', `/device/groups/${groupId}/properties/${propertyName}`);
   }
 
   // Device Group DataSources (group-level datasource associations & threshold overrides)

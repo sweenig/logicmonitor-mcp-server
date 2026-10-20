@@ -92,6 +92,7 @@ describe('LogicMonitorHandlers', () => {
       getPropertySource: jest.fn(),
       listDeviceProperties: jest.fn(),
       updateDeviceProperty: jest.fn(),
+      deleteDeviceProperty: jest.fn(),
       scheduleDeviceDiscovery: jest.fn(),
       listAuditLogs: jest.fn(),
       getAuditLog: jest.fn(),
@@ -152,6 +153,7 @@ describe('LogicMonitorHandlers', () => {
       updateCollectorGroup: jest.fn(),
       listDeviceGroupProperties: jest.fn(),
       updateDeviceGroupProperty: jest.fn(),
+      deleteDeviceGroupProperty: jest.fn(),
       listDeviceGroupDataSources: jest.fn(),
       getDeviceGroupDataSourceAlertSettings: jest.fn(),
       updateDeviceGroupDataSourceAlertSettings: jest.fn(),
@@ -2321,6 +2323,28 @@ describe('LogicMonitorHandlers', () => {
 
       expect(result).toEqual({});
       expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'test.prop', 'new-value');
+    });
+
+    it('should delete device property', async () => {
+      mockClient.deleteDeviceProperty.mockResolvedValue({});
+
+      await handlers.handleToolCall('delete_resource_property', {
+        deviceId: 1,
+        propertyName: 'test.prop',
+      });
+
+      expect(mockClient.deleteDeviceProperty).toHaveBeenCalledWith(1, 'test.prop');
+    });
+
+    it('should delete device group property', async () => {
+      mockClient.deleteDeviceGroupProperty.mockResolvedValue({});
+
+      await handlers.handleToolCall('delete_resource_group_property', {
+        groupId: 2,
+        propertyName: 'test.prop',
+      });
+
+      expect(mockClient.deleteDeviceGroupProperty).toHaveBeenCalledWith(2, 'test.prop');
     });
 
     it('should schedule device discovery', async () => {

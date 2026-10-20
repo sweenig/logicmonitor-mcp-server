@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `delete_resource_property` and `delete_resource_group_property` tools - delete a single custom property from a resource/device or resource group (`DELETE .../properties/{name}`) without replacing the whole property list
 - `update_uptime_check` tool - partially update an LM Uptime web/ping check (host/domain, locations, interval, alert settings, HTTP steps) with the same default-settings rules as create
 - `create_uptime_check` supports `checkType: "ping"` and internal checks
 - `schedule_resource_discovery` tool - trigger Active Discovery on a resource/device via `POST /device/devices/{id}/scheduleAutoDiscovery`; classified read-only (it only requests a discovery run) so it is available in read-only mode
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `update_datasource` description now notes that `hasMultiInstances` cannot be changed after creation (LogicMonitor limitation)
 
 ### Fixed
+- `update_resource_property` and `update_resource_group_property` can now add a property that doesn't exist yet. LogicMonitor's `PATCH .../properties/{name}` only updates existing properties (404 "Property(name=...) is not found"); on that specific 404 the tools now fall back to `POST .../properties`. Results include `action: "updated" | "created"`; other errors (including a missing device/group) are not retried. Tool descriptions now use the real `propertyName` parameter instead of `name`
 - `create_datasource` now supports `hasMultiInstances` (create-only in LogicMonitor); previously it was silently dropped, producing unusable single-instance DataSources. Defaults to `true` when `enableAutoDiscovery` is `true`; an explicit `false` is respected
 
 ## [0.0.1] - Initial Release

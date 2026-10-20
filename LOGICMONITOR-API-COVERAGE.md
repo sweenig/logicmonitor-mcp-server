@@ -28,7 +28,7 @@
 - ✅ Search devices
 - ✅ **Generate resource links** (custom addition)
 
-**Tools:** `list_resources`, `get_resource`, `create_resource`, `update_resource`, `delete_resource`, `list_resource_groups`, `get_resource_group`, `create_resource_group`, `update_resource_group`, `delete_resource_group`, `list_resource_properties`, `update_resource_property`, `schedule_resource_discovery`, `list_resource_datasources`, `get_resource_datasource`, `update_resource_datasource`, `list_resource_instances`, `get_resource_instance_data`, `search_resources`, `generate_resource_link`
+**Tools:** `list_resources`, `get_resource`, `create_resource`, `update_resource`, `delete_resource`, `list_resource_groups`, `get_resource_group`, `create_resource_group`, `update_resource_group`, `delete_resource_group`, `list_resource_properties`, `update_resource_property`, `delete_resource_property`, `schedule_resource_discovery`, `list_resource_datasources`, `get_resource_datasource`, `update_resource_datasource`, `list_resource_instances`, `get_resource_instance_data`, `search_resources`, `generate_resource_link`
 
 ---
 
