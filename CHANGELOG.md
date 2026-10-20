@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
 ### Changed
+- `create_datasource` lists `displayName` as required (the API returns HTTP 400 without it)
 - `update_datasource` keeps each existing datapoint's `originId` when the caller sends the datapoint with its `id` but without an `originId` (LogicMonitor otherwise blanks it)
 - `create_alert_rule` / `update_alert_rule` now send the escalation chain as the API field `escalatingChainId`; before, `escalationChainId` was sent and the chain was not set
 - Tool descriptions: recipient `addr`, recipient group `recipientIds`, dashboard `dashboardId`, integration `extra` and `delete_resource_group` `deleteChildren` now match the schemas; tools whose descriptions mention parameters they do not accept now say so in a "Not supported yet" note; `update_dashboard` accepts `groupId` and `sharable`, `update_website` accepts `domain`, `groupId` and `stopMonitoring`

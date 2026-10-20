@@ -927,6 +927,24 @@ The MCP server quotes filter values for you: `filter: "dataSourceName:My_DS"` is
 
 ### Rate Limiting
 
+Observed LogicMonitor REST limits (per API token, per 60-second window; check the `X-Rate-Limit-Limit` and `X-Rate-Limit-Remaining` response headers for your portal):
+
+| Endpoint | Requests per 60 s |
+|---|---|
+| `GET /device/devices` | 700 |
+| `GET /device/devices/{id}/devicedatasources` | 500 |
+| `GET /device/devices/{id}/instances` | 500 |
+| `GET /device/devicedatasources/{id}/.../data` | 500 |
+| `GET /setting/collector/collectors` | 500 |
+| `POST /debug` (debug commands) | 200 |
+| `GET /debug/{id}` (debug results) | 500 |
+
+Other API behaviours worth knowing:
+- Counting something per device (for example every device's DataSource instances) costs one call per device, so a 1,700-device portal needs several minutes at 500 calls per minute. Spread such work over time rather than bursting.
+- `GET /device/devices/{id}/devicedatasources/{hds}/data` returns every instance of that DataSource in one call; use it instead of one call per instance.
+- Filter values must be quoted when you call the API yourself (see the filter entry above). The MCP tools quote them for you.
+- Every debug command, including its script body, is written to the portal's audit log.
+
 The server automatically handles rate limits with exponential backoff. If you encounter persistent rate limiting:
 
 1. Reduce concurrent requests

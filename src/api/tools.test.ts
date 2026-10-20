@@ -863,3 +863,10 @@ describe('parameter names in descriptions match the input schemas', () => {
     expect(stale).toEqual([]);
   });
 });
+
+describe('create_datasource required fields', () => {
+  it('requires displayName, which the LogicMonitor API rejects a request without', () => {
+    const tool = getLogicMonitorTools(false).find(t => t.name === 'create_datasource')!;
+    expect(tool.inputSchema.required).toContain('displayName');
+  });
+});

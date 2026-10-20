@@ -9,6 +9,8 @@ This MCP server exposes the facility generically via two tools:
 
 **What comes back:** only standard output. For scripts (`!groovy`, `!posh`) the output starts with a line `returns N` (the script's return value) followed by what the script printed. **Standard error is not returned**, so a failing script shows only its return code: print diagnostics with `println` / `Write-Output`. The output is delivered once: asking again for a session whose output was already returned answers `cancelled` (the session is closed), so fetch each session's output only once. Every debug command, including its script body, is written to the portal's audit log.
 
+**Limits:** `POST /debug` allows about 200 requests per minute per API token and `GET /debug/{id}` about 500 (see the rate-limit table in the README). A batchscript DataSource's collector-side script timeout is 120 seconds; a `!groovy` command's own `timeout` option defaults to 180 seconds.
+
 Both tools are classified read-write (`readOnlyHint: false`), since `cmdline` can execute arbitrary code/commands on the collector host with the collector process's privileges — treat them with the same care as shell access to that machine.
 
 Every command below is discoverable at runtime via `execute_debug_command({collectorId, cmdline: "help"})` (full list) or `cmdline: "help <command>"` (usage for one command) — this document is simply a durable, organized capture of that output for `collectorId: 129` (`haservicestest` portal) at the time it was generated, so it doesn't need to be re-fetched interactively every time.
@@ -129,6 +131,11 @@ example: !jmx h=prod mbean='java.lang:type=Threading' 'ThreadCount' 'PeakThreadC
          !jmx func=get h=192.168.1.1 proto=rmi mode=batch mbean='java.lang:type=Threading' 'ThreadCount' 'PeakThreadCount'
          !jmx h=prod 'java.lang:type=Threading:ThreadCount' 'java.lang:type=Memory:HeapMemoryUsage.used'
 ```
+
+**Notes from use (verified against collectors):**
+- To read the collector's own JVM, use `url=service:jmx:local` instead of `h=`: `!jmx url=service:jmx:local mbean='java.lang:type=Threading' 'ThreadCount'`.
+- A wildcard path (for example `name=*:attr`) lists the matching MBean *names*, not their values. Use it to discover names, then query the attribute of a specific MBean.
+- To combine several MBean attributes (for example sum a counter across all matching MBeans), run a `!groovy` command and read them with `java.lang.management.ManagementFactory.getPlatformMBeanServer()` (`queryNames`, then `getAttribute` for each) and `println` the total.
 
 ### !mongo
 execute a mongo query

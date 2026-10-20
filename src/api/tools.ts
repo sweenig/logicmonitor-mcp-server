@@ -1507,7 +1507,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
       },
       additionalProperties: false,
-      required: ['name', 'collectMethod', 'collectInterval', 'collectorAttribute'],
+      required: ['name', 'displayName', 'collectMethod', 'collectInterval', 'collectorAttribute'],
     },
   },
   {
