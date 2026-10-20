@@ -754,3 +754,24 @@ describe('getLogicMonitorTools', () => {
     });
   });
 });
+describe('tool descriptions', () => {
+  it('only reference tools that exist', () => {
+    const tools = getLogicMonitorTools(false);
+    const names = new Set(tools.map(tool => tool.name));
+    // Quoted snake_case words in descriptions that are not tool names (LogicMonitor discovery method names).
+    const notTools = new Set(['ad_script']);
+
+    const unknown: string[] = [];
+    for (const tool of tools) {
+      // Descriptions escape underscores for markdown ("list\_resources"), so strip the backslashes first.
+      for (const match of (tool.description ?? '').matchAll(/"([a-z]+(?:\\?_[a-z]+)+)"/g)) {
+        const referenced = match[1].replace(/\\/g, '');
+        if (!names.has(referenced) && !notTools.has(referenced)) {
+          unknown.push(`${tool.name} -> ${referenced}`);
+        }
+      }
+    }
+
+    expect(unknown).toEqual([]);
+  });
+});

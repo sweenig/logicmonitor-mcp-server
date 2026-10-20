@@ -28,7 +28,7 @@
 - ✅ Search devices
 - ✅ **Generate resource links** (custom addition)
 
-**Tools:** `list_resources`, `get_resource`, `create_resource`, `update_resource`, `delete_resource`, `list_resource_groups`, `get_resource_group`, `create_resource_group`, `update_resource_group`, `delete_resource_group`, `list_resource_properties`, `update_resource_property`, `delete_resource_property`, `schedule_resource_discovery`, `list_resource_datasources`, `get_resource_datasource`, `update_resource_datasource`, `list_resource_instances`, `get_resource_instance_data`, `search_resources`, `generate_resource_link`
+**Tools:** `list_resources`, `get_resource`, `create_resource`, `update_resource`, `delete_resource`, `list_resource_groups`, `get_resource_group`, `create_resource_group`, `update_resource_group`, `delete_resource_group`, `list_resource_properties`, `update_resource_property`, `delete_resource_property`, `schedule_resource_discovery`, `list_resource_datasources`, `get_resource_datasource`, `update_resource_datasource`, `list_resource_instances`, `get_resource_instance_data`, `generate_resource_link`
 
 ---
 
@@ -42,7 +42,7 @@
 - ✅ Search alerts
 - ✅ **Generate alert links** (custom addition)
 
-**Tools:** `list_alerts`, `get_alert`, `acknowledge_alert`, `add_alert_note`, `list_alert_rules`, `get_alert_rule`, `create_alert_rule`, `update_alert_rule`, `delete_alert_rule`, `search_alerts`, `generate_alert_link`
+**Tools:** `list_alerts`, `get_alert`, `acknowledge_alert`, `add_alert_note`, `list_alert_rules`, `get_alert_rule`, `create_alert_rule`, `update_alert_rule`, `delete_alert_rule`, `generate_alert_link`
 
 ---
 
@@ -187,7 +187,7 @@
 - ✅ Audit Logs (List, Get, Search)
 - ✅ Integration Logs (List) - delivery/audit trail for alerts sent to configured integrations (ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
-**Tools:** `list_opsnotes`, `get_opsnote`, `create_opsnote`, `update_opsnote`, `delete_opsnote`, `list_netscans`, `get_netscan`, `create_netscan`, `update_netscan`, `delete_netscan`, `list_integrations`, `get_integration`, `create_integration`, `update_integration`, `delete_integration`, `list_audit_logs`, `get_audit_log`, `search_audit_logs`, `list_integration_logs`
+**Tools:** `list_opsnotes`, `get_opsnote`, `create_opsnote`, `update_opsnote`, `delete_opsnote`, `list_netscans`, `get_netscan`, `create_netscan`, `update_netscan`, `delete_netscan`, `list_integrations`, `get_integration`, `create_integration`, `update_integration`, `delete_integration`, `list_audit_logs`, `get_audit_log`, `list_integration_logs`
 
 ---
 

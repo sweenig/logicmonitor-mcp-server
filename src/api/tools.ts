@@ -108,7 +108,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Verify collector assignment' +
       '\n- Review custom properties before updating' +
       '\n- Confirm the live/authoritative sdtStatus for one resource (see "list\\_resources" description for the sdtStatus format and a caveat about that field being unreliable when filtered on in bulk queries)' +
-      '\n\n**Workflow:** Use "list\\_resources" or "search\\_resources" first to find the deviceId, then use this tool for complete details. ' +
+      '\n\n**Workflow:** Use "list\\_resources" first to find the deviceId, then use this tool for complete details. ' +
       '\n\n**Related tools:** "list\\_resource\\_datasources" (see what\'s monitored), "list\\_resource\\_properties" (view all properties), "generate\\_resource\\_link" (get UI link).',
     annotations: {
       title: 'Get resource/device details',
@@ -249,7 +249,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     description: 'Modify an existing resource/device or multiple resources/devices in LogicMonitor (LM) monitoring. ' +
       '\n\n**Two modes: Single resource/device OR Batch update** ' +
       '\n\n**Single resource/device mode:** ' +
-      '\n- Required: deviceId (from "list\\_resources" or "search\\_resources")' +
+      '\n- Required: deviceId (from "list\\_resources")' +
       '\n- Optional: displayName, description, disableAlerting, preferredCollectorId, customProperties' +
       '\n- opType: "replace" (default) overwrites all, "add" merges with existing' +
       '\n\n**Batch mode:** ' +
@@ -269,7 +269,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**opType explained:** ' +
       '\n- "replace": Overwrites entire field (careful with customProperties!)' +
       '\n- "add": Merges/appends to existing values (safer for properties)' +
-      '\n\n**Workflow:** First find deviceId using "list\\_resources" or "search\\_resources", then update. ' +
+      '\n\n**Workflow:** First find deviceId using "list\\_resources", then update. ' +
       '\n\n**Related tools:** "list\\_resources" (find device), "get\\_resource" (verify before update), "update\\_resource\\_property" (simpler property updates).',
     annotations: {
       title: 'Update resource/device(s)',
@@ -849,7 +849,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Before scheduling maintenance' +
       '\n- During incident response' +
       '\n\n**Required parameters:** ' +
-      '\n- alertId: Alert ID from "list\\_alerts" or "search\\_alerts"' +
+      '\n- alertId: Alert ID from "list\\_alerts"' +
       '\n- comment: REQUIRED - Explain what you\'re doing (e.g., "Investigating high CPU. Checking processes.")' +
       '\n\n**Best practices:** ' +
       '\n- Acknowledge immediately when starting investigation' +
@@ -2219,7 +2219,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Build reports with clickable resource/device references' +
       '\n- Document infrastructure with direct LM links' +
       '\n\n**Why use this:** Provides the complete URL including all parent group IDs, so clicking the link navigates directly to the resource/device in the correct folder context. ' +
-      '\n\n**Workflow:** First find resource/device using "list\\_resources" or "search\\_resources", then use this tool with deviceId to generate shareable link. ' +
+      '\n\n**Workflow:** First find resource/device using "list\\_resources", then use this tool with deviceId to generate shareable link. ' +
       '\n\n**Related tools:** "list\\_resources" (find device), "get\\_resource" (get details), "generate\\_alert\\_link" (link to resource/device alerts).',
     annotations: {
       title: 'Generate resource/device link',
@@ -2279,7 +2279,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Reference in incident tickets' +
       '\n- Bookmark frequently accessed monitors' +
       '\n\n**Required parameters:** ' +
-      '\n- websiteId: Website monitor ID (from "list\\_websites" or "search\\_websites")' +
+      '\n- websiteId: Website monitor ID (from "list\\_websites")' +
       '\n\n**Common use cases:** ' +
       '\n\n**Share in Slack/Teams:** ' +
       '"Production API health check is failing: [View Monitor](generated-url-here)" ' +
@@ -2348,7 +2348,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By cloud provider: "AWS Dashboards", "Azure Dashboards"' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_dashboards" filtered by groupId to see dashboards in specific folder. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_dashboard\\_group" (details), "list\\_dashboards" (dashboards in group), "create\\_dashboard\\_group" (create folder).',
+      '\n\n**Related tools:** "get\\_dashboard\\_group" (details), "list\\_dashboards" (dashboards in group).',
     annotations: {
       title: 'List dashboard groups',
       readOnlyHint: true,
@@ -2373,7 +2373,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Verify group hierarchy' +
       '\n- Review permissions before creating dashboards in it' +
       '\n\n**Workflow:** Use "list\\_dashboard\\_groups" to find groupId, then use this tool for complete details. ' +
-      '\n\n**Related tools:** "list\\_dashboard\\_groups" (find groups), "list\\_dashboards" (dashboards in group), "create\\_dashboard\\_group" (create new).',
+      '\n\n**Related tools:** "list\\_dashboard\\_groups" (find groups), "list\\_dashboards" (dashboards in group).',
     annotations: {
       title: 'Get dashboard group details',
       readOnlyHint: true,
@@ -2421,9 +2421,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Monthly: End-of-month SLA reports' +
       '\n- Quarterly: Capacity planning reviews' +
       '\n- On-demand: Generate for specific incidents/audits' +
-      '\n\n**Workflow:** Use this tool to find reports, then "get\\_report" for details, or "generate\\_report" to run on-demand. ' +
+      '\n\n**Workflow:** Use this tool to find reports, then "get\\_report" for details. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_report" (details), "list\\_report\\_groups" (organization), "generate\\_report" (run now).',
+      '\n\n**Related tools:** "get\\_report" (details), "list\\_report\\_groups" (organization).',
     annotations: {
       title: 'List reports',
       readOnlyHint: true,
@@ -2455,7 +2455,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Scope: Which resources/devices/groups are included' +
       '\n- Date range: Last 7 days, last month, custom period' +
       '\n\n**Workflow:** Use "list\\_reports" to find reportId, then use this tool for complete configuration. ' +
-      '\n\n**Related tools:** "list\\_reports" (find reports), "update\\_report" (modify), "generate\\_report" (run now).',
+      '\n\n**Related tools:** "list\\_reports" (find reports).',
     annotations: {
       title: 'Get report details',
       readOnlyHint: true,
@@ -3000,7 +3000,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Structure multi-region website monitoring' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_websites" filtered by groupId to see monitors in specific folder. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_website\\_group" (details), "list\\_websites" (websites in group), "create\\_website\\_group" (create folder).',
+      '\n\n**Related tools:** "get\\_website\\_group" (details), "list\\_websites" (websites in group).',
     annotations: {
       title: 'List website groups',
       readOnlyHint: true,
@@ -3025,7 +3025,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Verify group hierarchy' +
       '\n- Review group structure before creating monitors' +
       '\n\n**Workflow:** Use "list\\_website\\_groups" to find groupId, then use this tool for complete details. ' +
-      '\n\n**Related tools:** "list\\_website\\_groups" (find groups), "list\\_websites" (websites in group), "create\\_website\\_group" (create new).',
+      '\n\n**Related tools:** "list\\_website\\_groups" (find groups), "list\\_websites" (websites in group).',
     annotations: {
       title: 'Get website group details',
       readOnlyHint: true,
@@ -3099,7 +3099,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Check if former employees still have access' +
       '\n- Verify API token usage per user' +
       '\n\n**Workflow:** Use "list\\_users" to find userId, then use this tool for complete user profile. ' +
-      '\n\n**Related tools:** "list\\_users" (find user), "list\\_roles" (see available roles), "list\\_api\\_tokens" (view user\'s tokens), "update\\_user" (modify).',
+      '\n\n**Related tools:** "list\\_users" (find user), "list\\_roles" (see available roles), "list\\_api\\_tokens" (view user\'s tokens).',
     annotations: {
       title: 'Get user details',
       readOnlyHint: true,
@@ -3139,9 +3139,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "What roles exist?" → List all to see options' +
       '\n- "Who can delete resources/devices?" → Check which roles have delete permissions' +
       '\n- "Create read-only user" → Find "readonly" role ID for user creation' +
-      '\n\n**Workflow:** Use this tool to discover roles, then "get\\_role" for detailed permissions, then use in "create\\_user" or "update\\_user". ' +
+      '\n\n**Workflow:** Use this tool to discover roles, then "get\\_role" for detailed permissions, then assign the role to users in LogicMonitor (user create/update is not available in this MCP). ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_role" (detailed permissions), "list\\_users" (see user assignments), "create\\_user" (assign roles to new users).',
+      '\n\n**Related tools:** "get\\_role" (detailed permissions), "list\\_users" (see user assignments).',
     annotations: {
       title: 'List roles',
       readOnlyHint: true,
@@ -3179,7 +3179,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Documentation: Export role permissions for compliance' +
       '\n- Role comparison: Compare multiple roles to find right fit' +
       '\n\n**Workflow:** Use "list\\_roles" to find roleId, then use this tool to review detailed permissions before assigning to users. ' +
-      '\n\n**Related tools:** "list\\_roles" (find roles), "list\\_users" (see who has this role), "create\\_role" (create custom role).',
+      '\n\n**Related tools:** "list\\_roles" (find roles), "list\\_users" (see who has this role).',
     annotations: {
       title: 'Get role details',
       readOnlyHint: true,
@@ -3232,7 +3232,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Check note field to understand token purpose' +
       '\n\n**Workflow:** Use this tool with userId from "list\\_users" to audit that user\'s API access. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "list\\_users" (find userId), "create\\_api\\_token" (generate new), "delete\\_api\\_token" (revoke access).',
+      '\n\n**Related tools:** "list\\_users" (find userId).',
     annotations: {
       title: 'Get API tokens',
       readOnlyHint: true,
@@ -3458,7 +3458,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Palo\\_Alto\\_Config: Palo Alto firewall rules' +
       '\n- Linux\\_Config\\_Files: Monitor /etc files' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_configsource" (details), "list\\_device\\_configs" (see configs for device).',
+      '\n\n**Related tools:** "get\\_configsource" (details).',
     annotations: {
       title: 'List ConfigSources',
       readOnlyHint: true,
@@ -3489,7 +3489,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- lineageId: Built-in (LogicMonitor) vs custom ConfigSource' +
       '\n\n**Workflow:** Use "list\\_configsources" to find configSourceId, then use this tool to understand how it works. ' +
       '\n\n**Note:** Passing fields="*" returns an empty object `{}` for ConfigSources - omit "fields" to get the full definition (including configChecks and collectorAttribute). ' +
-      '\n\n**Related tools:** "list\\_configsources" (find ConfigSource), "get\\_configsource\\_scripts" (extract embedded scripts), "update\\_configsource", "delete\\_configsource", "list\\_device\\_configs" (see configs for device).',
+      '\n\n**Related tools:** "list\\_configsources" (find ConfigSource), "get\\_configsource\\_scripts" (extract embedded scripts), "update\\_configsource", "delete\\_configsource".',
     annotations: {
       title: 'Get ConfigSource details',
       readOnlyHint: true,
@@ -3785,7 +3785,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       'Many datasources check properties to decide if they should monitor device. Example: AWS\\_EC2 datasource checks if resource/device has "aws.resourcetype=ec2" property. ' +
       '\n\n**Workflow:** Use "list\\_resources" to find deviceId, then use this tool to see all properties including inherited ones. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "update\\_device\\_property" (modify), "get\\_resource" (see summary), "list\\_datasources" (see how properties affect monitoring).',
+      '\n\n**Related tools:** "update\\_resource\\_property" (modify), "get\\_resource" (see summary), "list\\_datasources" (see how properties affect monitoring).',
     annotations: {
       title: 'List resource/device properties',
       readOnlyHint: true,
@@ -4000,7 +4000,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Review exact changes made (old vs new values)' +
       '\n- Investigate specific incident with full context' +
       '\n\n**Workflow:** First use "list\\_audit\\_logs" with filters to find relevant entries, then use this tool with the log ID for complete details. ' +
-      '\n\n**Related tools:** "list\\_audit\\_logs" (search logs), "search\\_audit\\_logs" (text search).',
+      '\n\n**Related tools:** "list\\_audit\\_logs" (search logs).',
     annotations: {
       title: 'Get audit details',
       readOnlyHint: true,
@@ -4089,7 +4089,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Access Group "Production" - Only prod resource/device' +
       '\n- Access Group "Dev/Test" - Only non-prod resource/device' +
       '\n- Junior staff limited to dev/test access group' +
-      '\n\n**Workflow:** Use this tool to find access groups, then assign users to groups via "update\\_user" to control resource visibility. ' +
+      '\n\n**Workflow:** Use this tool to find access groups, then assign users to groups in LogicMonitor (user update is not available in this MCP) to control resource visibility. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_access\\_group" (details), "create\\_access\\_group" (create new), "list\\_users" (see user assignments), "list\\_resources" (associate resource/device with groups).',
     annotations: {
@@ -4206,7 +4206,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- One access group per team (department isolation)' +
       '\n- Empty resourceGroups = full access (admin groups)' +
       '\n- Descriptive names: "Customer Name - Environment"' +
-      '\n\n**Related tools:** "update\\_access\\_group" (add/remove resources), "list\\_access\\_groups" (view all), "create\\_user" (assign users to group), "list\\_resource\\_groups" (find group IDs).',
+      '\n\n**Related tools:** "update\\_access\\_group" (add/remove resources), "list\\_access\\_groups" (view all), "list\\_resource\\_groups" (find group IDs).',
     annotations: {
       title: 'Create access group',
       readOnlyHint: false,
@@ -4357,7 +4357,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '4. Delete old access group ' +
       '\n\n**⚠️ NEVER delete access group with active users unless intentionally revoking their access immediately!** ' +
       '\n\n**Best practice:** Always reassign users to new access group BEFORE deleting old group to prevent access disruption. ' +
-      '\n\n**Related tools:** "get\\_access\\_group" (check users), "list\\_users" (find affected users), "update\\_user" (reassign users), "create\\_access\\_group" (create replacement).',
+      '\n\n**Related tools:** "get\\_access\\_group" (check users), "list\\_users" (find affected users), "create\\_access\\_group" (create replacement).',
     annotations: {
       title: 'Delete access group',
       readOnlyHint: false,
@@ -4395,14 +4395,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**This is step 1 for getting metrics:** ' +
       '**Complete workflow to retrieve metric data:** ' +
       '1. Use this tool → get deviceDataSourceId for datasource you want (e.g., WinCPU) ' +
-      '2. Use "list\\_device\\_instances" → get instanceId for specific instance ' +
-      '3. Use "get\\_device\\_instance\\_data" → get actual metric values ' +
+      '2. Use "list\\_resource\\_instances" → get instanceId for specific instance ' +
+      '3. Use "get\\_resource\\_instance\\_data" → get actual metric values ' +
       '\n\n**Troubleshooting use cases:** ' +
       '\n- "Why no CPU data?" → Check if WinCPU datasource is applied and collecting ' +
       '\n- "Find disk datasource" → Look for datasource with "disk" or "volume" in name ' +
       '\n- "Check datasource errors" → Review status field for error messages ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "list\\_device\\_instances" (next step), "get\\_device\\_instance\\_data" (get metrics), "update\\_device\\_datasource" (enable/disable).',
+      '\n\n**Related tools:** "list\\_resource\\_instances" (next step), "get\\_resource\\_instance\\_data" (get metrics), "update\\_resource\\_datasource" (enable/disable).',
     annotations: {
       title: 'List resource/device datasources',
       readOnlyHint: true,
@@ -4438,8 +4438,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- status: Collection status (normal vs error) ' +
       '\n- alertStatus: Any active alerts from this datasource ' +
       '\n- stopMonitoring: Whether datasource is disabled on this resource/device ' +
-      '\n\n**Workflow:** Use "list\\_device\\_datasources" to find deviceDataSourceId, then use this tool for detailed status. ' +
-      '\n\n**Related tools:** "list\\_device\\_datasources" (find datasource), "list\\_device\\_instances" (get instances), "update\\_device\\_datasource" (enable/disable).',
+      '\n\n**Workflow:** Use "list\\_resource\\_datasources" to find deviceDataSourceId, then use this tool for detailed status. ' +
+      '\n\n**Related tools:** "list\\_resource\\_datasources" (find datasource), "list\\_resource\\_instances" (get instances), "update\\_resource\\_datasource" (enable/disable).',
     annotations: {
       title: 'Get resource/device datasource details',
       readOnlyHint: true,
@@ -4474,7 +4474,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- deviceId: Device ID (from "list\\_resources") ' +
-      '\n- deviceDataSourceId: Device datasource ID (from "list\\_device\\_datasources") ' +
+      '\n- deviceDataSourceId: Device datasource ID (from "list\\_resource\\_datasources") ' +
       '\n\n**Optional parameters (what to change):** ' +
       '\n- disableAlerting: true (mute alerts) or false (enable alerts) ' +
       '\n- stopMonitoring: true (stop data collection) or false (resume monitoring) ' +
@@ -4507,8 +4507,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       'pollingInterval: 60 (every minute for critical metrics) ' +
       '\n\n**Low-frequency monitoring:** ' +
       'pollingInterval: 600 (every 10 minutes for less critical metrics) ' +
-      '\n\n**Workflow:** Use "list\\_device\\_datasources" to find deviceDataSourceId, then update configuration. ' +
-      '\n\n**Related tools:** "list\\_device\\_datasources" (find datasource), "get\\_device\\_datasource" (check current config), "list\\_device\\_instances" (see monitored instances).',
+      '\n\n**Workflow:** Use "list\\_resource\\_datasources" to find deviceDataSourceId, then update configuration. ' +
+      '\n\n**Related tools:** "list\\_resource\\_datasources" (find datasource), "get\\_resource\\_datasource" (check current config), "list\\_resource\\_instances" (see monitored instances).',
     annotations: {
       title: 'Update resource/device datasource',
       readOnlyHint: false,
@@ -4568,7 +4568,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Collect network resource/device syslog for troubleshooting ' +
       '\n- Track security events for compliance ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_eventsource" (details), "list\\_device\\_eventsources" (events for device).',
+      '\n\n**Related tools:** "get\\_eventsource" (details).',
     annotations: {
       title: 'List EventSources',
       readOnlyHint: true,
@@ -4600,7 +4600,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- severityMapping: Map event levels (INFO/WARN/ERROR) to LM alert levels ' +
       '\n- schedule: When event collection runs ' +
       '\n\n**Workflow:** Use "list\\_eventsources" to find eventSourceId, then use this tool for complete configuration. ' +
-      '\n\n**Related tools:** "list\\_eventsources" (find EventSource), "list\\_device\\_eventsources" (events for device).',
+      '\n\n**Related tools:** "list\\_eventsources" (find EventSource).',
     annotations: {
       title: 'Get EventSource details',
       readOnlyHint: true,
@@ -5856,7 +5856,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- By device: filter:"monitorObjectName~*prod-web*" ' +
       '\n\n**Displayed on:** Graphs, dashboards, resource/device pages - visible wherever metrics are shown. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_opsnote" (details), "create\\_opsnote" (add new), "create\\_device\\_sdt" (maintenance windows).',
+      '\n\n**Related tools:** "get\\_opsnote" (details), "create\\_opsnote" (add new), "create\\_resource\\_sdt" (maintenance windows).',
     annotations: {
       title: 'List OpsNotes',
       readOnlyHint: true,
@@ -6260,7 +6260,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- **Document SLAs:** Add SLA targets to description ' +
       '\n\n**After creation:** ' +
       'Service appears in Services view with aggregated health status. Use in dashboards to show business-level health. Use "update\\_service" to modify membership as infrastructure changes. ' +
-      '\n\n**Related tools:** "list\\_service\\_groups" (create groups first), "update\\_service" (modify), "list\\_resources" (find resources/devices), "create\\_service\\_dashboard" (visualize).',
+      '\n\n**Related tools:** "list\\_service\\_groups" (create groups first), "update\\_service" (modify), "list\\_resources" (find resources/devices).',
     annotations: {
       title: 'Create service',
       readOnlyHint: false,
@@ -6715,7 +6715,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Create groups before creating reports ' +
       '\n- Use descriptive names matching business needs ' +
       '\n- Keep hierarchy shallow (2-3 levels max) ' +
-      '\n\n**Related tools:** "list\\_report\\_groups" (view hierarchy), "create\\_report" (add reports), "update\\_report\\_group" (modify).',
+      '\n\n**Related tools:** "list\\_report\\_groups" (view hierarchy), "update\\_report\\_group" (modify).',
     annotations: {
       title: 'Create report group',
       readOnlyHint: false,
@@ -6790,7 +6790,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Required parameters:** ' +
       '\n- groupId: Report group ID to delete (from "list\\_report\\_groups") ' +
       '\n\n**Before deleting:** Move all reports and subgroups first, then delete empty group. ' +
-      '\n\n**Related tools:** "list\\_reports" (check for reports), "list\\_report\\_groups" (check for subgroups), "update\\_report" (move reports).',
+      '\n\n**Related tools:** "list\\_reports" (check for reports), "list\\_report\\_groups" (check for subgroups).',
     annotations: {
       title: 'Delete report group',
       readOnlyHint: false,
@@ -6833,7 +6833,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Structure multi-datacenter collector deployments ' +
       '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_collectors" filtered by groupId to see collectors in specific folder. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_collector\\_group" (details), "list\\_collectors" (collectors in group), "create\\_collector\\_group" (create folder).',
+      '\n\n**Related tools:** "get\\_collector\\_group" (details), "list\\_collectors" (collectors in group).',
     annotations: {
       title: 'List collector groups',
       readOnlyHint: true,
@@ -6859,7 +6859,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Review group structure before deploying collectors' +
       '\n' +
       '\n\n**Workflow:** Use "list\\_collector\\_groups" to find groupId, then use this tool for complete details. ' +
-      '\n\n**Related tools:** "list\\_collector\\_groups" (find groups), "list\\_collectors" (collectors in group), "create\\_collector\\_group" (create new).',
+      '\n\n**Related tools:** "list\\_collector\\_groups" (find groups), "list\\_collectors" (collectors in group).',
     annotations: {
       title: 'Get collector group details',
       readOnlyHint: true,
@@ -7004,9 +7004,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Before bulk update: See current values before changing ' +
       '\n- Troubleshoot authentication: Verify credentials applied to resource/device ' +
       '\n- Document configuration: Export group settings ' +
-      '\n\n**Workflow:** Use "list\\_resource\\_groups" to find groupId, then use this tool to see properties, then "update\\_device\\_group\\_property" to modify. ' +
+      '\n\n**Workflow:** Use "list\\_resource\\_groups" to find groupId, then use this tool to see properties, then "update\\_resource\\_group\\_property" to modify. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "update\\_device\\_group\\_property" (modify property), "get\\_resource\\_group" (group details), "list\\_device\\_properties" (device-level properties).',
+      '\n\n**Related tools:** "update\\_resource\\_group\\_property" (modify property), "get\\_resource\\_group" (group details), "list\\_resource\\_properties" (device-level properties).',
     annotations: {
       title: 'List resource/device group properties',
       readOnlyHint: true,
@@ -7279,7 +7279,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Network resources/Devices" - SNMP walk 10.0.0.0/8 daily for routers/switches ' +
       '\n\n**Workflow:** Use this tool to review netscans, then "get\\_netscan" for detailed configuration including filters and resource/device properties. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_netscan" (configuration details), "create\\_netscan" (set up auto-discovery), "run\\_netscan" (trigger manual scan).',
+      '\n\n**Related tools:** "get\\_netscan" (configuration details), "create\\_netscan" (set up auto-discovery).',
     annotations: {
       title: 'List NetScans',
       readOnlyHint: true,
@@ -7317,7 +7317,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- "Wrong credentials?" → Verify credential properties configured in netscan ' +
       '\n- "resources/Devices missing properties?" → Check default properties applied by netscan ' +
       '\n\n**Workflow:** Use "list\\_netscans" to find netscanId, then use this tool to review complete configuration. ' +
-      '\n\n**Related tools:** "list\\_netscans" (find netscan), "update\\_netscan" (modify), "run\\_netscan" (execute now).',
+      '\n\n**Related tools:** "list\\_netscans" (find netscan), "update\\_netscan" (modify).',
     annotations: {
       title: 'Get NetScan details',
       readOnlyHint: true,
@@ -7572,7 +7572,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Test: Verify integration by triggering test notification ' +
       '\n\n**Workflow:** Use this tool to find integrations, then use in escalation chains or as webhook recipients for alert delivery. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
-      '\n\n**Related tools:** "get\\_integration" (configuration details), "test\\_integration" (verify working), "list\\_escalation\\_chains" (see usage).',
+      '\n\n**Related tools:** "get\\_integration" (configuration details), "list\\_escalation\\_chains" (see usage).',
     annotations: {
       title: 'List integrations',
       readOnlyHint: true,
@@ -7609,7 +7609,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Not receiving notifications: Verify escalation chain configuration ' +
       '\n- Error logs: Review failed notification attempts ' +
       '\n\n**Workflow:** Use "list\\_integrations" to find integrationId, then use this tool for detailed configuration and troubleshooting. ' +
-      '\n\n**Related tools:** "list\\_integrations" (find integrations), "test\\_integration" (send test), "update\\_integration" (modify).',
+      '\n\n**Related tools:** "list\\_integrations" (find integrations), "update\\_integration" (modify).',
     annotations: {
       title: 'Get integration details',
       readOnlyHint: true,

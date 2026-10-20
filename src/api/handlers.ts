@@ -2016,7 +2016,7 @@ export class LogicMonitorHandlers {
         suggestions = [
           'Verify the device ID exists',
           'Check if the device was recently deleted',
-          'Use list_resources or search_resources to find the correct ID',
+          'Use list_resources to find the correct ID',
         ];
       } else if (toolName.includes('group')) {
         code = ErrorCodes.GROUP_NOT_FOUND;
