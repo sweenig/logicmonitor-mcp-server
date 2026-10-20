@@ -809,3 +809,57 @@ describe('returnFull option on create and update tools', () => {
     expect(tool.description).toContain('returnFull');
   });
 });
+
+describe('parameter names in descriptions match the input schemas', () => {
+  // Bullets in a "Parameters" section that are fields of a nested object (a step, a datapoint config), not top-level arguments.
+  const NESTED_FIELD_SECTIONS: Record<string, string[]> = {
+    create_uptime_check: ['url', 'HTTPMethod', 'matchType', 'keyword', 'invertMatch', 'statusCode', 'timeout', 'followRedirection'],
+    update_resource_group_datasource_thresholds: ['alertExpr', 'disableAlerting'],
+  };
+
+  function documentedParameters(description: string): string[] {
+    const found = new Set<string>();
+    const parts = description.split(/(\*\*[^*\n]*\*\*)/);
+    let section: string | null = null;
+    for (const part of parts) {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        section = part.replace(/\*/g, '').toLowerCase();
+        continue;
+      }
+      if (section && section.includes('parameters') && !section.includes('return')) {
+        for (const match of part.matchAll(/^\s*[-•]\s*`?\\?([A-Za-z_][\w.]*)`?\s*(?:\(|:|\*)/gm)) {
+          found.add(match[1].replace(/\\/g, ''));
+        }
+      }
+    }
+    return [...found];
+  }
+
+  it('documents only parameters the tool accepts, unless the description says they are not supported yet', () => {
+    const problems: string[] = [];
+    for (const tool of getLogicMonitorTools(false)) {
+      const accepted = new Set(Object.keys((tool.inputSchema.properties as any) ?? {}));
+      const notSupported = /\*\*Not supported yet:\*\*([^.]*)\./.exec(tool.description ?? '')?.[1] ?? '';
+      for (const name of documentedParameters(tool.description ?? '')) {
+        if (accepted.has(name)) continue;
+        if (new RegExp(`\\b${name}\\b`).test(notSupported)) continue;
+        if (NESTED_FIELD_SECTIONS[tool.name]?.includes(name)) continue;
+        problems.push(`${tool.name}: ${name}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('never lists a "Not supported yet" parameter that the tool does accept', () => {
+    const stale: string[] = [];
+    for (const tool of getLogicMonitorTools(false)) {
+      const accepted = new Set(Object.keys((tool.inputSchema.properties as any) ?? {}));
+      const note = /\*\*Not supported yet:\*\*([^.]*)\./.exec(tool.description ?? '')?.[1];
+      if (!note) continue;
+      for (const name of accepted) {
+        if (new RegExp(`\\b${name}\\b`).test(note)) stale.push(`${tool.name}: ${name}`);
+      }
+    }
+    expect(stale).toEqual([]);
+  });
+});

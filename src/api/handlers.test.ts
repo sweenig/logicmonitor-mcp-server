@@ -2883,6 +2883,22 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.deleteAlertRule).toHaveBeenCalled();
     });
 
+    it('sends the escalation chain under the API field name escalatingChainId', async () => {
+      mockClient.createAlertRule.mockResolvedValue({ id: 1 });
+      mockClient.updateAlertRule.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_alert_rule', { name: 'r', priority: 5, escalationChainId: 7 });
+      const created = mockClient.createAlertRule.mock.calls[0][0];
+      expect(created.escalatingChainId).toBe(7);
+      expect(created.escalationChainId).toBeUndefined();
+
+      await handlers.handleToolCall('update_alert_rule', { ruleId: 1, escalationChainId: 9 });
+      const [ruleId, updated] = mockClient.updateAlertRule.mock.calls[0];
+      expect(ruleId).toBe(1);
+      expect(updated.escalatingChainId).toBe(9);
+      expect(updated.escalationChainId).toBeUndefined();
+    });
+
     it('should handle opsnotes', async () => {
       const mockNote = { id: 1, note: 'test note' };
       mockClient.createOpsNote.mockResolvedValue(mockNote);

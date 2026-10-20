@@ -1519,11 +1519,11 @@ export class LogicMonitorHandlers {
           const rule: any = {
             name: args.name,
             priority: args.priority || 10,
-            escalationChainId: args.escalationChainId,
+            // The API field is escalatingChainId (list_alert_rules reports it under that name).
+            escalatingChainId: args.escalatingChainId ?? args.escalationChainId,
           };
           if (args.devices) rule.devices = args.devices;
           if (args.datasources) rule.datasources = args.datasources;
-          if (args.escalatingChainId) rule.escalatingChainId = args.escalatingChainId;
           return await this.client.createAlertRule(rule);
         }
 
@@ -1531,7 +1531,7 @@ export class LogicMonitorHandlers {
           const rule: any = {};
           if (args.name) rule.name = args.name;
           if (args.priority !== undefined) rule.priority = args.priority;
-          if (args.escalationChainId) rule.escalationChainId = args.escalationChainId;
+          if (args.escalationChainId || args.escalatingChainId) rule.escalatingChainId = args.escalatingChainId ?? args.escalationChainId;
           if (args.devices) rule.devices = args.devices;
           if (args.datasources) rule.datasources = args.datasources;
           return await this.client.updateAlertRule(args.ruleId, rule);

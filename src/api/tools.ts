@@ -717,7 +717,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Required parameters:** ' +
       '\n- groupId: Group ID to delete (from "list\\_resource\\_groups")' +
       '\n\n**Optional parameters:** ' +
-      '\n- deleteHardFlag: true = delete even if has resource/device (moves resource/device to root), false = fail if not empty (safer, default)' +
+      '\n- deleteChildren: true = also delete the group\'s subgroups, false = fail if the group still has subgroups (default)' +
       '\n\n**Before deleting - check:** ' +
       '\n- Use "get\\_resource\\_group" to see how many resource/device and subgroups' +
       '\n- Use "list\\_resources" with filter to see which resource/device are in group' +
@@ -729,7 +729,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- If numOfHosts = 0 and no subgroups: delete_resource_group(groupId: 123)' +
       '\n- If has resources/devices: Move resource/device first, then delete group' +
       '\n\n**Force deletion (moves resources/devices):** ' +
-      '\n- delete_resource_group(groupId: 123, deleteHardFlag: true)' +
+      '\n- delete_resource_group(groupId: 123, deleteChildren: true)' +
       '\n- resources/Devices move to parent group (or root if no parent)' +
       '\n- resources/Devices lose inherited custom properties from deleted group' +
       '\n\n**⚠️ Impact of deletion:** ' +
@@ -1781,6 +1781,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_dashboard',
     description: 'Create a new dashboard in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** sharable, widgetTokens are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates a new visual monitoring dashboard with widgets for metrics, alerts, maps, and more. Dashboards provide at-a-glance views of infrastructure health. ' +
       '\n\n**When to use:** ' +
       '\n- Build custom monitoring views for teams' +
@@ -1856,6 +1857,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_dashboard',
     description: 'Update an existing dashboard in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** widgetsConfig, widgetTokens are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify dashboard name, description, widgets, sharing settings, or move to different folder. ' +
       '\n\n**When to use:** ' +
       '\n- Rename dashboard' +
@@ -1864,7 +1866,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Change sharing settings' +
       '\n- Bulk update widgets (advanced)' +
       '\n\n**Required parameters:** ' +
-      '\n- id: Dashboard ID (from "list\\_dashboards")' +
+      '\n- dashboardId: Dashboard ID (from "list\\_dashboards")' +
       '\n\n**Optional parameters (what to change):** ' +
       '\n- name: New dashboard name' +
       '\n- description: Updated description' +
@@ -1874,13 +1876,13 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- widgetTokens: Update template variables' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Rename dashboard:** ' +
-      '{id: 123, name: "Production - Updated"}' +
+      '{dashboardId: 123, name: "Production - Updated"}' +
       '\n\n**Move to different folder:** ' +
-      '{id: 123, groupId: 456}' +
+      '{dashboardId: 123, groupId: 456}' +
       '\n\n**Make dashboard public (shareable):** ' +
-      '{id: 123, sharable: true}' +
+      '{dashboardId: 123, sharable: true}' +
       '\n\n**Update description:** ' +
-      '{id: 123, description: "Executive view - updated quarterly"}' +
+      '{dashboardId: 123, description: "Executive view - updated quarterly"}' +
       '\n\n**⚠️ Widget updates:** ' +
       'Updating widgetsConfig directly is complex (large JSON). Easier to: ' +
       '\n- Modify widgets in LogicMonitor UI' +
@@ -1896,6 +1898,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        groupId: {
+          type: 'number',
+          description: 'ID of the dashboard group (folder) to move the dashboard to',
+        },
+        sharable: {
+          type: 'boolean',
+          description: 'true to make the dashboard publicly shareable, false to require login',
+        },
         dashboardId: {
           type: 'number',
           description: 'The ID of the dashboard to update',
@@ -1928,7 +1938,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Delete test/temporary dashboards' +
       '\n- Consolidate similar dashboards' +
       '\n\n**Required parameters:** ' +
-      '\n- id: Dashboard ID to delete (from "list\\_dashboards")' +
+      '\n- dashboardId: Dashboard ID to delete (from "list\\_dashboards")' +
       '\n\n**Before deleting - check:** ' +
       '\n- Use "get\\_dashboard" to verify it\'s the correct dashboard' +
       '\n- Check if dashboard is widely shared/used' +
@@ -2582,6 +2592,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_website',
     description: 'Create a new website monitor (synthetic check) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** groupId, checkpoints, failedCount, responseTimeThreshold, schema, sslCertExpirationDays, steps, testLocation are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates synthetic monitoring for websites, APIs, or services. Tests from global checkpoint locations to verify availability, performance, and SSL certificate health. ' +
       '\n\n**When to use:** ' +
       '\n- Monitor customer-facing websites' +
@@ -2671,6 +2682,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_website',
     description: 'Update an existing website monitor in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** checkpoints, responseTimeThreshold, sslCertExpirationDays, failedCount, steps are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify website monitor settings including URL, checkpoints, thresholds, SSL settings, or multi-step transaction flows. ' +
       '\n\n**When to use:** ' +
       '\n- Change monitored URL' +
@@ -2715,6 +2727,18 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        domain: {
+          type: 'string',
+          description: 'New URL or hostname to monitor',
+        },
+        groupId: {
+          type: 'number',
+          description: 'ID of the website group (folder) to move the monitor to',
+        },
+        stopMonitoring: {
+          type: 'boolean',
+          description: 'true to pause monitoring, false to resume',
+        },
         websiteId: {
           type: 'number',
           description: 'The ID of the website to update',
@@ -4173,6 +4197,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_access_group',
     description: 'Create a new access group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** resourceGroups, websites, dashboards are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates permission boundary controlling which resources/devices users can see and manage. Essential for multi-tenant environments (MSPs) or departmental isolation. ' +
       '\n\n**When to use:** ' +
       '\n- Set up multi-tenant monitoring (MSP with multiple customers)' +
@@ -4261,6 +4286,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_access_group',
     description: 'Update an existing access group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** resourceGroups, websites, dashboards are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify access group properties, add/remove resources, or change tenant assignment. Affects all users assigned to this group immediately. ' +
       '\n\n**When to use:**' +
       '\n- Add/remove resource/device groups from access scope' +
@@ -4491,6 +4517,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_resource_datasource',
     description: 'Update resource/device datasource configuration in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** pollingInterval, customProperties are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify how a specific datasource monitors a specific resource/device. Control alerting, enable/disable monitoring, or adjust device-specific datasource settings without affecting other resources/devices. ' +
       '\n\n**When to use:**' +
       '\n- Disable monitoring for specific datasource on one resource/device' +
@@ -4828,6 +4855,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_escalation_chain',
     description: 'Update an existing escalation chain in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** enabled is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify escalation chain stages, recipients, timing, or notification methods. Changes affect all alert rules using this chain immediately. ' +
       '\n\n**When to use:**' +
       '\n- Update on-call rotation recipients' +
@@ -5039,6 +5067,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_recipient',
     description: 'Create a new alert recipient (notification endpoint) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** schedule, rateLimit are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates individual notification target (email address, phone number, webhook URL, etc.) that can receive alert notifications via escalation chains. ' +
       '\n\n**When to use:**' +
       '\n- Add new team member to alert notifications' +
@@ -5049,23 +5078,23 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- type: Recipient type - "email", "sms", "voice", "webhook" ' +
-      '\n- address: Contact information (email address, phone number, webhook URL) ' +
+      '\n- addr: Contact information (email address, phone number, webhook URL) ' +
       '\n\n**Optional parameters:** ' +
       '\n- name: Friendly name (e.g., "John Doe - Mobile", "Team Slack Channel") ' +
       '\n- schedule: Notification schedule (24/7, business hours only, custom) ' +
       '\n- rateLimit: Max notifications per time period (prevent alert fatigue) ' +
       '\n\n**Recipient types and examples:** ' +
       '\n\n**Email recipient:** ' +
-      '{type: "email", address: "oncall@company.com", name: "On-Call Team Email"} ' +
-      '{type: "email", address: "john.doe@company.com", name: "John Doe"} ' +
+      '{type: "email", addr: "oncall@company.com", name: "On-Call Team Email"} ' +
+      '{type: "email", addr: "john.doe@company.com", name: "John Doe"} ' +
       '\n\n**SMS recipient (mobile alerts):** ' +
-      '{type: "sms", address: "+1-555-123-4567", name: "John - Mobile", schedule: "24/7"} ' +
-      '{type: "sms", address: "+1-555-987-6543", name: "On-Call Phone"} ' +
+      '{type: "sms", addr: "+1-555-123-4567", name: "John - Mobile", schedule: "24/7"} ' +
+      '{type: "sms", addr: "+1-555-987-6543", name: "On-Call Phone"} ' +
       '\n\n**Voice recipient (phone calls):** ' +
-      '{type: "voice", address: "+1-555-111-2222", name: "Emergency Contact"} ' +
+      '{type: "voice", addr: "+1-555-111-2222", name: "Emergency Contact"} ' +
       '\n\n**Webhook recipient (integrations):** ' +
-      '{type: "webhook", address: "https://hooks.slack.com/...", name: "DevOps Slack Channel"} ' +
-      '{type: "webhook", address: "https://custom-app.com/alerts", name: "Custom Integration"} ' +
+      '{type: "webhook", addr: "https://hooks.slack.com/...", name: "DevOps Slack Channel"} ' +
+      '{type: "webhook", addr: "https://custom-app.com/alerts", name: "Custom Integration"} ' +
       '\n\n**Schedule options:** ' +
       '\n- "24/7" or null: Always receive notifications ' +
       '\n- "business-hours": Mon-Fri 9am-5pm only (reduce after-hours noise) ' +
@@ -5076,9 +5105,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Prevents alert storms from flooding recipient ' +
       '\n\n**Common recipient patterns:** ' +
       '\n\n**On-call engineer (multiple contact methods):** ' +
-      '1. Create email: {type: "email", address: "engineer@company.com"} ' +
-      '2. Create SMS: {type: "sms", address: "+1-555-1234"} ' +
-      '3. Create voice: {type: "voice", address: "+1-555-1234"} ' +
+      '1. Create email: {type: "email", addr: "engineer@company.com"} ' +
+      '2. Create SMS: {type: "sms", addr: "+1-555-1234"} ' +
+      '3. Create voice: {type: "voice", addr: "+1-555-1234"} ' +
       '4. Add all to escalation chain for redundancy ' +
       '\n\n**Team notification (prefer groups):** ' +
       'For multiple people, better to: ' +
@@ -5129,6 +5158,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_recipient',
     description: 'Update an existing alert recipient in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** schedule, rateLimit are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify recipient contact information, notification schedule, rate limits, or name. Changes affect all escalation chains using this recipient. ' +
       '\n\n**When to use:**' +
       '\n- Update phone number/email after personnel changes' +
@@ -5140,19 +5170,19 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Required parameters:** ' +
       '\n- recipientId: Recipient ID (from "list\\_recipients") ' +
       '\n\n**Optional parameters (what to change):** ' +
-      '\n- address: New contact info (email, phone, webhook URL) ' +
+      '\n- addr: New contact info (email, phone, webhook URL) ' +
       '\n- name: New friendly name ' +
       '\n- schedule: Update notification hours ' +
       '\n- rateLimit: Change max notifications per hour ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update on-call phone number:** ' +
-      '{recipientId: 123, address: "+1-555-999-8888", name: "John Doe - New Mobile"} ' +
+      '{recipientId: 123, addr: "+1-555-999-8888", name: "John Doe - New Mobile"} ' +
       '\n\n**Change to business hours only:** ' +
       '{recipientId: 123, schedule: "business-hours"} // Stop after-hours alerts ' +
       '\n\n**Reduce SMS rate limit (cost control):** ' +
       '{recipientId: 123, rateLimit: 5} // Max 5 SMS per hour ' +
       '\n\n**Update webhook URL:** ' +
-      '{recipientId: 123, address: "https://new-webhook-url.com/alerts"} ' +
+      '{recipientId: 123, addr: "https://new-webhook-url.com/alerts"} ' +
       '\n\n**Best practice workflow:** ' +
       '1. Use "get\\_recipient" to review current configuration ' +
       '2. Update recipient information ' +
@@ -5327,7 +5357,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- name: Group name (e.g., "Database Team", "On-Call Engineers", "NOC Team") ' +
-      '\n- recipients: Array of recipient IDs to include in group ' +
+      '\n- recipientIds: Array of recipient IDs to include in group ' +
       '\n\n**Optional parameters:** ' +
       '\n- description: Group purpose/notes ' +
       '\n\n**Benefits of recipient groups:** ' +
@@ -5337,21 +5367,21 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- **Organized:** Group by function (database team, network team, managers) ' +
       '\n\n**Common group patterns:** ' +
       '\n\n**Team notification group:** ' +
-      '{name: "Database Team", recipients: [1,2,3,4,5], description: "All database administrators"} ' +
+      '{name: "Database Team", recipientIds: [1,2,3,4,5], description: "All database administrators"} ' +
       '// Notify entire team at once ' +
       '\n\n**On-call rotation group:** ' +
-      '{name: "Current On-Call", recipients: [10,11], description: "This week\'s on-call engineers"} ' +
+      '{name: "Current On-Call", recipientIds: [10,11], description: "This week\'s on-call engineers"} ' +
       '// Update recipients weekly for rotation ' +
       '\n\n**Multi-channel redundancy group:** ' +
-      '{name: "John Doe - All Contacts", recipients: [emailId, smsId, voiceId]} ' +
+      '{name: "John Doe - All Contacts", recipientIds: [emailId, smsId, voiceId]} ' +
       '// Email + SMS + Voice for same person ' +
       '\n\n**Escalation level groups:** ' +
-      '{name: "Management", recipients: [20,21,22], description: "Engineering managers"} ' +
-      '{name: "Executives", recipients: [30,31], description: "CTO, VP Engineering"} ' +
+      '{name: "Management", recipientIds: [20,21,22], description: "Engineering managers"} ' +
+      '{name: "Executives", recipientIds: [30,31], description: "CTO, VP Engineering"} ' +
       '\n\n**Department groups:** ' +
-      '{name: "Network Operations", recipients: [40,41,42,43]} ' +
-      '{name: "Server Team", recipients: [50,51,52]} ' +
-      '{name: "Security Team", recipients: [60,61]} ' +
+      '{name: "Network Operations", recipientIds: [40,41,42,43]} ' +
+      '{name: "Server Team", recipientIds: [50,51,52]} ' +
+      '{name: "Security Team", recipientIds: [60,61]} ' +
       '\n\n**Workflow example:** ' +
       '1. Create individual recipients for team members ' +
       '2. Create recipient group containing all members ' +
@@ -5410,14 +5440,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (what to change):** ' +
       '\n- name: New group name ' +
       '\n- description: Updated description ' +
-      '\n- recipients: New array of recipient IDs (replaces all members) ' +
+      '\n- recipientIds: New array of recipient IDs (replaces all members) ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update on-call rotation:** ' +
-      '{groupId: 123, recipients: [newOnCallId1, newOnCallId2]} // Swap weekly rotation ' +
+      '{groupId: 123, recipientIds: [newOnCallId1, newOnCallId2]} // Swap weekly rotation ' +
       '\n\n**Add new team member:** ' +
-      '{groupId: 123, recipients: [1,2,3,4,5,6]} // Added recipient 6 ' +
+      '{groupId: 123, recipientIds: [1,2,3,4,5,6]} // Added recipient 6 ' +
       '\n\n**Remove departed employee:** ' +
-      '{groupId: 123, recipients: [1,2,4,5]} // Removed recipient 3 ' +
+      '{groupId: 123, recipientIds: [1,2,4,5]} // Removed recipient 3 ' +
       '\n\n**Rename group:** ' +
       '{groupId: 123, name: "Database Team - Updated"} ' +
       '\n\n**⚠️ Important:** ' +
@@ -5597,6 +5627,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_alert_rule',
     description: 'Create a new alert rule in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** deviceGroups, instances, datapoints, severity are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Defines routing logic determining which alerts go to which escalation chains. Alert rules match alerts by device, datasource, severity, etc., and route to appropriate notification paths. ' +
       '\n\n**When to use:**' +
       '\n- Set up alert notifications for new teams' +
@@ -5698,6 +5729,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_alert_rule',
     description: 'Update an existing alert rule in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** deviceGroups, severity, enabled are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify rule matching conditions, priority, escalation chain, or enable/disable rule. Changes affect how NEW alerts are routed immediately. ' +
       '\n\n**When to use:**' +
       '\n- Route alerts to different team' +
@@ -5930,6 +5962,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_opsnote',
     description: 'Create a new operational note (OpsNote) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** timestamp, deviceId, deviceGroupId, websiteId are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates timestamped annotation displayed on graphs/dashboards at specific time. Documents changes, deployments, incidents, maintenance - anything that might correlate with metric changes. ' +
       '\n\n**When to use:**' +
       '\n- Document deployments/releases' +
@@ -6026,6 +6059,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_opsnote',
     description: 'Update an existing operational note in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** timestamp, deviceId, deviceGroupId are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify OpsNote text, timestamp, tags, or scope. Useful for correcting mistakes or adding details after initial creation. ' +
       '\n\n**When to use:**' +
       '\n- Fix typos in note text' +
@@ -6224,6 +6258,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_service',
     description: 'Create a new business service in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** alertStatus is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Creates business-level service aggregating multiple resources into single health status. Think "E-commerce Website" service composed of web servers, databases, load balancers, etc. Service health calculated from member resource/device health. ' +
       '\n\n**When to use:**' +
       '\n- Monitor application-level health (not just infrastructure)' +
@@ -6319,6 +6354,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_service',
     description: 'Update an existing business service in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** groupId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify service name, description, or member resources/devices. Updates service health calculation when membership changes. ' +
       '\n\n**When to use:**' +
       '\n- Add/remove resource/device as infrastructure changes' +
@@ -6554,6 +6590,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_service_group',
     description: 'Update an existing service group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify group name, description, or parent (move in hierarchy). Does not affect services within group. ' +
       '\n\n**When to use:**' +
       '\n- Rename group after reorg' +
@@ -6721,6 +6758,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_report_group',
     description: 'Create a new report group (folder) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Creates organizational folder for reports. Organize reports by team, report type, schedule, or purpose. ' +
       '\n\n**When to use:**' +
       '\n- Organize reports before creating them' +
@@ -6766,6 +6804,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_report_group',
     description: 'Update an existing report group in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify group name, description, or parent (move in hierarchy). Does not affect reports within group. ' +
       '\n\n**When to use:**' +
       '\n- Rename group' +
@@ -7365,6 +7404,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_netscan',
     description: 'Create a new network discovery scan (NetScan) in LogicMonitor (LM) monitoring to automatically discover and add resources/devices. ' +
+      '\n\n**Not supported yet:** targetType, target, deviceGroupId, credentials, excludeFilters are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates automated network scanner that discovers resource/device by IP range/subnet and adds them to monitoring. Runs on schedule to continuously discover new infrastructure. ' +
       '\n\n**When to use:**' +
       '\n- Automate resource/device discovery instead of manual adds' +
@@ -7463,6 +7503,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_netscan',
     description: 'Update an existing network discovery scan (NetScan) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Not supported yet:** target, deviceGroupId, excludeFilters, credentials are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify netscan name, target, schedule, credentials, or settings. Changes take effect on next scan run. ' +
       '\n\n**When to use:**' +
       '\n- Change IP range/subnet scanned' +
@@ -7668,25 +7709,25 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Required parameters:** ' +
       '\n- type: Integration type ("slack", "pagerduty", "servicenow", "jira", "teams", "webhook", etc.) ' +
       '\n- name: Integration name (e.g., "DevOps Slack Channel", "ServiceNow Production") ' +
-      '\n- config: Integration-specific configuration (API keys, URLs, channels, etc.) ' +
+      '\n- extra: Integration-specific configuration (API keys, URLs, channels, etc.) ' +
       '\n\n**Common integration patterns:** ' +
       '\n\n**Slack integration:** ' +
-      '{type: "slack", name: "DevOps Team Slack", config: {webhookUrl: "https://hooks.slack.com/...", channel: "#alerts"}} ' +
+      '{type: "slack", name: "DevOps Team Slack", extra: {webhookUrl: "https://hooks.slack.com/...", channel: "#alerts"}} ' +
       '// Sends alerts to Slack channel ' +
       '\n\n**PagerDuty integration:** ' +
-      '{type: "pagerduty", name: "Production On-Call", config: {apiKey: "...", serviceKey: "..."}} ' +
+      '{type: "pagerduty", name: "Production On-Call", extra: {apiKey: "...", serviceKey: "..."}} ' +
       '// Pages on-call engineer ' +
       '\n\n**ServiceNow integration:** ' +
-      '{type: "servicenow", name: "SNOW Production", config: {instance: "company.service-now.com", username: "...", password: "...", assignmentGroup: "Platform Team"}} ' +
+      '{type: "servicenow", name: "SNOW Production", extra: {instance: "company.service-now.com", username: "...", password: "...", assignmentGroup: "Platform Team"}} ' +
       '// Creates incidents in ServiceNow ' +
       '\n\n**Jira integration:** ' +
-      '{type: "jira", name: "Infrastructure Project", config: {url: "company.atlassian.net", username: "...", apiToken: "...", project: "INFRA", issueType: "Bug"}} ' +
+      '{type: "jira", name: "Infrastructure Project", extra: {url: "company.atlassian.net", username: "...", apiToken: "...", project: "INFRA", issueType: "Bug"}} ' +
       '// Creates Jira tickets ' +
       '\n\n**Microsoft Teams integration:** ' +
-      '{type: "teams", name: "Platform Team Channel", config: {webhookUrl: "https://outlook.office.com/webhook/..."}} ' +
+      '{type: "teams", name: "Platform Team Channel", extra: {webhookUrl: "https://outlook.office.com/webhook/..."}} ' +
       '// Sends alerts to Teams channel ' +
       '\n\n**Generic webhook integration:** ' +
-      '{type: "webhook", name: "Custom Webhook", config: {url: "https://api.company.com/alerts", method: "POST", headers: {"Authorization": "Bearer ..."}}} ' +
+      '{type: "webhook", name: "Custom Webhook", extra: {url: "https://api.company.com/alerts", method: "POST", headers: {"Authorization": "Bearer ..."}}} ' +
       '// Sends alerts to custom endpoint ' +
       '\n\n**Why use integrations:** ' +
       '\n- **Centralized communication:** Alerts go where teams already work (Slack, Teams) ' +
@@ -7748,16 +7789,16 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- integrationId: Integration ID (from "list\\_integrations") ' +
       '\n\n**Optional parameters (what to change):** ' +
       '\n- name: New integration name ' +
-      '\n- config: Updated configuration (API keys, URLs, channels, etc.) ' +
+      '\n- extra: Updated configuration (API keys, URLs, channels, etc.) ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update Slack channel:** ' +
-      '{integrationId: 123, config: {webhookUrl: "https://hooks.slack.com/...", channel: "#critical-alerts"}} ' +
+      '{integrationId: 123, extra: {webhookUrl: "https://hooks.slack.com/...", channel: "#critical-alerts"}} ' +
       '\n\n**Rotate API key (PagerDuty):** ' +
-      '{integrationId: 123, config: {apiKey: "new-key-...", serviceKey: "..."}} ' +
+      '{integrationId: 123, extra: {apiKey: "new-key-...", serviceKey: "..."}} ' +
       '\n\n**Update ServiceNow credentials:** ' +
-      '{integrationId: 123, config: {instance: "company.service-now.com", username: "newuser", password: "newpass"}} ' +
+      '{integrationId: 123, extra: {instance: "company.service-now.com", username: "newuser", password: "newpass"}} ' +
       '\n\n**Change webhook URL:** ' +
-      '{integrationId: 123, config: {url: "https://new-api.company.com/alerts"}} ' +
+      '{integrationId: 123, extra: {url: "https://new-api.company.com/alerts"}} ' +
       '\n\n**Best practice workflow:** ' +
       '1. Use "get\\_integration" to see current configuration ' +
       '2. Update integration ' +
