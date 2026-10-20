@@ -31,7 +31,7 @@ for dir in "$PORTALS_DIR"/*/; do
     # Permission denied is reported loudly (check_env_readable already wrote
     # to stderr) and flagged in its own row - NOT silently shown as
     # read-write/no-auth, which would be actively misleading.
-    rows+=("$name|$port|ERROR|ERROR|permission denied reading secrets")
+    rows+=("$name|$port|ERROR|ERROR|permission denied reading secrets|false")
     continue
   fi
 
@@ -40,15 +40,22 @@ for dir in "$PORTALS_DIR"/*/; do
   [[ -n "$(get_encrypted_env_var "$name" "MCP_BEARER_TOKEN")" ]] && has_bearer="true"
 
   status="stopped"
+  image_outdated="false"
   if docker inspect "$(container_name "$name")" > /dev/null 2>&1; then
     running="$(docker inspect -f '{{.State.Running}}' "$(container_name "$name")" 2>/dev/null || echo "false")"
     if [[ "$running" == "true" ]]; then
       health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$(container_name "$name")" 2>/dev/null || echo "n/a")"
       status="running ($health)"
+      # The container keeps running the image it was created from, even after the image tag is rebuilt.
+      container_image="$(docker inspect -f '{{.Image}}' "$(container_name "$name")" 2>/dev/null || true)"
+      current_image="$(docker image inspect -f '{{.Id}}' "$IMAGE_TAG" 2>/dev/null || true)"
+      if [[ -n "$container_image" && -n "$current_image" && "$container_image" != "$current_image" ]]; then
+        image_outdated="true"
+      fi
     fi
   fi
 
-  rows+=("$name|$port|$readonly_val|$has_bearer|$status")
+  rows+=("$name|$port|$readonly_val|$has_bearer|$status|$image_outdated")
 done
 
 if [[ "$JSON" == "true" ]]; then
@@ -56,14 +63,14 @@ if [[ "$JSON" == "true" ]]; then
   first="true"
   for row in "${rows[@]:-}"; do
     [[ -z "$row" ]] && continue
-    IFS='|' read -r name port readonly_val has_bearer status <<< "$row"
+    IFS='|' read -r name port readonly_val has_bearer status image_outdated <<< "$row"
     [[ "$first" == "false" ]] && echo ","
     first="false"
     if [[ "$readonly_val" == "ERROR" ]]; then
       printf '  {"name": "%s", "port": %s, "error": "%s"}' "$name" "$port" "$status"
     else
-      printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s"}' \
-        "$name" "$port" "$readonly_val" "$has_bearer" "$status"
+      printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s", "imageOutdated": %s}' \
+        "$name" "$port" "$readonly_val" "$has_bearer" "$status" "$image_outdated"
     fi
   done
   echo ""
@@ -75,7 +82,7 @@ else
   fi
   printf "%-20s %-6s %-10s %-14s %s\n" "NAME" "PORT" "MODE" "AUTH" "STATUS"
   for row in "${rows[@]}"; do
-    IFS='|' read -r name port readonly_val has_bearer status <<< "$row"
+    IFS='|' read -r name port readonly_val has_bearer status image_outdated <<< "$row"
     if [[ "$readonly_val" == "ERROR" ]]; then
       printf "%-20s %-6s %-10s %-14s %s\n" "$name" "$port" "ERROR" "ERROR" "$status"
       continue
@@ -84,6 +91,7 @@ else
     [[ "$readonly_val" == "true" ]] && mode="read-only"
     auth="none"
     [[ "$has_bearer" == "true" ]] && auth="bearer token"
+    [[ "$image_outdated" == "true" ]] && status="$status [image outdated - restart to pick up the rebuilt image]"
     printf "%-20s %-6s %-10s %-14s %s\n" "$name" "$port" "$mode" "$auth" "$status"
   done
 fi

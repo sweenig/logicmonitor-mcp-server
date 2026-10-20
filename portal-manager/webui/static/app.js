@@ -22,6 +22,9 @@ function renderRow(portal) {
   const modeBadge = portal.readOnly
     ? '<span class="badge ro">read-only</span>'
     : '<span class="badge rw">read-write</span>';
+  const imageBadge = portal.imageOutdated
+    ? ' <span class="badge stale" title="This container was created from an older build of the image. Stop and start it to run the current image.">outdated image</span>'
+    : "";
   tr.innerHTML = `
     <td class="row-icons">
       <button class="icon-btn edit-btn" title="Edit" aria-label="Edit ${portal.name}">${ICON_EDIT}</button>
@@ -30,7 +33,7 @@ function renderRow(portal) {
     <td>${portal.name}</td>
     <td>${portal.port}</td>
     <td>${modeBadge}</td>
-    <td>${portal.status}</td>
+    <td>${portal.status}${imageBadge}</td>
     <td>
       <div class="conn-cell">
         <button class="${running ? "stop" : "start"} toggle-btn">${running ? "Stop" : "Start"}</button>
