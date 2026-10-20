@@ -2937,6 +2937,58 @@ describe('LogicMonitorHandlers', () => {
       expect(updated.escalationChainId).toBeUndefined();
     });
 
+    it('sends alert rule matching conditions as API fields', async () => {
+      mockClient.createAlertRule.mockResolvedValue({ id: 1 });
+      mockClient.updateAlertRule.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_alert_rule', {
+        name: 'r', escalationChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', severity: 'error',
+      });
+      expect(mockClient.createAlertRule.mock.calls[0][0]).toMatchObject({
+        escalatingChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', levelStr: 'Error',
+      });
+
+      await handlers.handleToolCall('update_alert_rule', { ruleId: 1, severity: 'critical' });
+      expect(mockClient.updateAlertRule.mock.calls[0]).toEqual([1, { levelStr: 'Critical' }]);
+    });
+
+    it('turns deviceId, deviceGroupId and websiteId into opsnote scopes', async () => {
+      mockClient.createOpsNote.mockResolvedValue({ id: 1 });
+      mockClient.updateOpsNote.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_opsnote', { note: 'n', deviceId: 5, happenOnInSec: 1699889400 });
+      expect(mockClient.createOpsNote.mock.calls[0][0]).toEqual({
+        note: 'n', scopes: [{ type: 'device', deviceId: 5 }], happenOnInSec: 1699889400,
+      });
+
+      await handlers.handleToolCall('update_opsnote', { opsNoteId: 'abc', happenOnInSec: 1699889500 });
+      expect(mockClient.updateOpsNote.mock.calls[0]).toEqual(['abc', { happenOnInSec: 1699889500 }]);
+    });
+
+    it('sends parentId and groupId when moving report groups, service groups and services', async () => {
+      mockClient.createReportGroup.mockResolvedValue({ id: 1 });
+      mockClient.updateReportGroup.mockResolvedValue({ id: 1 });
+      mockClient.updateServiceGroup.mockResolvedValue({ id: 1 });
+      mockClient.updateService.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_report_group', { name: 'g', parentId: 4 });
+      expect(mockClient.createReportGroup.mock.calls[0][0]).toEqual({ name: 'g', parentId: 4 });
+      await handlers.handleToolCall('update_report_group', { groupId: 2, parentId: 4 });
+      expect(mockClient.updateReportGroup.mock.calls[0]).toEqual([2, { parentId: 4 }]);
+      await handlers.handleToolCall('update_service_group', { groupId: 3, parentId: 4 });
+      expect(mockClient.updateServiceGroup.mock.calls[0]).toEqual([3, { parentId: 4 }]);
+      await handlers.handleToolCall('update_service', { serviceId: 6, groupId: 9 });
+      expect(mockClient.updateService.mock.calls[0]).toEqual([6, { groupId: 9 }]);
+    });
+
+    it('sends sharable and widgetTokens when creating a dashboard', async () => {
+      mockClient.createDashboard.mockResolvedValue({ id: 1 });
+      await handlers.handleToolCall('create_dashboard', { name: 'd', sharable: false, widgetTokens: [{ name: 'a', value: 'b' }] });
+      expect(mockClient.createDashboard.mock.calls[0][0]).toEqual({
+        name: 'd', sharable: false, widgetTokens: [{ name: 'a', value: 'b' }],
+      });
+    });
+
     it('should handle opsnotes', async () => {
       const mockNote = { id: 1, note: 'test note' };
       mockClient.createOpsNote.mockResolvedValue(mockNote);

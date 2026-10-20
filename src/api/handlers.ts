@@ -6,6 +6,7 @@
 
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
+import { alertRuleMatch, opsNoteScopes } from '../utils/helpers/write-params.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
@@ -739,6 +740,8 @@ export class LogicMonitorHandlers {
           if (args.description) dashboard.description = args.description;
           if (args.groupId) dashboard.groupId = args.groupId;
           if (args.widgetsConfig) dashboard.widgetsConfig = args.widgetsConfig;
+          if (args.sharable !== undefined) dashboard.sharable = args.sharable;
+          if (args.widgetTokens) dashboard.widgetTokens = args.widgetTokens;
           return await this.client.createDashboard(dashboard);
         }
 
@@ -1549,8 +1552,7 @@ export class LogicMonitorHandlers {
             // The API field is escalatingChainId (list_alert_rules reports it under that name).
             escalatingChainId: args.escalatingChainId ?? args.escalationChainId,
           };
-          if (args.devices) rule.devices = args.devices;
-          if (args.datasources) rule.datasources = args.datasources;
+          Object.assign(rule, alertRuleMatch(args));
           return await this.client.createAlertRule(rule);
         }
 
@@ -1559,8 +1561,7 @@ export class LogicMonitorHandlers {
           if (args.name) rule.name = args.name;
           if (args.priority !== undefined) rule.priority = args.priority;
           if (args.escalationChainId || args.escalatingChainId) rule.escalatingChainId = args.escalatingChainId ?? args.escalationChainId;
-          if (args.devices) rule.devices = args.devices;
-          if (args.datasources) rule.datasources = args.datasources;
+          Object.assign(rule, alertRuleMatch(args));
           return await this.client.updateAlertRule(args.ruleId, rule);
         }
 
@@ -1585,7 +1586,7 @@ export class LogicMonitorHandlers {
         case 'create_opsnote': {
           const opsNote: any = {
             note: args.note,
-            scopes: args.scopes || [],
+            scopes: opsNoteScopes(args) ?? [],
           };
           if (args.tags) opsNote.tags = args.tags;
           if (args.happenOnInSec) opsNote.happenOnInSec = args.happenOnInSec;
@@ -1595,8 +1596,10 @@ export class LogicMonitorHandlers {
         case 'update_opsnote': {
           const opsNote: any = {};
           if (args.note) opsNote.note = args.note;
-          if (args.scopes) opsNote.scopes = args.scopes;
+          const scopes = opsNoteScopes(args);
+          if (scopes) opsNote.scopes = scopes;
           if (args.tags) opsNote.tags = args.tags;
+          if (args.happenOnInSec) opsNote.happenOnInSec = args.happenOnInSec;
           return await this.client.updateOpsNote(args.opsNoteId, opsNote);
         }
 
@@ -1632,6 +1635,7 @@ export class LogicMonitorHandlers {
           const service: any = {};
           if (args.name) service.name = args.name;
           if (args.description !== undefined) service.description = args.description;
+          if (args.groupId !== undefined) service.groupId = args.groupId;
           return await this.client.updateService(args.serviceId, service);
         }
 
@@ -1666,6 +1670,7 @@ export class LogicMonitorHandlers {
           const group: any = {};
           if (args.name) group.name = args.name;
           if (args.description !== undefined) group.description = args.description;
+          if (args.parentId !== undefined) group.parentId = args.parentId;
           return await this.client.updateServiceGroup(args.groupId, group);
         }
 
@@ -1692,6 +1697,7 @@ export class LogicMonitorHandlers {
             name: args.name,
           };
           if (args.description) group.description = args.description;
+          if (args.parentId !== undefined) group.parentId = args.parentId;
           return await this.client.createReportGroup(group);
         }
 
@@ -1699,6 +1705,7 @@ export class LogicMonitorHandlers {
           const group: any = {};
           if (args.name) group.name = args.name;
           if (args.description !== undefined) group.description = args.description;
+          if (args.parentId !== undefined) group.parentId = args.parentId;
           return await this.client.updateReportGroup(args.groupId, group);
         }
 

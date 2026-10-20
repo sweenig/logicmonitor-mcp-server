@@ -1781,7 +1781,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_dashboard',
     description: 'Create a new dashboard in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** sharable, widgetTokens are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates a new visual monitoring dashboard with widgets for metrics, alerts, maps, and more. Dashboards provide at-a-glance views of infrastructure health. ' +
       '\n\n**When to use:** ' +
       '\n- Build custom monitoring views for teams' +
@@ -1833,6 +1832,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        sharable: {
+          type: 'boolean',
+          description: 'true to make the dashboard publicly shareable, false to require login',
+        },
+        widgetTokens: {
+          type: 'array',
+          description: 'Dashboard variables: array of {name, value} objects (for example name "defaultResourceGroup")',
+        },
         name: {
           type: 'string',
           description: 'Name of the dashboard',
@@ -1857,7 +1864,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_dashboard',
     description: 'Update an existing dashboard in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** widgetsConfig, widgetTokens are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify dashboard name, description, widgets, sharing settings, or move to different folder. ' +
       '\n\n**When to use:** ' +
       '\n- Rename dashboard' +
@@ -1898,6 +1904,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        widgetsConfig: {
+          type: 'string',
+          description: 'JSON string of widget configuration (advanced; usually edited in the UI)',
+        },
+        widgetTokens: {
+          type: 'array',
+          description: 'Dashboard variables: array of {name, value} objects',
+        },
         groupId: {
           type: 'number',
           description: 'ID of the dashboard group (folder) to move the dashboard to',
@@ -4197,7 +4211,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_access_group',
     description: 'Create a new access group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** resourceGroups, websites, dashboards are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates permission boundary controlling which resources/devices users can see and manage. Essential for multi-tenant environments (MSPs) or departmental isolation. ' +
       '\n\n**When to use:** ' +
       '\n- Set up multi-tenant monitoring (MSP with multiple customers)' +
@@ -4210,9 +4223,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- description: Purpose/scope (e.g., "Access to Customer A resource/device only")' +
       '\n\n**Optional parameters:** ' +
       '\n- tenantId: Multi-tenant identifier (for MSP environments)' +
-      '\n- resourceGroups: Array of resource/device group IDs users can access' +
-      '\n- websites: Array of website monitor IDs' +
-      '\n- dashboards: Array of dashboard IDs' +
       '\n\n**Access Groups = Data Isolation:** ' +
       'Users assigned to access group can ONLY see resources in that group. Perfect for: ' +
       '\n- MSPs managing multiple customers' +
@@ -4221,29 +4231,28 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Contractors needing limited access' +
       '\n\n**Multi-tenant setup (MSP example):** ' +
       '\n\n**Customer A Access:** ' +
-      '{name: "Customer A", description: "Customer A resource/device and dashboards", resourceGroups: [10,11,12]} ' +
+      '{name: "Customer A", description: "Customer A resource/device and dashboards"} ' +
       '// Users see only Customer A resource/device ' +
       '\n\n**Customer B Access:** ' +
-      '{name: "Customer B", description: "Customer B resource/device and dashboards", resourceGroups: [20,21,22]} ' +
+      '{name: "Customer B", description: "Customer B resource/device and dashboards"} ' +
       '// Users see only Customer B resource/device ' +
       '\n\n**Internal Team (all access):** ' +
-      '{name: "MSP Admin Team", description: "Full access to all customers", resourceGroups: []} ' +
-      '// Empty resourceGroups = access to everything ' +
+      '{name: "MSP Admin Team", description: "Full access to all customers"} ' +
       '\n\n**Department isolation example:** ' +
       '\n\n**Network Team:** ' +
-      '{name: "Network Team", description: "Access to network resource/device only", resourceGroups: [100]} ' +
+      '{name: "Network Team", description: "Access to network resource/device only"} ' +
       '// Group 100 = "Network resources/Devices" folder ' +
       '\n\n**Server Team:** ' +
-      '{name: "Server Team", description: "Access to servers only", resourceGroups: [200]} ' +
+      '{name: "Server Team", description: "Access to servers only"} ' +
       '// Group 200 = "Servers" folder ' +
       '\n\n**Database Team:** ' +
-      '{name: "Database Team", description: "Access to database servers", resourceGroups: [300]} ' +
+      '{name: "Database Team", description: "Access to database servers"} ' +
       '// Group 300 = "Database Servers" folder ' +
       '\n\n**Environment isolation example:** ' +
       '\n\n**Production Access:** ' +
-      '{name: "Production Team", description: "Production environment only", resourceGroups: [1]} ' +
+      '{name: "Production Team", description: "Production environment only"} ' +
       '\n\n**Dev/Test Access:** ' +
-      '{name: "Developers", description: "Development and test environments", resourceGroups: [2,3]} ' +
+      '{name: "Developers", description: "Development and test environments"} ' +
       '\n\n**Access Group + Role (both needed):** ' +
       '\n- **Access Group:** Controls WHAT resources user sees (visibility)' +
       '\n- **Role:** Controls WHAT actions user can perform (permissions)' +
@@ -4256,7 +4265,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Best practices:** ' +
       '\n- One access group per customer (MSP)' +
       '\n- One access group per team (department isolation)' +
-      '\n- Empty resourceGroups = full access (admin groups)' +
       '\n- Descriptive names: "Customer Name - Environment"' +
       '\n\n**Related tools:** "update\\_access\\_group" (add/remove resources), "list\\_access\\_groups" (view all), "list\\_resource\\_groups" (find group IDs).',
     annotations: {
@@ -4286,8 +4294,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_access_group',
     description: 'Update an existing access group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** resourceGroups, websites, dashboards are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify access group properties, add/remove resources, or change tenant assignment. Affects all users assigned to this group immediately. ' +
+      '\n\n**What this does:** Modify access group name, description, or tenant assignment. Affects all users assigned to this group immediately. ' +
       '\n\n**When to use:**' +
       '\n- Add/remove resource/device groups from access scope' +
       '\n- Rename access group' +
@@ -4300,35 +4307,17 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (what to change):** ' +
       '\n- name: New access group name ' +
       '\n- description: Updated description ' +
-      '\n- resourceGroups: New array of resource/device group IDs (replaces existing) ' +
-      '\n- websites: Update website monitor access ' +
-      '\n- dashboards: Update dashboard access ' +
       '\n- tenantId: Change tenant assignment ' +
       '\n\n**Common update scenarios:** ' +
-      '\n\n**Add more resource/device groups to access:** ' +
-      '{accessGroupId: 123, resourceGroups: [10,11,12,13,14]} // Added groups 13,14 ' +
-      '\n\n**Remove access to resource/device group:** ' +
-      '{accessGroupId: 123, resourceGroups: [10,11]} // Removed group 12 (decomm resources/devices) ' +
       '\n\n**Rename access group:** ' +
       '{accessGroupId: 123, name: "Customer A - Updated Name"} ' +
-      '\n\n**Grant full access (admin group):** ' +
-      '{accessGroupId: 123, resourceGroups: []} // Empty = see everything ' +
       '\n\n**⚠️ Important - Immediate Impact:** ' +
-      '\n- Updating resourceGroups affects ALL users in this access group immediately ' +
-      '\n- Removing resource/device group: Users instantly lose access to those resource/device ' +
-      '\n- Adding resource/device group: Users instantly gain access to new resource/device ' +
-      '\n- Users currently viewing removed resources will see "no access" errors ' +
+      '\n- Changes apply immediately to ALL users in this access group ' +
       '\n\n**Best practice workflow:** ' +
       '1. Use "get\\_access\\_group" to see current configuration ' +
       '2. Use "list\\_users" to see which users affected by change ' +
-      '3. Update access group with new resource scope ' +
+      '3. Update the access group ' +
       '4. Notify users of access changes ' +
-      '\n\n**Example: Customer adds new infrastructure:** ' +
-      '1. Customer provisions new resource/device group (e.g., "Customer A - AWS") ' +
-      '2. Get current access: get_access_group(accessGroupId: 123) ' +
-      '   // Returns: resourceGroups: [10,11] ' +
-      '3. Add new group: update_access_group(accessGroupId: 123, resourceGroups: [10,11,12]) ' +
-      '4. Customer users now see new AWS resource/device ' +
       '\n\n**Related tools:** "get\\_access\\_group" (review before update), "list\\_access\\_groups" (find group), "list\\_users" (see affected users), "list\\_resource\\_groups" (find group IDs).',
     annotations: {
       title: 'Update access group',
@@ -4517,13 +4506,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_resource_datasource',
     description: 'Update resource/device datasource configuration in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** pollingInterval, customProperties are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Modify how a specific datasource monitors a specific resource/device. Control alerting, enable/disable monitoring, or adjust device-specific datasource settings without affecting other resources/devices. ' +
       '\n\n**When to use:**' +
       '\n- Disable monitoring for specific datasource on one resource/device' +
       '\n- Disable alerting during maintenance' +
       '\n- Enable previously disabled datasource' +
-      '\n- Adjust polling interval for device' +
       '\n- Update device-specific thresholds' +
       '\n' +
       '\n\n**Required parameters:** ' +
@@ -4532,8 +4519,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (what to change):** ' +
       '\n- disableAlerting: true (mute alerts) or false (enable alerts) ' +
       '\n- stopMonitoring: true (stop data collection) or false (resume monitoring) ' +
-      '\n- pollingInterval: Custom polling interval in seconds (override default) ' +
-      '\n- customProperties: Device-specific datasource properties/thresholds ' +
       '\n\n**Common scenarios:** ' +
       '\n\n**Disable alerting during troubleshooting:** ' +
       '{deviceId: 123, deviceDataSourceId: 456, disableAlerting: true} ' +
@@ -4543,12 +4528,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '// Stop collection completely (e.g., datasource not applicable) ' +
       '\n\n**Resume monitoring after maintenance:** ' +
       '{deviceId: 123, deviceDataSourceId: 456, disableAlerting: false, stopMonitoring: false} ' +
-      '\n\n**Custom polling interval:** ' +
-      '{deviceId: 123, deviceDataSourceId: 456, pollingInterval: 300} ' +
-      '// Poll every 5 minutes instead of default 1 minute ' +
-      '\n\n**Device-specific threshold:** ' +
-      '{deviceId: 123, deviceDataSourceId: 456, customProperties: [{name: "cpu.threshold", value: "95"}]} ' +
-      '// This resource/device can run hotter than others ' +
       '\n\n**DisableAlerting vs StopMonitoring:** ' +
       '\n- **disableAlerting: true** - Still collects data, graphs work, but no alerts (good for maintenance) ' +
       '\n- **stopMonitoring: true** - No data collection, no graphs, no alerts (fully disabled) ' +
@@ -4557,10 +4536,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       'disableAlerting: true (want graphs to show downtime, but no alerts) ' +
       '\n\n**Datasource not applicable:** ' +
       'stopMonitoring: true (e.g., Windows datasource on Linux server - shouldn\'t be there) ' +
-      '\n\n**High-frequency monitoring:** ' +
-      'pollingInterval: 60 (every minute for critical metrics) ' +
-      '\n\n**Low-frequency monitoring:** ' +
-      'pollingInterval: 600 (every 10 minutes for less critical metrics) ' +
       '\n\n**Workflow:** Use "list\\_resource\\_datasources" to find deviceDataSourceId, then update configuration. ' +
       '\n\n**Related tools:** "list\\_resource\\_datasources" (find datasource), "get\\_resource\\_datasource" (check current config), "list\\_resource\\_instances" (see monitored instances).',
     annotations: {
@@ -4855,7 +4830,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_escalation_chain',
     description: 'Update an existing escalation chain in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** enabled is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify escalation chain stages, recipients, timing, or notification methods. Changes affect all alert rules using this chain immediately. ' +
       '\n\n**When to use:**' +
       '\n- Update on-call rotation recipients' +
@@ -4870,7 +4844,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- name: New chain name ' +
       '\n- description: Updated description ' +
       '\n- stages: New escalation stages array (replaces all stages) ' +
-      '\n- enabled: true (active) or false (disable temporarily) ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update on-call rotation:** ' +
       '{chainId: 123, stages: [{recipients: [newOnCallId], delay: 0, method: "SMS"}]} ' +
@@ -4878,8 +4851,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '{chainId: 123, stages: [{recipients: [1,2], delay: 0}, {recipients: [3], delay: 10}]} // Faster escalation ' +
       '\n\n**Add stage for manager escalation:** ' +
       '{chainId: 123, stages: [stage1, stage2, {recipients: [managerId], delay: 45}]} // Add 3rd stage ' +
-      '\n\n**Disable chain temporarily:** ' +
-      '{chainId: 123, enabled: false} // During team restructuring ' +
       '\n\n**⚠️ Important - Immediate Impact:** ' +
       '\n- All alert rules using this chain immediately use new configuration ' +
       '\n- Active alerts in-progress continue with old stages (already notified) ' +
@@ -5067,7 +5038,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_recipient',
     description: 'Create a new alert recipient (notification endpoint) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** schedule, rateLimit are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates individual notification target (email address, phone number, webhook URL, etc.) that can receive alert notifications via escalation chains. ' +
       '\n\n**When to use:**' +
       '\n- Add new team member to alert notifications' +
@@ -5081,28 +5051,18 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- addr: Contact information (email address, phone number, webhook URL) ' +
       '\n\n**Optional parameters:** ' +
       '\n- name: Friendly name (e.g., "John Doe - Mobile", "Team Slack Channel") ' +
-      '\n- schedule: Notification schedule (24/7, business hours only, custom) ' +
-      '\n- rateLimit: Max notifications per time period (prevent alert fatigue) ' +
       '\n\n**Recipient types and examples:** ' +
       '\n\n**Email recipient:** ' +
       '{type: "email", addr: "oncall@company.com", name: "On-Call Team Email"} ' +
       '{type: "email", addr: "john.doe@company.com", name: "John Doe"} ' +
       '\n\n**SMS recipient (mobile alerts):** ' +
-      '{type: "sms", addr: "+1-555-123-4567", name: "John - Mobile", schedule: "24/7"} ' +
+      '{type: "sms", addr: "+1-555-123-4567", name: "John - Mobile"} ' +
       '{type: "sms", addr: "+1-555-987-6543", name: "On-Call Phone"} ' +
       '\n\n**Voice recipient (phone calls):** ' +
       '{type: "voice", addr: "+1-555-111-2222", name: "Emergency Contact"} ' +
       '\n\n**Webhook recipient (integrations):** ' +
       '{type: "webhook", addr: "https://hooks.slack.com/...", name: "DevOps Slack Channel"} ' +
       '{type: "webhook", addr: "https://custom-app.com/alerts", name: "Custom Integration"} ' +
-      '\n\n**Schedule options:** ' +
-      '\n- "24/7" or null: Always receive notifications ' +
-      '\n- "business-hours": Mon-Fri 9am-5pm only (reduce after-hours noise) ' +
-      '\n- Custom schedule: Define specific days/times ' +
-      '\n\n**Rate limiting (prevent notification fatigue):** ' +
-      '\n- rateLimit: 10 = Max 10 notifications per hour ' +
-      '\n- rateLimit: 5 = Max 5 notifications per hour (for SMS/voice - cost control) ' +
-      '\n- Prevents alert storms from flooding recipient ' +
       '\n\n**Common recipient patterns:** ' +
       '\n\n**On-call engineer (multiple contact methods):** ' +
       '1. Create email: {type: "email", addr: "engineer@company.com"} ' +
@@ -5122,8 +5082,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '5. Recipient receives notifications when alerts match ' +
       '\n\n**Best practices:** ' +
       '\n- Descriptive names: "John Doe - Mobile" not just phone number ' +
-      '\n- Use business hours schedule for non-critical alerts ' +
-      '\n- Rate limit SMS/voice to control costs ' +
       '\n- Group related recipients (easier management) ' +
       '\n- Test with sample alert before production use ' +
       '\n\n**Related tools:** "create\\_recipient\\_group" (organize recipients), "create\\_escalation\\_chain" (use recipients), "list\\_recipients" (view all).',
@@ -5158,12 +5116,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_recipient',
     description: 'Update an existing alert recipient in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** schedule, rateLimit are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify recipient contact information, notification schedule, rate limits, or name. Changes affect all escalation chains using this recipient. ' +
+      '\n\n**What this does:** Modify recipient name, contact address, or delivery method. Changes affect all escalation chains using this recipient. ' +
       '\n\n**When to use:**' +
       '\n- Update phone number/email after personnel changes' +
-      '\n- Change notification schedule' +
-      '\n- Adjust rate limits' +
       '\n- Update recipient name' +
       '\n- Switch from email to SMS' +
       '\n' +
@@ -5172,15 +5127,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (what to change):** ' +
       '\n- addr: New contact info (email, phone, webhook URL) ' +
       '\n- name: New friendly name ' +
-      '\n- schedule: Update notification hours ' +
-      '\n- rateLimit: Change max notifications per hour ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Update on-call phone number:** ' +
       '{recipientId: 123, addr: "+1-555-999-8888", name: "John Doe - New Mobile"} ' +
-      '\n\n**Change to business hours only:** ' +
-      '{recipientId: 123, schedule: "business-hours"} // Stop after-hours alerts ' +
-      '\n\n**Reduce SMS rate limit (cost control):** ' +
-      '{recipientId: 123, rateLimit: 5} // Max 5 SMS per hour ' +
       '\n\n**Update webhook URL:** ' +
       '{recipientId: 123, addr: "https://new-webhook-url.com/alerts"} ' +
       '\n\n**Best practice workflow:** ' +
@@ -5627,7 +5576,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_alert_rule',
     description: 'Create a new alert rule in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** deviceGroups, instances, datapoints, severity are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Defines routing logic determining which alerts go to which escalation chains. Alert rules match alerts by device, datasource, severity, etc., and route to appropriate notification paths. ' +
       '\n\n**When to use:**' +
       '\n- Set up alert notifications for new teams' +
@@ -5641,11 +5589,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- priority: Rule evaluation order (1=highest, evaluated first) ' +
       '\n- escalationChainId: Which escalation chain receives matching alerts ' +
       '\n\n**Optional parameters (matching conditions):** ' +
-      '\n- deviceGroups: Device folders to match (e.g., "/Production/") ' +
-      '\n- datasources: DataSource names to match (e.g., "CPU", "Memory") ' +
-      '\n- instances: Instance names to match ' +
-      '\n- datapoints: Specific metrics ' +
-      '\n- severity: Alert levels (critical, error, warn) ' +
+      '\n- deviceGroups: Array of device group paths to match, wildcards allowed (e.g., ["Production*"]) ' +
+      '\n- datasource: DataSource name to match, wildcards allowed (e.g., "CPU*") ' +
+      '\n- instance: Instance name to match, wildcards allowed ' +
+      '\n- datapoint: Datapoint name to match, wildcards allowed ' +
+      '\n- severity: Alert level to match: all, warn, error or critical ' +
       '\n\n**How alert rules work:** ' +
       'Alert triggers → Rules evaluated in priority order → First matching rule wins → Routes to that rule\'s escalation chain → Escalation chain notifies recipients ' +
       '\n\n**Priority is CRITICAL:** ' +
@@ -5655,13 +5603,13 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Catch-all rules need HIGHER priority numbers (evaluated last) ' +
       '\n\n**Common alert rule patterns:** ' +
       '\n\n**Critical production alerts (Priority 1):** ' +
-      '{name: "Critical Production", priority: 1, deviceGroups: "/Production/", severity: "critical", escalationChainId: 10} ' +
+      '{name: "Critical Production", priority: 1, deviceGroups: ["Production*"], severity: "critical", escalationChainId: 10} ' +
       '// Critical alerts from production resources/devices→ On-call chain ' +
       '\n\n**Database team alerts (Priority 2):** ' +
-      '{name: "Database Team", priority: 2, datasources: "MySQL,PostgreSQL,Oracle", escalationChainId: 20} ' +
+      '{name: "Database Team", priority: 2, datasource: "MySQL*", escalationChainId: 20} ' +
       '// Any database datasource → Database team chain ' +
       '\n\n**Network team alerts (Priority 3):** ' +
-      '{name: "Network Team", priority: 3, deviceGroups: "/Network resources/Devices/", escalationChainId: 30} ' +
+      '{name: "Network Team", priority: 3, deviceGroups: ["Network*"], escalationChainId: 30} ' +
       '// Network resource/device → Network team chain ' +
       '\n\n**Business hours only (Priority 4):** ' +
       '{name: "Non-Critical Warnings", priority: 4, severity: "warn", escalationChainId: 40} ' +
@@ -5670,13 +5618,12 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '{name: "Default - All Alerts", priority: 99, escalationChainId: 50} ' +
       '// Everything else → Default NOC chain ' +
       '\n\n**DeviceGroups filter examples:** ' +
-      '\n- "/Production/" - Any resource/device in Production folder ' +
-      '\n- "/Production/Web Servers/" - Only production web servers ' +
+      '\n- ["Production*"] - Any resource/device in a group whose path starts with Production ' +
+      '\n- ["Production/Web Servers"] - Only production web servers ' +
       '\n- "\*" - All resource/device (catch-all) ' +
       '\n\n**Datasources filter examples:** ' +
       '\n- "CPU" - Any datasource with CPU in name ' +
-      '\n- "WinCPU,LinuxCPU" - Specific datasources (comma-separated) ' +
-      '\n- "Memory,Disk" - Memory or Disk datasources ' +
+      '\n- "WinCPU" - One specific datasource ' +
       '\n\n**Severity options:** ' +
       '\n- "critical" - Critical alerts only ' +
       '\n- "error" - Error and critical ' +
@@ -5701,6 +5648,28 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        deviceGroups: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Resource/device group paths the rule applies to; wildcards allowed (for example ["Production*"]). Default: all groups.',
+        },
+        datasource: {
+          type: 'string',
+          description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
+        },
+        instance: {
+          type: 'string',
+          description: 'Instance name the rule applies to; wildcards allowed. Default: all.',
+        },
+        datapoint: {
+          type: 'string',
+          description: 'Datapoint name the rule applies to; wildcards allowed. Default: all.',
+        },
+        severity: {
+          type: 'string',
+          enum: ['all', 'warn', 'error', 'critical'],
+          description: 'Alert level the rule matches (all, warn, error, critical)',
+        },
         name: {
           type: 'string',
           description: 'Name of the alert rule',
@@ -5729,13 +5698,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_alert_rule',
     description: 'Update an existing alert rule in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** deviceGroups, severity, enabled are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify rule matching conditions, priority, escalation chain, or enable/disable rule. Changes affect how NEW alerts are routed immediately. ' +
+      '\n\n**What this does:** Modify rule matching conditions, priority, escalation chain, or change matching rule. Changes affect how NEW alerts are routed immediately. ' +
       '\n\n**When to use:**' +
       '\n- Route alerts to different team' +
       '\n- Adjust rule priority' +
       '\n- Update matching conditions' +
-      '\n- Temporarily disable rule' +
       '\n- Broaden/narrow alert scope' +
       '\n' +
       '\n\n**Required parameters:** ' +
@@ -5745,29 +5712,25 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- priority: Change evaluation order ' +
       '\n- escalationChainId: Route to different chain ' +
       '\n- deviceGroups: Update resource/device scope ' +
-      '\n- datasources: Update datasource filter ' +
+      '\n- datasource: Update datasource filter ' +
       '\n- severity: Change severity matching ' +
-      '\n- enabled: true (active) or false (disable) ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Route to different team:** ' +
       '{ruleId: 123, escalationChainId: 456} // Database alerts → new DB team chain ' +
       '\n\n**Adjust priority (rule conflict):** ' +
       '{ruleId: 123, priority: 5} // Make this rule evaluate earlier ' +
-      '\n\n**Temporarily disable rule:** ' +
-      '{ruleId: 123, enabled: false} // During team transition ' +
       '\n\n**Broaden scope:** ' +
-      '{ruleId: 123, deviceGroups: "/Production/,/Staging/"} // Add staging resource/device ' +
+      '{ruleId: 123, deviceGroups: ["Production*", "Staging*"]} // Add staging resource/device ' +
       '\n\n**Narrow scope:** ' +
       '{ruleId: 123, severity: "critical"} // Only critical, not warnings ' +
       '\n\n**⚠️ Important - Immediate Impact:** ' +
       '\n- New alerts immediately use updated rule ' +
       '\n- Active alerts already routed continue with original chain ' +
-      '\n- Disabling rule means matching alerts route to next matching rule ' +
       '\n- Priority changes affect which rule wins for overlapping conditions ' +
       '\n\n**Priority update considerations:** ' +
       'If two rules match same alert, LOWER priority number wins. Example: ' +
-      '\n- Rule A (priority 1): deviceGroups="/Production/" ' +
-      '\n- Rule B (priority 2): datasources="CPU" ' +
+      '\n- Rule A (priority 1): deviceGroups=["Production*"] ' +
+      '\n- Rule B (priority 2): datasource="CPU*" ' +
       '\n- Alert from Production resource/device with CPU datasource → Rule A wins (priority 1) ' +
       '\n\n**Best practice workflow:** ' +
       '1. Use "get\\_alert\\_rule" to review current configuration ' +
@@ -5782,6 +5745,28 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        deviceGroups: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Resource/device group paths the rule applies to; wildcards allowed (for example ["Production*"]). Default: all groups.',
+        },
+        datasource: {
+          type: 'string',
+          description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
+        },
+        instance: {
+          type: 'string',
+          description: 'Instance name the rule applies to; wildcards allowed. Default: all.',
+        },
+        datapoint: {
+          type: 'string',
+          description: 'Datapoint name the rule applies to; wildcards allowed. Default: all.',
+        },
+        severity: {
+          type: 'string',
+          enum: ['all', 'warn', 'error', 'critical'],
+          description: 'Alert level the rule matches (all, warn, error, critical)',
+        },
         ruleId: {
           type: 'number',
           description: 'The ID of the alert rule to update',
@@ -5962,7 +5947,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_opsnote',
     description: 'Create a new operational note (OpsNote) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** timestamp, deviceId, deviceGroupId, websiteId are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
       '\n\n**What this does:** Creates timestamped annotation displayed on graphs/dashboards at specific time. Documents changes, deployments, incidents, maintenance - anything that might correlate with metric changes. ' +
       '\n\n**When to use:**' +
       '\n- Document deployments/releases' +
@@ -5973,7 +5957,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- note: The annotation text (what happened) ' +
-      '\n- timestamp: When it happened (epoch milliseconds) ' +
+      '\n- happenOnInSec: When it happened, in epoch seconds (default: now) ' +
       '\n\n**Optional parameters (scope - what it applies to):** ' +
       '\n- deviceId: Specific resource/device (shows on that device\'s graphs) ' +
       '\n- deviceGroupId: Device group (shows on all resource/device in group) ' +
@@ -5986,21 +5970,21 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- **Team communication:** Share context on dashboards ' +
       '\n\n**Common OpsNote patterns:** ' +
       '\n\n**Deployment tracking:** ' +
-      '{note: "Deployed v2.5.0 to production web servers - build #12345", timestamp: 1699889400000, deviceGroupId: 123, tags: ["deployment", "web"]} ' +
+      '{note: "Deployed v2.5.0 to production web servers - build #12345", happenOnInSec: 1699889400, deviceGroupId: 123, tags: ["deployment", "web"]} ' +
       '// Shows on all web server graphs ' +
       '\n\n**Incident documentation:** ' +
-      '{note: "Incident INC-5678: Database performance issue - investigating", timestamp: 1699890000000, deviceId: 456, tags: ["incident", "database"]} ' +
-      '{note: "INC-5678: Root cause - slow query. Optimized index.", timestamp: 1699891800000, deviceId: 456, tags: ["incident", "resolved"]} ' +
+      '{note: "Incident INC-5678: Database performance issue - investigating", happenOnInSec: 1699890000, deviceId: 456, tags: ["incident", "database"]} ' +
+      '{note: "INC-5678: Root cause - slow query. Optimized index.", happenOnInSec: 1699891800, deviceId: 456, tags: ["incident", "resolved"]} ' +
       '// Timeline of incident on affected resource/device ' +
       '\n\n**Configuration changes:** ' +
-      '{note: "Updated Nginx config - increased worker processes from 4 to 8", timestamp: 1699892000000, deviceId: 789, tags: ["config-change"]} ' +
-      '{note: "Applied firewall rule changes - blocked port 8080", timestamp: 1699893000000, deviceGroupId: 100, tags: ["security", "firewall"]} ' +
+      '{note: "Updated Nginx config - increased worker processes from 4 to 8", happenOnInSec: 1699892000, deviceId: 789, tags: ["config-change"]} ' +
+      '{note: "Applied firewall rule changes - blocked port 8080", happenOnInSec: 1699893000, deviceGroupId: 100, tags: ["security", "firewall"]} ' +
       '\n\n**Maintenance windows:** ' +
-      '{note: "Started OS patching on all Linux servers", timestamp: 1699894000000, deviceGroupId: 200, tags: ["maintenance", "patching"]} ' +
-      '{note: "Completed OS patching - all servers rebooted", timestamp: 1699898000000, deviceGroupId: 200, tags: ["maintenance", "completed"]} ' +
+      '{note: "Started OS patching on all Linux servers", happenOnInSec: 1699894000, deviceGroupId: 200, tags: ["maintenance", "patching"]} ' +
+      '{note: "Completed OS patching - all servers rebooted", happenOnInSec: 1699898000, deviceGroupId: 200, tags: ["maintenance", "completed"]} ' +
       '\n\n**Known events:** ' +
-      '{note: "AWS announced maintenance in us-east-1", timestamp: 1699895000000, tags: ["aws", "external"]} ' +
-      '{note: "Batch job running - expected high CPU", timestamp: 1699896000000, deviceId: 111, tags: ["batch-job", "expected"]} ' +
+      '{note: "AWS announced maintenance in us-east-1", happenOnInSec: 1699895000, tags: ["aws", "external"]} ' +
+      '{note: "Batch job running - expected high CPU", happenOnInSec: 1699896000, deviceId: 111, tags: ["batch-job", "expected"]} ' +
       '\n\n**Scope options explained:** ' +
       '\n- **deviceId:** Shows on specific resource/device\'s graphs only ' +
       '\n- **deviceGroupId:** Shows on all resource/device in that group ' +
@@ -6008,8 +5992,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- **No scope (global):** Shows on all graphs (use sparingly) ' +
       '\n\n**Timestamp tips:** ' +
       '\n- Use actual event time (not current time) for accurate correlation ' +
-      '\n- Epoch milliseconds: Date.now() in JavaScript, time.time()*1000 in Python ' +
-      '\n- For past events: Calculate epoch milliseconds for that date/time ' +
+      '\n- Epoch seconds: Math.floor(Date.now()/1000) in JavaScript, int(time.time()) in Python ' +
+      '\n- For past events: Calculate epoch seconds for that date/time ' +
       '\n\n**Best practices:** ' +
       '\n- **Be specific:** "Deployed v2.5.0" not "deployed" ' +
       '\n- **Include identifiers:** Build numbers, ticket IDs, version numbers ' +
@@ -6035,6 +6019,18 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        deviceId: {
+          type: 'number',
+          description: 'Attach the note to this resource/device (added to scopes)',
+        },
+        deviceGroupId: {
+          type: 'number',
+          description: 'Attach the note to this resource/device group (added to scopes)',
+        },
+        websiteId: {
+          type: 'number',
+          description: 'Attach the note to this website monitor (added to scopes)',
+        },
         note: {
           type: 'string',
           description: 'The note text content',
@@ -6059,12 +6055,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_opsnote',
     description: 'Update an existing operational note in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** timestamp, deviceId, deviceGroupId are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify OpsNote text, timestamp, tags, or scope. Useful for correcting mistakes or adding details after initial creation. ' +
+      '\n\n**What this does:** Modify OpsNote text, time, tags, or scope. Useful for correcting mistakes or adding details after initial creation. ' +
       '\n\n**When to use:**' +
       '\n- Fix typos in note text' +
       '\n- Add more details after investigation' +
-      '\n- Correct timestamp' +
+      '\n- Correct the time' +
       '\n- Update tags for better organization' +
       '\n- Change scope (different device/group)' +
       '\n' +
@@ -6072,7 +6067,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- opsNoteId: OpsNote ID (from "list\\_opsnotes") ' +
       '\n\n**Optional parameters (what to change):** ' +
       '\n- note: New note text ' +
-      '\n- timestamp: Corrected time (epoch milliseconds) ' +
+      '\n- happenOnInSec: Corrected time, in epoch seconds ' +
       '\n- tags: Updated tag array ' +
       '\n- deviceId: Change to different resource/device ' +
       '\n- deviceGroupId: Change to different group ' +
@@ -6083,8 +6078,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Fix typo:** ' +
       '{opsNoteId: 456, note: "Database migration completed successfully"} ' +
       '// Fixed spelling error ' +
-      '\n\n**Correct timestamp:** ' +
-      '{opsNoteId: 789, timestamp: 1699899000000} ' +
+      '\n\n**Correct the time:** ' +
+      '{opsNoteId: 789, happenOnInSec: 1699899000} ' +
       '// Used wrong time initially ' +
       '\n\n**Add tags for better organization:** ' +
       '{opsNoteId: 111, tags: ["deployment", "rollback", "production", "critical"]} ' +
@@ -6101,6 +6096,22 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        deviceId: {
+          type: 'number',
+          description: 'Attach the note to this resource/device (added to scopes)',
+        },
+        deviceGroupId: {
+          type: 'number',
+          description: 'Attach the note to this resource/device group (added to scopes)',
+        },
+        websiteId: {
+          type: 'number',
+          description: 'Attach the note to this website monitor (added to scopes)',
+        },
+        happenOnInSec: {
+          type: 'number',
+          description: 'Corrected time of the event, in seconds since epoch',
+        },
         opsNoteId: {
           type: 'string',
           description: 'The ID of the OpsNote to update',
@@ -6258,7 +6269,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_service',
     description: 'Create a new business service in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** alertStatus is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Creates business-level service aggregating multiple resources into single health status. Think "E-commerce Website" service composed of web servers, databases, load balancers, etc. Service health calculated from member resource/device health. ' +
       '\n\n**When to use:**' +
       '\n- Monitor application-level health (not just infrastructure)' +
@@ -6273,7 +6283,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters:** ' +
       '\n- description: Service purpose/details ' +
       '\n- resources/devices: Array of resource/device IDs that comprise this service ' +
-      '\n- alertStatus: Service alert status (calculated or manual) ' +
       '\n\n**What are business services?** ' +
       'Business services represent application/service from business perspective, not infrastructure perspective. Examples: ' +
       '\n- "E-commerce Website" = web servers + database + Redis + CDN ' +
@@ -6354,7 +6363,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_service',
     description: 'Update an existing business service in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** groupId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify service name, description, or member resources/devices. Updates service health calculation when membership changes. ' +
       '\n\n**When to use:**' +
       '\n- Add/remove resource/device as infrastructure changes' +
@@ -6394,6 +6402,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        groupId: {
+          type: 'number',
+          description: 'ID of the service group to move the service to',
+        },
         serviceId: {
           type: 'number',
           description: 'The ID of the service to update',
@@ -6590,7 +6602,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_service_group',
     description: 'Update an existing service group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify group name, description, or parent (move in hierarchy). Does not affect services within group. ' +
       '\n\n**When to use:**' +
       '\n- Rename group after reorg' +
@@ -6623,6 +6634,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        parentId: {
+          type: 'number',
+          description: 'ID of the new parent service group (moves the group)',
+        },
         groupId: {
           type: 'number',
           description: 'The ID of the service group to update',
@@ -6758,7 +6773,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'create_report_group',
     description: 'Create a new report group (folder) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Creates organizational folder for reports. Organize reports by team, report type, schedule, or purpose. ' +
       '\n\n**When to use:**' +
       '\n- Organize reports before creating them' +
@@ -6788,6 +6802,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        parentId: {
+          type: 'number',
+          description: 'ID of the parent report group, to create the group inside another group',
+        },
         name: {
           type: 'string',
           description: 'Name of the report group',
@@ -6804,7 +6822,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_report_group',
     description: 'Update an existing report group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** parentId is mentioned in the text below but is not accepted by this tool and would be ignored; use the LogicMonitor UI for that. ' +
       '\n\n**What this does:** Modify group name, description, or parent (move in hierarchy). Does not affect reports within group. ' +
       '\n\n**When to use:**' +
       '\n- Rename group' +
@@ -6826,6 +6843,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        parentId: {
+          type: 'number',
+          description: 'ID of the new parent report group (moves the group)',
+        },
         groupId: {
           type: 'number',
           description: 'The ID of the report group to update',
