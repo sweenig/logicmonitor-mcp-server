@@ -921,6 +921,10 @@ Or use CLI flags:
 npm start -- --lm-company mycompany --lm-bearer-token "your-token"
 ```
 
+### A filter works through the MCP tools but returns "invalid filter!" in my own script
+
+The MCP server quotes filter values for you: `filter: "dataSourceName:My_DS"` is sent to LogicMonitor as `dataSourceName:"My_DS"` (see `src/utils/helpers/filters.ts`). The LogicMonitor REST API wants every value double-quoted, and it rejects some unquoted values with HTTP 400 `invalid filter!` or silently ignores them. A script that calls the API directly (for example a DataSource script) gets no such help, so write the quotes yourself and URL-encode them (`%22`): `filter=dataSourceName:%22My_DS%22`.
+
 ### Rate Limiting
 
 The server automatically handles rate limits with exponential backoff. If you encounter persistent rate limiting:
