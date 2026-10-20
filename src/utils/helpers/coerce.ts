@@ -8,3 +8,22 @@
 export function isTrue(value: unknown): boolean {
   return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
 }
+
+/**
+ * An array argument that some clients send as a JSON string (for example '["a","b"]'). Arrays are
+ * returned as they are, a string holding a JSON array is parsed, anything else is returned unchanged.
+ */
+export function parseJsonArray(value: unknown): unknown {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // not JSON: fall through and return the string
+      }
+    }
+  }
+  return value;
+}

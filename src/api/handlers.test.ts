@@ -2942,10 +2942,10 @@ describe('LogicMonitorHandlers', () => {
       mockClient.updateAlertRule.mockResolvedValue({ id: 1 });
 
       await handlers.handleToolCall('create_alert_rule', {
-        name: 'r', escalationChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', severity: 'error',
+        name: 'r', escalationChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', datapoint: 'Busy*', severity: 'error',
       });
       expect(mockClient.createAlertRule.mock.calls[0][0]).toMatchObject({
-        escalatingChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', levelStr: 'Error',
+        escalatingChainId: 7, deviceGroups: ['Production*'], datasource: 'CPU*', datapoint: 'Busy*', levelStr: 'Error',
       });
 
       await handlers.handleToolCall('update_alert_rule', { ruleId: 1, severity: 'critical' });
@@ -2956,25 +2956,19 @@ describe('LogicMonitorHandlers', () => {
       mockClient.createOpsNote.mockResolvedValue({ id: 1 });
       mockClient.updateOpsNote.mockResolvedValue({ id: 1 });
 
-      await handlers.handleToolCall('create_opsnote', { note: 'n', deviceId: 5, happenOnInSec: 1699889400 });
+      await handlers.handleToolCall('create_opsnote', { note: 'n', deviceId: 5, happenOnInSec: 1699889400, tags: ['deploy'] });
       expect(mockClient.createOpsNote.mock.calls[0][0]).toEqual({
-        note: 'n', scopes: [{ type: 'device', deviceId: 5 }], happenOnInSec: 1699889400,
+        note: 'n', scopes: [{ type: 'device', deviceId: 5 }], happenOnInSec: 1699889400, tags: [{ name: 'deploy' }],
       });
 
       await handlers.handleToolCall('update_opsnote', { opsNoteId: 'abc', happenOnInSec: 1699889500 });
       expect(mockClient.updateOpsNote.mock.calls[0]).toEqual(['abc', { happenOnInSec: 1699889500 }]);
     });
 
-    it('sends parentId and groupId when moving report groups, service groups and services', async () => {
-      mockClient.createReportGroup.mockResolvedValue({ id: 1 });
-      mockClient.updateReportGroup.mockResolvedValue({ id: 1 });
+    it('sends parentId and groupId when moving service groups and services', async () => {
       mockClient.updateServiceGroup.mockResolvedValue({ id: 1 });
       mockClient.updateService.mockResolvedValue({ id: 1 });
 
-      await handlers.handleToolCall('create_report_group', { name: 'g', parentId: 4 });
-      expect(mockClient.createReportGroup.mock.calls[0][0]).toEqual({ name: 'g', parentId: 4 });
-      await handlers.handleToolCall('update_report_group', { groupId: 2, parentId: 4 });
-      expect(mockClient.updateReportGroup.mock.calls[0]).toEqual([2, { parentId: 4 }]);
       await handlers.handleToolCall('update_service_group', { groupId: 3, parentId: 4 });
       expect(mockClient.updateServiceGroup.mock.calls[0]).toEqual([3, { parentId: 4 }]);
       await handlers.handleToolCall('update_service', { serviceId: 6, groupId: 9 });

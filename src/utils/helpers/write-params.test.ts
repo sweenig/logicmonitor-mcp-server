@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { alertRuleMatch, opsNoteScopes } from './write-params.js';
+import { alertRuleMatch, opsNoteScopes, opsNoteTags } from './write-params.js';
 
 describe('alertRuleMatch', () => {
   it('returns nothing when no matching condition is given, so an update changes nothing else', () => {
@@ -11,14 +11,12 @@ describe('alertRuleMatch', () => {
       devices: ['web*'],
       deviceGroups: ['Production*', 'Staging*'],
       datasource: 'CPU*',
-      instance: 'C:*',
       datapoint: 'CPUBusyPercent',
       severity: 'critical',
     })).toEqual({
       devices: ['web*'],
       deviceGroups: ['Production*', 'Staging*'],
       datasource: 'CPU*',
-      instance: 'C:*',
       datapoint: 'CPUBusyPercent',
       levelStr: 'Critical',
     });
@@ -30,12 +28,25 @@ describe('alertRuleMatch', () => {
     expect(alertRuleMatch({ datasource: 'Disk', datasources: ['CPU'] }).datasource).toBe('Disk');
   });
 
+  it('accepts arrays that a client sent as JSON strings', () => {
+    expect(alertRuleMatch({ deviceGroups: '["Production*", "Staging*"]' }).deviceGroups).toEqual(['Production*', 'Staging*']);
+    expect(alertRuleMatch({ devices: '["web*"]' }).devices).toEqual(['web*']);
+  });
+
   it('maps every severity and rejects unknown ones with the allowed values', () => {
     expect(alertRuleMatch({ severity: 'ALL' }).levelStr).toBe('All');
     expect(alertRuleMatch({ severity: 'warn' }).levelStr).toBe('Warn');
     expect(alertRuleMatch({ severity: 'warning' }).levelStr).toBe('Warn');
     expect(alertRuleMatch({ severity: 'error' }).levelStr).toBe('Error');
     expect(() => alertRuleMatch({ severity: 'urgent' })).toThrow(/severity must be one of: all, warn, warning, error, critical/);
+  });
+});
+
+describe('opsNoteTags', () => {
+  it('wraps plain strings in {name} objects and keeps objects', () => {
+    expect(opsNoteTags(['deploy', { name: 'web' }])).toEqual([{ name: 'deploy' }, { name: 'web' }]);
+    expect(opsNoteTags('["a"]')).toEqual([{ name: 'a' }]);
+    expect(opsNoteTags(undefined)).toBeUndefined();
   });
 });
 
@@ -53,6 +64,10 @@ describe('opsNoteScopes', () => {
       { type: 'device', deviceId: 2 },
     ]);
     expect(opsNoteScopes({ scopes: [] })).toEqual([]);
+  });
+
+  it('accepts scopes sent as a JSON string', () => {
+    expect(opsNoteScopes({ scopes: '[{"type":"device","deviceId":1}]' })).toEqual([{ type: 'device', deviceId: 1 }]);
   });
 
   it('does not modify the scopes array it was given', () => {

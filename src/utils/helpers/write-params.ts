@@ -11,14 +11,17 @@ export const ALERT_RULE_LEVELS: Record<string, string> = {
   critical: 'Critical',
 };
 
-function toStringList(value: unknown): string[] {
+import { parseJsonArray } from './coerce.js';
+
+function toStringList(input: unknown): string[] {
+  const value = parseJsonArray(input);
   if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(item => item !== '');
   if (typeof value === 'string') return value.split(',').map(item => item.trim()).filter(item => item !== '');
   return [];
 }
 
 /**
- * The matching conditions of an alert rule (which resources, groups, datasources, instances,
+ * The matching conditions of an alert rule (which resources, groups, datasources,
  * datapoints and severities it applies to), as API fields. Only the conditions that were given are
  * returned, so an update changes nothing else. `datasources` (array) is the older argument name for
  * `datasource` and is joined with commas.
@@ -31,7 +34,6 @@ export function alertRuleMatch(args: Record<string, any>): Record<string, any> {
 
   const datasource = args.datasource ?? args.datasources;
   if (datasource !== undefined) match.datasource = toStringList(datasource).join(',');
-  if (args.instance !== undefined) match.instance = String(args.instance);
   if (args.datapoint !== undefined) match.datapoint = String(args.datapoint);
 
   if (args.severity !== undefined) {
@@ -45,12 +47,22 @@ export function alertRuleMatch(args: Record<string, any>): Record<string, any> {
 }
 
 /**
+ * OpsNote tags as the API wants them, objects with a name. Plain strings are accepted and wrapped.
+ */
+export function opsNoteTags(value: unknown): Array<Record<string, any>> | undefined {
+  const list = parseJsonArray(value);
+  if (!Array.isArray(list)) return undefined;
+  return list.map(tag => (typeof tag === 'string' ? { name: tag } : tag));
+}
+
+/**
  * The scopes of an OpsNote: any explicit `scopes` plus one scope for each of deviceId, deviceGroupId
  * and websiteId that was given.
  */
 export function opsNoteScopes(args: Record<string, any>): any[] | undefined {
-  const scopes: any[] = Array.isArray(args.scopes) ? [...args.scopes] : [];
-  let given = Array.isArray(args.scopes);
+  const explicit = parseJsonArray(args.scopes);
+  const scopes: any[] = Array.isArray(explicit) ? [...explicit] : [];
+  let given = Array.isArray(explicit);
   if (args.deviceId !== undefined) { scopes.push({ type: 'device', deviceId: args.deviceId }); given = true; }
   if (args.deviceGroupId !== undefined) { scopes.push({ type: 'deviceGroup', groupId: args.deviceGroupId }); given = true; }
   if (args.websiteId !== undefined) { scopes.push({ type: 'website', websiteId: args.websiteId }); given = true; }

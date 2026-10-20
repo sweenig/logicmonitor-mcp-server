@@ -5591,7 +5591,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (matching conditions):** ' +
       '\n- deviceGroups: Array of device group paths to match, wildcards allowed (e.g., ["Production*"]) ' +
       '\n- datasource: DataSource name to match, wildcards allowed (e.g., "CPU*") ' +
-      '\n- instance: Instance name to match, wildcards allowed ' +
       '\n- datapoint: Datapoint name to match, wildcards allowed ' +
       '\n- severity: Alert level to match: all, warn, error or critical ' +
       '\n\n**How alert rules work:** ' +
@@ -5656,10 +5655,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         datasource: {
           type: 'string',
           description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
-        },
-        instance: {
-          type: 'string',
-          description: 'Instance name the rule applies to; wildcards allowed. Default: all.',
         },
         datapoint: {
           type: 'string',
@@ -5753,10 +5748,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         datasource: {
           type: 'string',
           description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
-        },
-        instance: {
-          type: 'string',
-          description: 'Instance name the rule applies to; wildcards allowed. Default: all.',
         },
         datapoint: {
           type: 'string',
@@ -6041,7 +6032,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         tags: {
           type: 'array',
-          description: 'Array of tags for categorizing the note',
+          description: 'Tags for categorizing the note: strings or {name} objects',
         },
         happenOnInSec: {
           type: 'number',
@@ -6126,7 +6117,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         tags: {
           type: 'array',
-          description: 'Updated tags',
+          description: 'Updated tags: strings or {name} objects',
         },
       },
       additionalProperties: false,
@@ -6784,7 +6775,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- name: Group name (e.g., "Executive Reports", "Compliance Reports", "Daily Operations") ' +
       '\n\n**Optional parameters:** ' +
       '\n- description: Group purpose ' +
-      '\n- parentId: Parent group ID for nested hierarchy ' +
       '\n\n**Common report group patterns:** ' +
       '\n- By audience: "Executive Reports", "Engineering Reports", "Business Unit Reports" ' +
       '\n- By frequency: "Daily Reports", "Weekly Reports", "Monthly Reports" ' +
@@ -6793,7 +6783,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Best practices:** ' +
       '\n- Create groups before creating reports ' +
       '\n- Use descriptive names matching business needs ' +
-      '\n- Keep hierarchy shallow (2-3 levels max) ' +
       '\n\n**Related tools:** "list\\_report\\_groups" (view hierarchy), "update\\_report\\_group" (modify).',
     annotations: {
       title: 'Create report group',
@@ -6802,10 +6791,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        parentId: {
-          type: 'number',
-          description: 'ID of the parent report group, to create the group inside another group',
-        },
         name: {
           type: 'string',
           description: 'Name of the report group',
@@ -6822,19 +6807,16 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'update_report_group',
     description: 'Update an existing report group in LogicMonitor (LM) monitoring. ' +
-      '\n\n**What this does:** Modify group name, description, or parent (move in hierarchy). Does not affect reports within group. ' +
+      '\n\n**What this does:** Modify group name or description. Does not affect reports within group. ' +
       '\n\n**When to use:**' +
       '\n- Rename group' +
       '\n- Update description' +
-      '\n- Move group in hierarchy' +
-      '\n- Reorganize report structure' +
       '\n' +
       '\n\n**Required parameters:** ' +
       '\n- groupId: Report group ID (from "list\\_report\\_groups") ' +
       '\n\n**Optional parameters:** ' +
       '\n- name: New group name ' +
       '\n- description: Updated description ' +
-      '\n- parentId: New parent group (moves group) ' +
       '\n\n**Related tools:** "list\\_report\\_groups" (find group), "get\\_report\\_group" (verify), "list\\_reports" (reports in group).',
     annotations: {
       title: 'Update report group',
@@ -6843,10 +6825,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        parentId: {
-          type: 'number',
-          description: 'ID of the new parent report group (moves the group)',
-        },
         groupId: {
           type: 'number',
           description: 'The ID of the report group to update',

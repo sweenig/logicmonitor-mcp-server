@@ -6,7 +6,8 @@
 
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
-import { alertRuleMatch, opsNoteScopes } from '../utils/helpers/write-params.js';
+import { parseJsonArray } from '../utils/helpers/coerce.js';
+import { alertRuleMatch, opsNoteScopes, opsNoteTags } from '../utils/helpers/write-params.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
@@ -741,12 +742,13 @@ export class LogicMonitorHandlers {
           if (args.groupId) dashboard.groupId = args.groupId;
           if (args.widgetsConfig) dashboard.widgetsConfig = args.widgetsConfig;
           if (args.sharable !== undefined) dashboard.sharable = args.sharable;
-          if (args.widgetTokens) dashboard.widgetTokens = args.widgetTokens;
+          if (args.widgetTokens) dashboard.widgetTokens = parseJsonArray(args.widgetTokens);
           return await this.client.createDashboard(dashboard);
         }
 
         case 'update_dashboard': {
           const { dashboardId, ...dashboardData } = args;
+          if (dashboardData.widgetTokens !== undefined) dashboardData.widgetTokens = parseJsonArray(dashboardData.widgetTokens);
           return await this.client.updateDashboard(dashboardId, dashboardData);
         }
 
@@ -1588,7 +1590,7 @@ export class LogicMonitorHandlers {
             note: args.note,
             scopes: opsNoteScopes(args) ?? [],
           };
-          if (args.tags) opsNote.tags = args.tags;
+          if (args.tags) opsNote.tags = opsNoteTags(args.tags);
           if (args.happenOnInSec) opsNote.happenOnInSec = args.happenOnInSec;
           return await this.client.createOpsNote(opsNote);
         }
@@ -1598,7 +1600,7 @@ export class LogicMonitorHandlers {
           if (args.note) opsNote.note = args.note;
           const scopes = opsNoteScopes(args);
           if (scopes) opsNote.scopes = scopes;
-          if (args.tags) opsNote.tags = args.tags;
+          if (args.tags) opsNote.tags = opsNoteTags(args.tags);
           if (args.happenOnInSec) opsNote.happenOnInSec = args.happenOnInSec;
           return await this.client.updateOpsNote(args.opsNoteId, opsNote);
         }
@@ -1697,7 +1699,6 @@ export class LogicMonitorHandlers {
             name: args.name,
           };
           if (args.description) group.description = args.description;
-          if (args.parentId !== undefined) group.parentId = args.parentId;
           return await this.client.createReportGroup(group);
         }
 
@@ -1705,7 +1706,6 @@ export class LogicMonitorHandlers {
           const group: any = {};
           if (args.name) group.name = args.name;
           if (args.description !== undefined) group.description = args.description;
-          if (args.parentId !== undefined) group.parentId = args.parentId;
           return await this.client.updateReportGroup(args.groupId, group);
         }
 
