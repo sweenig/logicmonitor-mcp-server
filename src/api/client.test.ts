@@ -165,6 +165,110 @@ describe('LogicMonitor Client Utils', () => {
       expect(result.truncationNote).toContain('end=50');
     });
 
+    // LogicMonitor ignores an `end` without a `start` and caps a `start` without an `end` at start+1h,
+    // so the client completes the pair before sending.
+    async function instanceDataQuery(params: { start?: number; end?: number }) {
+      let requested = '';
+      global.fetch = jest.fn(async (url: any) => {
+        requested = String(url);
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ dataPoints: ['a'], values: [[1]], time: [1000], nextPageParams: '' }),
+        } as unknown as Response;
+      }) as unknown as typeof fetch;
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+      await client.getDeviceDataSourceInstanceData(1, 2, 3, params);
+      return new URL(requested).searchParams;
+    }
+
+    describe('instance data time range', () => {
+      const NOW_MS = 1_800_000_000_000;
+
+      beforeEach(() => {
+        jest.spyOn(Date, 'now').mockReturnValue(NOW_MS);
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      it('defaults end to now when only start is given', async () => {
+        const query = await instanceDataQuery({ start: 1_799_990_000 });
+        expect(query.get('start')).toBe('1799990000');
+        expect(query.get('end')).toBe('1800000000');
+      });
+
+      it('defaults start to one hour before end when only end is given', async () => {
+        const query = await instanceDataQuery({ end: 1_799_990_000 });
+        expect(query.get('start')).toBe('1799986400');
+        expect(query.get('end')).toBe('1799990000');
+      });
+
+      it('leaves a complete start and end untouched', async () => {
+        const query = await instanceDataQuery({ start: 1_799_900_000, end: 1_799_990_000 });
+        expect(query.get('start')).toBe('1799900000');
+        expect(query.get('end')).toBe('1799990000');
+      });
+
+      it('sends no range when neither start nor end is given', async () => {
+        const query = await instanceDataQuery({});
+        expect(query.has('start')).toBe(false);
+        expect(query.has('end')).toBe(false);
+      });
+    });
+
+    describe('widget data time range', () => {
+      const NOW_MS = 1_800_000_000_000;
+
+      async function widgetDataQuery(params: { start?: number; end?: number }) {
+        let requested = '';
+        global.fetch = jest.fn(async (url: any) => {
+          requested = String(url);
+          return { ok: true, status: 200, headers: new Headers(), json: async () => ({ dataPoints: [] }) } as unknown as Response;
+        }) as unknown as typeof fetch;
+        const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+        await client.getWidgetData(7, params);
+        return new URL(requested).searchParams;
+      }
+
+      beforeEach(() => {
+        jest.spyOn(Date, 'now').mockReturnValue(NOW_MS);
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      it('defaults end to now when only start is given', async () => {
+        const query = await widgetDataQuery({ start: 1_799_990_000 });
+        expect(query.get('start')).toBe('1799990000');
+        expect(query.get('end')).toBe('1800000000');
+      });
+
+      it('rejects an end without a start instead of sending it', async () => {
+        const fetchSpy = jest.fn();
+        global.fetch = fetchSpy as unknown as typeof fetch;
+        const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+        await expect(client.getWidgetData(7, { end: 1_799_990_000 })).rejects.toThrow(/end needs a start/);
+        expect(fetchSpy).not.toHaveBeenCalled();
+      });
+
+      it('leaves a complete start and end untouched', async () => {
+        const query = await widgetDataQuery({ start: 1_799_900_000, end: 1_799_990_000 });
+        expect(query.get('start')).toBe('1799900000');
+        expect(query.get('end')).toBe('1799990000');
+      });
+
+      it('sends no range when neither is given and keeps format', async () => {
+        const query = await widgetDataQuery({ format: 'csv' } as any);
+        expect(query.has('start')).toBe(false);
+        expect(query.has('end')).toBe(false);
+        expect(query.get('format')).toBe('csv');
+      });
+    });
+
     it('returns a summary when summarize is set', async () => {
       global.fetch = jest.fn(async () => ({
         ok: true,

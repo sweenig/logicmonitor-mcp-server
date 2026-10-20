@@ -1620,11 +1620,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- deviceDataSourceId: From "get\\_resource\\_datasource" or "list\\_resource\\_datasources"' +
       '\n- instanceId: From "list\\_resource\\_instances"' +
       '\n- datapoints: Comma-separated metric names (e.g., "CPUBusyPercent,MemoryUsedPercent")' +
-      '\n- start/end: Time range in epoch SECONDS (not milliseconds; millisecond values are auto-converted), start time must be before current time' +
+      '\n- start/end: Time range in epoch SECONDS (not milliseconds; millisecond values are auto-converted), start time must be before current time. If only start is given, end defaults to now; if only end is given, start defaults to one hour before it' +
       '\n- autoPaginate: follow the API\'s paging cursor to fetch older samples (capped by maxPages, default 10). Without it only the newest ~500 samples are returned' +
       '\n- summarize: return per-datapoint stats (samples, min, max, first, last, changes, decreases) instead of raw rows; ideal for long ranges. A "decreases" count above 0 on a counter such as uptime means it reset (e.g. restart)' +
       '\n\n**Example:** Get last hour CPU data: start=Math.floor(Date.now()/1000)-3600, end=Math.floor(Date.now()/1000) ' +
-      '\n\n**Time range tips:** If omitted, returns last 2 hours. Max range: 1 year. Use shorter ranges for better performance. ' +
+      '\n\n**Time range tips:** If start and end are both omitted, returns about the last hour (one hour ending now). Max range: 1 year. Use shorter ranges for better performance. ' +
       '\n\n**Partial results:** The API returns about 500 samples (newest first) per call. If older data exists the response includes truncated:true and a truncationNote explaining how to get the rest - never assume a long range was fully covered unless truncated is absent. Omitting "datapoints" returns every datapoint, which can be large; filter or use summarize. Sample timestamps in "time" are epoch milliseconds.' +
       '\n\n**Related tools:** "list\\_resource\\_datasources", "list\\_resource\\_instances".',
     annotations: {
@@ -2148,7 +2148,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Verify a widget is rendering the data you expect' +
       '\n\n**Parameters:** ' +
       '\n- widgetId: from "list\\_widgets"' +
-      '\n- start/end: optional time range (epoch seconds). If omitted, uses the widget\'s own default timescale' +
+      '\n- start/end: optional time range (epoch seconds). If both are omitted, uses the widget\'s own default timescale. If only start is given, end defaults to now. An end without a start is rejected (LogicMonitor would ignore it)' +
       '\n- format: optional response format' +
       '\n\n**Related tools:** "get\\_widget" (configuration/definition instead of data), "list\\_widgets" (find widgetId).',
     annotations: {

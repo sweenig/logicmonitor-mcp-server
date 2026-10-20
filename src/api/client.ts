@@ -12,6 +12,8 @@ import { parseNextPageParams, mergeInstanceDataPages, annotateTruncation, summar
 
 /** Safety cap on pages followed when autoPaginate is requested for instance data. */
 const DEFAULT_MAX_DATA_PAGES = 10;
+// Window LogicMonitor uses for instance data when no range is given (about the last hour).
+const DEFAULT_DATA_WINDOW_SECONDS = 3600;
 
 export interface LogicMonitorConfig {
   company: string;
@@ -621,6 +623,15 @@ export class LogicMonitorClient {
     } = params || {};
     const path = `/device/devices/${deviceId}/devicedatasources/${deviceDataSourceId}/instances/${instanceId}/data`;
 
+    // LogicMonitor only honours a complete start+end pair. With just `start` it returns start..start+1h
+    // (not start..now, and without any truncation marker), and with just `end` it ignores `end` and returns
+    // the default window ending now. Fill in the missing half so the range means what the caller asked for.
+    if (apiParams.start !== undefined && apiParams.end === undefined) {
+      apiParams.end = Math.floor(Date.now() / 1000);
+    } else if (apiParams.end !== undefined && apiParams.start === undefined) {
+      apiParams.start = apiParams.end - DEFAULT_DATA_WINDOW_SECONDS;
+    }
+
     // Paging and summarizing need structured samples, so they override format=csv.
     const needsJson = autoPaginate || summarize;
     const requestParams = needsJson ? { ...apiParams, format: undefined } : apiParams;
@@ -716,7 +727,24 @@ export class LogicMonitorClient {
   }
 
   async getWidgetData(widgetId: number, params?: { start?: number; end?: number; format?: string }) {
-    return this.request<LMResponse<any>>('GET', `/dashboard/widgets/${widgetId}/data`, undefined, params);
+    const { start, end, ...otherParams } = params || {};
+
+    // LogicMonitor rejects a lone `start` ("Invalid time range") and silently ignores a lone `end`
+    // (returning the widget's default window ending now). Complete a lone start with "now"; refuse a
+    // lone end, because the widget's default span differs per widget and guessing one would hide it.
+    if (end !== undefined && start === undefined) {
+      throw new Error('get_widget_data: end needs a start (LogicMonitor ignores an end without a start); pass both start and end');
+    }
+    const range = start !== undefined && end === undefined
+      ? { start, end: Math.floor(Date.now() / 1000) }
+      : { start, end };
+
+    return this.request<LMResponse<any>>(
+      'GET',
+      `/dashboard/widgets/${widgetId}/data`,
+      undefined,
+      this.cleanParams({ ...otherParams, ...range }),
+    );
   }
 
   /**

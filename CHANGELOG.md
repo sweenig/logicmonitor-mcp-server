@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `update_datasource` description now notes that `hasMultiInstances` cannot be changed after creation (LogicMonitor limitation)
 
 ### Fixed
+- `get_resource_instance_data` no longer returns a misleading window when only one end of the time range is given. LogicMonitor answers a lone `start` with `start`..`start`+1h (not up to now, and without a truncation marker) and ignores a lone `end`. A lone `start` now ends at "now" and a lone `end` starts one hour earlier. The tool description also said the default window was the last 2 hours; it is about the last hour
+- `get_widget_data` with a lone `start` now ends at "now" (LogicMonitor rejected it with HTTP 400 "Invalid time range"), and a lone `end` is rejected with a clear error instead of being silently ignored by LogicMonitor (which returned the widget's default window ending now)
 - `update_resource_property` and `update_resource_group_property` can now add a property that doesn't exist yet. LogicMonitor's `PATCH .../properties/{name}` only updates existing properties (404 "Property(name=...) is not found"); on that specific 404 the tools now fall back to `POST .../properties`. Results include `action: "updated" | "created"`; other errors (including a missing device/group) are not retried. Tool descriptions now use the real `propertyName` parameter instead of `name`
 - `create_datasource` now supports `hasMultiInstances` (create-only in LogicMonitor); previously it was silently dropped, producing unusable single-instance DataSources. Defaults to `true` when `enableAutoDiscovery` is `true`; an explicit `false` is respected
 
