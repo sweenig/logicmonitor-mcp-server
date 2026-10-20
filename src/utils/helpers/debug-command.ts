@@ -16,9 +16,9 @@ export interface DebugCommandClient {
 
 export interface DebugRunOptions {
   /** Seconds to wait for the output before giving up and returning a pending result (0 = do not wait). */
-  waitSeconds?: number;
+  waitSeconds?: number | string;
   /** Include the command line that was sent in the result. */
-  includeCommand?: boolean;
+  includeCommand?: boolean | string;
   /** Minimum pause between polls when the server answers immediately (tests use a tiny value). */
   pollIntervalMs?: number;
 }
@@ -28,12 +28,29 @@ export const MAX_DEBUG_WAIT_SECONDS = 120;
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const PENDING_ERROR_CODE = 1202;
 
-/** Clamp a caller-supplied wait to 0..MAX; anything that is not a finite number falls back to the default. */
+/**
+ * Clamp a caller-supplied wait to 0..MAX. Numeric strings are accepted because MCP clients do not
+ * always send numbers as numbers ("0" must mean 0, not "use the default"); anything else that is not
+ * a finite number falls back to the default.
+ */
 export function normalizeWaitSeconds(value: unknown, defaultSeconds: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  let seconds: number;
+  if (typeof value === 'number') {
+    seconds = value;
+  } else if (typeof value === 'string' && value.trim() !== '') {
+    seconds = Number(value);
+  } else {
     return defaultSeconds;
   }
-  return Math.min(MAX_DEBUG_WAIT_SECONDS, Math.max(0, value));
+  if (!Number.isFinite(seconds)) {
+    return defaultSeconds;
+  }
+  return Math.min(MAX_DEBUG_WAIT_SECONDS, Math.max(0, seconds));
+}
+
+/** True for true and "true" (any case); a string "false" must not count as truthy. */
+function isTrue(value: unknown): boolean {
+  return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
 }
 
 /** True when a GET /debug/{id} answer means "the collector has not finished yet". */
@@ -116,7 +133,7 @@ export async function runDebugCommand(
   options: DebugRunOptions = {},
 ): Promise<Record<string, any>> {
   const waitSeconds = normalizeWaitSeconds(options.waitSeconds, DEFAULT_DEBUG_WAIT_SECONDS);
-  const command = options.includeCommand ? cmdline : undefined;
+  const command = isTrue(options.includeCommand) ? cmdline : undefined;
 
   const started = await client.executeDebugCommand(cmdline, collectorId);
   const sessionId: string | undefined = started?.sessionId ?? started?.cmdContext ?? undefined;

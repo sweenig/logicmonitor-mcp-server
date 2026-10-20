@@ -40,12 +40,21 @@ describe('isDebugPending', () => {
 describe('normalizeWaitSeconds', () => {
   it('uses the default for missing or invalid values and clamps the rest', () => {
     expect(normalizeWaitSeconds(undefined, 30)).toBe(30);
-    expect(normalizeWaitSeconds('10', 30)).toBe(30);
     expect(normalizeWaitSeconds(NaN, 30)).toBe(30);
+    expect(normalizeWaitSeconds('abc', 30)).toBe(30);
+    expect(normalizeWaitSeconds('', 30)).toBe(30);
+    expect(normalizeWaitSeconds(null, 30)).toBe(30);
     expect(normalizeWaitSeconds(-5, 30)).toBe(0);
     expect(normalizeWaitSeconds(0, 30)).toBe(0);
     expect(normalizeWaitSeconds(15, 30)).toBe(15);
     expect(normalizeWaitSeconds(100000, 30)).toBe(MAX_DEBUG_WAIT_SECONDS);
+  });
+
+  it('accepts numbers sent as strings, as some MCP clients do', () => {
+    expect(normalizeWaitSeconds('0', 30)).toBe(0);
+    expect(normalizeWaitSeconds('10', 30)).toBe(10);
+    expect(normalizeWaitSeconds(' 45 ', 30)).toBe(45);
+    expect(normalizeWaitSeconds('100000', 30)).toBe(MAX_DEBUG_WAIT_SECONDS);
   });
 });
 
@@ -62,6 +71,19 @@ describe('runDebugCommand', () => {
     expect(client.getDebugCommandResult).toHaveBeenCalledWith('123', 6);
     expect(result).toEqual({ output: 'returns 0\noutput:\ndone\n', sessionId: '123', cmdContext: '', pending: false });
     expect(result.cmdline).toBeUndefined();
+  });
+
+  it('treats string booleans and numbers from loosely typed clients correctly', async () => {
+    const client = fakeClient(started, [PENDING]);
+
+    const result = await runDebugCommand(client, '!groovy', 6, { waitSeconds: '0', includeCommand: 'false' });
+
+    expect(client.getDebugCommandResult).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ sessionId: '123', pending: true });
+    expect(result.cmdline).toBeUndefined();
+
+    const echoed = await runDebugCommand(fakeClient(started, [PENDING]), '!groovy', 6, { waitSeconds: '0', includeCommand: 'TRUE' });
+    expect(echoed.cmdline).toBe('!groovy');
   });
 
   it('includes the command line only when asked', async () => {
