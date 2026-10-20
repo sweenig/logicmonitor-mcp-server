@@ -11,6 +11,8 @@ import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/h
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource } from '../utils/helpers/datasource-view.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
+import { isTrue } from '../utils/helpers/coerce.js';
+import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -151,6 +153,28 @@ export class LogicMonitorHandlers {
   constructor(private client: LogicMonitorClient) {}
 
   async handleToolCall(
+    name: string,
+    args: any,
+    progressCallback?: ProgressCallback,
+  ): Promise<any> {
+    // returnFull only controls how the result is presented. Take it out of the arguments first:
+    // several handlers pass their arguments on as the request body.
+    let callArgs = args;
+    let returnFull = false;
+    if (args && typeof args === 'object' && 'returnFull' in args) {
+      const { returnFull: requested, ...rest } = args;
+      returnFull = isTrue(requested);
+      callArgs = rest;
+    }
+
+    const result = await this.runToolCall(name, callArgs, progressCallback);
+
+    // Create/update responses can be very large (a whole DataSource, a whole resource); shorten them
+    // unless the caller asked for everything.
+    return !returnFull && isConciseResultTool(name) ? compactWriteResult(result) : result;
+  }
+
+  private async runToolCall(
     name: string,
     args: any,
     progressCallback?: ProgressCallback,

@@ -791,3 +791,21 @@ describe('tool descriptions', () => {
     expect(text).toContain('collectorDeviceId');
   });
 });
+
+describe('returnFull option on create and update tools', () => {
+  const tools = getLogicMonitorTools(false);
+
+  it('is offered on every create_ and update_ tool and nowhere else', () => {
+    const withOption = tools.filter(t => (t.inputSchema.properties as any)?.returnFull).map(t => t.name);
+    const expected = tools.filter(t => /^(create|update)_/.test(t.name)).map(t => t.name);
+    expect(withOption.sort()).toEqual(expected.sort());
+    expect(expected.length).toBeGreaterThan(20);
+  });
+
+  it('is a boolean that is never required, and the description explains it', () => {
+    const tool = tools.find(t => t.name === 'update_datasource')!;
+    expect((tool.inputSchema.properties as any).returnFull.type).toBe('boolean');
+    expect(tool.inputSchema.required ?? []).not.toContain('returnFull');
+    expect(tool.description).toContain('returnFull');
+  });
+});

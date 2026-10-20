@@ -1167,6 +1167,53 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('concise write results (returnFull)', () => {
+      const bigDataSource = () => ({
+        id: 5,
+        name: 'MyDS',
+        description: 'updated',
+        collectorAttribute: { name: 'batchscript', groovyScript: 'println "x"\n'.repeat(1000) },
+        dataPoints: Array.from({ length: 10 }, (_, i) => ({ id: i, name: `dp${i}`, alertBody: 'b'.repeat(200) })),
+      });
+
+      it('shortens a large update result and lists what was left out', async () => {
+        mockClient.updateDataSource.mockResolvedValue(bigDataSource());
+
+        const result: any = await handlers.handleToolCall('update_datasource', { dataSourceId: 5, description: 'updated' });
+
+        expect(result).toMatchObject({ id: 5, name: 'MyDS', description: 'updated' });
+        expect(result.dataPoints).toBeUndefined();
+        expect(result.omitted.dataPoints).toBe('array of 10');
+        expect(result.note).toContain('returnFull');
+      });
+
+      it('returns the complete object when returnFull is true or the string "true"', async () => {
+        mockClient.updateDataSource.mockResolvedValue(bigDataSource());
+
+        for (const flag of [true, 'true']) {
+          const result: any = await handlers.handleToolCall('update_datasource', { dataSourceId: 5, description: 'updated', returnFull: flag });
+          expect(result.dataPoints).toHaveLength(10);
+          expect(result.omitted).toBeUndefined();
+        }
+      });
+
+      it('does not send returnFull to the API', async () => {
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, description: 'updated', returnFull: true });
+
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { description: 'updated' });
+      });
+
+      it('does not shorten results of read tools', async () => {
+        mockClient.getDataSource = mockClient.getDataSource ?? jest.fn();
+        const big = bigDataSource();
+        mockClient.getDataSource.mockResolvedValue(big);
+        const result: any = await handlers.handleToolCall('get_datasource', { dataSourceId: 5, fields: '*' });
+        expect(result.omitted).toBeUndefined();
+      });
+    });
+
     describe('delete_datasource', () => {
       it('should delete a datasource by ID', async () => {
         mockClient.deleteDataSource.mockResolvedValue({});

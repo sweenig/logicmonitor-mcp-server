@@ -6,6 +6,7 @@
  */
 
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { isConciseResultTool } from '../utils/helpers/write-result.js';
 
 // Common parameter schemas
 const paginationSchema = {
@@ -8031,6 +8032,27 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
  * @param onlyReadOnly - If true, only return tools with readOnlyHint: true
  * @returns Array of Tool definitions sorted alphabetically by name
  */
+// Create/update tools shorten a large result by default (see src/utils/helpers/write-result.ts);
+// this option, added to each of them, returns the complete object instead.
+const RETURN_FULL_PROPERTY = {
+  type: 'boolean',
+  description: 'Return the complete object LogicMonitor sent back (default false: a response over about 3,000 characters is shortened to its scalar fields and small values, with large nested parts listed under "omitted").',
+};
+
+function withReturnFullOption(tool: Tool): Tool {
+  if (!isConciseResultTool(tool.name)) {
+    return tool;
+  }
+  return {
+    ...tool,
+    description: `${tool.description ?? ''}\n\n**Result size:** A large response is shortened to the object's scalar fields and small values, with large nested parts listed under "omitted" (responses under about 3,000 characters come back unchanged). Pass returnFull: true for the complete object, or read it back with the matching get tool.`,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: { ...(tool.inputSchema.properties ?? {}), returnFull: RETURN_FULL_PROPERTY },
+    },
+  };
+}
+
 export function getLogicMonitorTools(onlyReadOnly: boolean = false): Tool[] {
   const tools = onlyReadOnly
     ? ALL_LOGICMONITOR_TOOLS.filter(tool => {
@@ -8040,5 +8062,5 @@ export function getLogicMonitorTools(onlyReadOnly: boolean = false): Tool[] {
     : ALL_LOGICMONITOR_TOOLS;
 
   // Sort tools alphabetically by name
-  return [...tools].sort((a, b) => a.name.localeCompare(b.name));
+  return tools.map(withReturnFullOption).sort((a, b) => a.name.localeCompare(b.name));
 }

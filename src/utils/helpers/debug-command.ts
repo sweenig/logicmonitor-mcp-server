@@ -9,6 +9,8 @@
  * output is ready or the wait budget runs out, and report an unfinished command as `pending: true`.
  */
 
+import { isTrue } from './coerce.js';
+
 export interface DebugCommandClient {
   executeDebugCommand(cmdline: string, collectorId: number): Promise<any>;
   getDebugCommandResult(id: string, collectorId: number): Promise<any>;
@@ -48,10 +50,6 @@ export function normalizeWaitSeconds(value: unknown, defaultSeconds: number): nu
   return Math.min(MAX_DEBUG_WAIT_SECONDS, Math.max(0, seconds));
 }
 
-/** True for true and "true" (any case); a string "false" must not count as truthy. */
-function isTrue(value: unknown): boolean {
-  return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
-}
 
 /** True when a GET /debug/{id} answer means "the collector has not finished yet". */
 export function isDebugPending(result: any): boolean {
