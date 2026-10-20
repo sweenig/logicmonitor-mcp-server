@@ -11,6 +11,7 @@ import {
   TOOL_SCOPE_REQUIREMENTS,
   SCOPE_HIERARCHY,
 } from './scope-manager.js';
+import { getLogicMonitorTools } from '../../api/tools.js';
 
 describe('Scope Manager', () => {
   describe('parseScopes', () => {
@@ -429,13 +430,13 @@ describe('Scope Manager', () => {
 
     it('should have requirements for write operations', () => {
       expect(TOOL_SCOPE_REQUIREMENTS['acknowledge_alert']).toContain('lm:alerts:write');
-      expect(TOOL_SCOPE_REQUIREMENTS['add_device']).toContain('lm:devices:write');
-      expect(TOOL_SCOPE_REQUIREMENTS['update_device']).toContain('lm:devices:write');
+      expect(TOOL_SCOPE_REQUIREMENTS['create_resource']).toContain('lm:devices:write');
+      expect(TOOL_SCOPE_REQUIREMENTS['update_resource']).toContain('lm:devices:write');
+      expect(TOOL_SCOPE_REQUIREMENTS['delete_resource']).toContain('lm:devices:write');
     });
 
     it('should have requirements for admin operations', () => {
       expect(TOOL_SCOPE_REQUIREMENTS['list_users']).toContain('lm:admin');
-      expect(TOOL_SCOPE_REQUIREMENTS['create_user']).toContain('lm:users:manage');
     });
 
     it('should require mcp:tools for all operations', () => {
@@ -444,5 +445,42 @@ describe('Scope Manager', () => {
       });
     });
   });
-});
 
+  describe('write tools require a write scope', () => {
+    const tools = getLogicMonitorTools(false);
+
+    it('names only tools that exist in the table', () => {
+      const names = new Set(tools.map(t => t.name));
+      const unknown = Object.keys(TOOL_SCOPE_REQUIREMENTS).filter(name => !names.has(name));
+      expect(unknown).toEqual([]);
+    });
+
+    it('requires a write scope for every tool that is not read-only', () => {
+      const writeTools = tools.filter(t => t.annotations?.readOnlyHint !== true);
+      expect(writeTools.length).toBeGreaterThan(50);
+      const weak = writeTools
+        .filter(t => !ScopeManager.getToolScopes(t.name).some(scope => ScopeManager.isWriteScope(scope)))
+        .map(t => t.name);
+      expect(weak).toEqual([]);
+    });
+
+    it('does not let a token with only mcp:tools run a write tool', () => {
+      for (const name of ['create_resource', 'update_datasource', 'delete_collector', 'execute_groovy_script']) {
+        expect(ScopeManager.validateToolScopes(name, 'mcp:tools').valid).toBe(false);
+      }
+    });
+
+    it('keeps the specific scopes and the write-implies-read hierarchy working', () => {
+      expect(ScopeManager.getToolScopes('update_resource')).toEqual(['mcp:tools', 'lm:devices:write']);
+      expect(ScopeManager.getToolScopes('update_datasource')).toEqual(['mcp:tools', 'lm:write']);
+      expect(ScopeManager.validateToolScopes('update_datasource', 'mcp:tools lm:write').valid).toBe(true);
+      expect(ScopeManager.validateToolScopes('update_datasource', 'mcp:tools lm:admin').valid).toBe(true);
+      expect(ScopeManager.validateToolScopes('update_resource', 'mcp:tools lm:write').valid).toBe(false);
+    });
+
+    it('leaves read-only tools that have no entry at the basic scope', () => {
+      expect(ScopeManager.getToolScopes('list_collectors')).toEqual(['mcp:tools']);
+      expect(ScopeManager.getToolScopes('unknown_tool')).toEqual(['mcp:tools']);
+    });
+  });
+});

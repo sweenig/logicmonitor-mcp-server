@@ -6,6 +6,8 @@
  * - RFC 6750 Section 3.1 (insufficient_scope error)
  */
 
+import { getLogicMonitorTools } from '../../api/tools.js';
+
 /**
  * Scope definitions for MCP tools
  */
@@ -83,15 +85,19 @@ export const TOOL_SCOPE_REQUIREMENTS: Record<string, string[]> = {
   'list_datasources': ['mcp:tools', 'lm:read'],
   'get_datasource': ['mcp:tools', 'lm:read'],
 
-  // Write operations - require write scopes
+  // Write operations with a specific scope. Every other tool that is not read-only needs
+  // 'lm:write' (see getToolScopes), so a missing entry here can never open up a write tool.
   'acknowledge_alert': ['mcp:tools', 'lm:alerts:write'],
-  'add_device': ['mcp:tools', 'lm:devices:write'],
-  'update_device': ['mcp:tools', 'lm:devices:write'],
-  'delete_device': ['mcp:tools', 'lm:devices:write'],
+  'add_alert_note': ['mcp:tools', 'lm:alerts:write'],
+  'create_resource': ['mcp:tools', 'lm:devices:write'],
+  'update_resource': ['mcp:tools', 'lm:devices:write'],
+  'delete_resource': ['mcp:tools', 'lm:devices:write'],
+  'create_dashboard': ['mcp:tools', 'lm:dashboards:write'],
+  'update_dashboard': ['mcp:tools', 'lm:dashboards:write'],
+  'delete_dashboard': ['mcp:tools', 'lm:dashboards:write'],
 
   // Administrative operations
   'list_users': ['mcp:tools', 'lm:admin'],
-  'create_user': ['mcp:tools', 'lm:users:manage'],
 };
 
 /**
@@ -145,6 +151,20 @@ export class ScopeManager {
     return Array.from(expanded);
   }
 
+  private static nonReadOnlyToolNames: Set<string> | undefined;
+
+  /** Names of tools that are not marked read-only (computed once; the tool list is static). */
+  private static getNonReadOnlyToolNames(): Set<string> {
+    if (!this.nonReadOnlyToolNames) {
+      this.nonReadOnlyToolNames = new Set(
+        getLogicMonitorTools(false)
+          .filter(tool => tool.annotations?.readOnlyHint !== true)
+          .map(tool => tool.name),
+      );
+    }
+    return this.nonReadOnlyToolNames;
+  }
+
   /**
    * Get required scopes for a tool
    */
@@ -154,7 +174,13 @@ export class ScopeManager {
       return TOOL_SCOPE_REQUIREMENTS[toolName];
     }
 
-    // Default: require basic mcp:tools scope
+    // Any tool that changes something needs write access, even if it has no specific entry above.
+    // Derived from the tool's own readOnlyHint so new write tools are covered automatically.
+    if (this.getNonReadOnlyToolNames().has(toolName)) {
+      return ['mcp:tools', 'lm:write'];
+    }
+
+    // Read-only and unknown tools: require basic mcp:tools scope
     return ['mcp:tools'];
   }
 
