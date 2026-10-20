@@ -62,7 +62,25 @@ export const LM_RESOURCES: LMResource[] = [
       'you need.',
     mimeType: 'text/markdown',
   },
+  {
+    uri: 'lm://knowledge/collector-script-cache',
+    name: 'Collector Script Cache (ScriptCache) - persisting state between polls',
+    description: 'How to use ScriptCache in collector Groovy scripts to carry data from one poll to the next. ' +
+      'Read this before writing or changing any DataSource, ConfigSource, PropertySource or EventSource script that needs state across collection intervals: ' +
+      'auth tokens/sessions, previous poll values for delta or rate calculations, rolling totals, bookmarks/cursors (last log offset, event ID, "since" timestamp), or cached lookups. ' +
+      'Covers the get/set/remove API, string-only values, expiry (per-key and the agent.conf default), key namespacing, and worked examples.',
+    mimeType: 'text/markdown',
+  },
 ];
+
+/**
+ * Resources backed by a file in the repo, keyed by URI. Paths are relative to the
+ * repo root (the Dockerfile copies these into the image alongside "build/").
+ */
+const FILE_RESOURCES: Record<string, string> = {
+  'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
+  'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
+};
 
 /**
  * Fetches content from a URL using HTTPS or HTTP
@@ -147,8 +165,9 @@ export async function readLMResource(uri: string): Promise<{ contents: Array<{ u
     }
   }
 
-  if (uri === 'lm://docs/debug-commands') {
-    const filePath = path.join(__dirname, '../../LOGICMONITOR-DEBUG-COMMANDS.md');
+  const relativePath = FILE_RESOURCES[uri];
+  if (relativePath) {
+    const filePath = path.join(__dirname, '../..', relativePath);
 
     try {
       const content = await fs.readFile(filePath, 'utf-8');
@@ -164,7 +183,7 @@ export async function readLMResource(uri: string): Promise<{ contents: Array<{ u
       };
     } catch (error) {
       throw new Error(
-        `Failed to read LogicMonitor debug command reference: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to read ${resource.name}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

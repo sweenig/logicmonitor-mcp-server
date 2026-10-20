@@ -35,6 +35,14 @@ describe('LogicMonitor Resources', () => {
       expect(debugDocsResource?.mimeType).toBe('text/markdown');
     });
 
+    it('should include the collector script cache knowledge resource', () => {
+      const resource = listLMResources().find(r => r.uri === 'lm://knowledge/collector-script-cache');
+
+      expect(resource).toBeDefined();
+      expect(resource?.description).toContain('ScriptCache');
+      expect(resource?.mimeType).toBe('text/markdown');
+    });
+
     it('should have valid resource structure', () => {
       const resources = listLMResources();
 
@@ -47,6 +55,13 @@ describe('LogicMonitor Resources', () => {
   });
 
   describe('readLMResource', () => {
+    it('should read the collector script cache knowledge doc', async () => {
+      const result = await readLMResource('lm://knowledge/collector-script-cache');
+
+      expect(result.contents[0].uri).toBe('lm://knowledge/collector-script-cache');
+      expect(result.contents[0].text).toContain('ScriptCache.getCache()');
+    });
+
     it('should throw error for non-existent resource', async () => {
       await expect(
         readLMResource('lm://invalid/resource'),

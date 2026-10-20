@@ -1219,6 +1219,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Test a Groovy script (a DataSource/EventSource/PropertySource collection or discovery script, or a standalone script) against a device before deploying it as a LogicModule' +
       '\n- Run a script already present on the collector filesystem ("scriptPath"), or an inline script body ("scriptBody") ' +
       '\n\n**Required:** exactly one of "scriptPath" or "scriptBody" - providing both or neither is rejected. ' +
+      '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Related tools:** "get\\_debug\\_command\\_result" (poll for output on long-running scripts), "execute\\_debug\\_command" (generic form, any command), "execute\\_powershell\\_script" (Windows PowerShell equivalent), "get\\_datasource\\_scripts" (extract an existing DataSource\'s embedded scripts to test here).',
     annotations: {
       title: 'Execute Groovy script on collector',
@@ -1404,6 +1405,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Define a new monitoring template programmatically (e.g. generated from a discovered API, or migrated from another system) ' +
       '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based DataSource sets collectMethod:"script" and collectorAttribute.groovyScript/windowsScript/linuxScript; an SNMP one sets collectMethod:"snmp" and different fields). This tool passes them through as-is; consult an existing similar DataSource (via "get\\_datasource") for the exact shape to replicate. ' +
       '\n\n**Multi-instance:** "hasMultiInstances" can only be set at creation time and cannot be changed later (not even via "update\\_datasource"). It defaults to true when "enableAutoDiscovery" is true (a discovery-enabled DataSource without multi-instance is not useful); pass hasMultiInstances:false to override. ' +
+      '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Related tools:** "get\\_datasource" (see the shape of an existing DataSource to model a new one on), "update\\_datasource", "delete\\_datasource", "get\\_datasource\\_scripts" (extract scripts from an existing one to reuse).',
     annotations: {
       title: 'Create DataSource',
@@ -1488,6 +1490,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
+      '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
     annotations: {
@@ -3510,6 +3513,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Returns:** The created ConfigSource object, including its new "id". ' +
       '\n\n**When to use:** ' +
       '\n- Define a new configuration-tracking template programmatically (e.g. to track a config file, or a settings blob pulled from an API, for drift/change management) ' +
+      '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based ConfigSource sets collectMethod:"batchscript" and collectorAttribute.groovyScript; autoDiscoveryConfig.method.name:"ad_script" with its own groovyScript that emits "wildvalue##wildalias" lines). This tool passes them through as-is; consult an existing similar ConfigSource (via "get\\_configsource") for the exact shape to replicate. ' +
       '\n\n**Related tools:** "get\\_configsource" (see the shape of an existing ConfigSource to model a new one on), "list\\_configsources".',
     annotations: {
@@ -3621,6 +3625,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Modify an existing ConfigSource\'s collection script, appliesTo logic, or metadata' +
       '\n- Add, change, or remove config checks (e.g. add an "Any Change" check)' +
+      '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**configChecks semantics (verified):** "configChecks" is a full REPLACEMENT of the array, not a merge. Any existing check omitted from the array is DELETED, and re-adding it later gives it a new id. First fetch the current checks via "get\\_configsource", then send back the complete desired list: keep each existing check\'s "id" (and "originId") so it is updated in place, and leave "id" off new checks. Omit "configChecks" entirely to leave checks untouched. ' +
       '\n\n**Check shape:** {name, description, alertLevel, ackClearAlert, alertEffectiveIval, alertTransitionInterval, type, script}. alertLevel: 1 = no alert (rejected by the API for checks that must alert), 2 = warn, 3 = error, 4 = critical. type "fetch" (alerts when collection fails) uses script {fetch_check:{}, format}; "ignore" (the "Any Change"/diff check) uses script {format, diff_check:{...}}; "value" uses script {value_check:{variable, must:[{range:{...}}]}}. ' +
       '\n\n**Excluding content from the diff:** put the exclusions in the "ignore" check\'s script.diff_check (the same place built-in ConfigSources use): ignore_line_with_regex (array of regexes matched against whole lines, e.g. ["^\\\\s*\\"cache_id\\"\\\\s*:.*"]), ignore_line_start_with (array of line prefixes), ignore_space (boolean), ignore_blank_lines (boolean). Note the API stores unknown keys in "script" without validating them, so a misspelled key is silently ignored - read the check back to confirm. ' +
