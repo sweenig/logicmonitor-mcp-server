@@ -1167,6 +1167,42 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('update_datasource keeps datapoint originIds', () => {
+      it('fills in originId for datapoints sent with an id but without one', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [
+          { id: 1, name: 'a', originId: 'origin-a' },
+          { id: 2, name: 'b', originId: '' },
+        ] });
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5,
+          dataPoints: [{ id: 1, name: 'a' }, { id: 2, name: 'b' }, { name: 'new' }, { id: 1, name: 'x', originId: 'mine' }],
+        });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(5, { fields: 'dataPoints' });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [
+          { id: 1, name: 'a', originId: 'origin-a' },
+          { id: 2, name: 'b' },
+          { name: 'new' },
+          { id: 1, name: 'x', originId: 'mine' },
+        ] });
+      });
+
+      it('does not look anything up when no datapoint needs it, and still updates if the lookup fails', async () => {
+        mockClient.getDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, description: 'd' });
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [{ name: 'new' }] });
+        expect(mockClient.getDataSource).not.toHaveBeenCalled();
+
+        mockClient.getDataSource.mockRejectedValue(new Error('boom'));
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [{ id: 1, name: 'a' }] });
+        expect(mockClient.updateDataSource).toHaveBeenLastCalledWith(5, { dataPoints: [{ id: 1, name: 'a' }] });
+      });
+    });
+
     describe('concise write results (returnFull)', () => {
       const bigDataSource = () => ({
         id: 5,

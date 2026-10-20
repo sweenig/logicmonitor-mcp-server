@@ -174,6 +174,32 @@ export class LogicMonitorHandlers {
     return !returnFull && isConciseResultTool(name) ? compactWriteResult(result) : result;
   }
 
+  /**
+   * LogicMonitor replaces the datapoint list on update and blanks the originId (its cross-version
+   * identity for a datapoint) of any existing datapoint sent without one. Callers copy datapoints from
+   * get_datasource, which does not show originId, so fill it in from the current definition for
+   * datapoints that carry an id. Best effort: if the lookup fails the update goes ahead unchanged.
+   */
+  private async keepDatapointOriginIds(dataSourceId: number, updates: Record<string, any>): Promise<void> {
+    const dataPoints = updates.dataPoints;
+    if (!Array.isArray(dataPoints)) return;
+    const needsOrigin = (dp: any) => dp && typeof dp === 'object' && dp.id !== undefined && dp.originId === undefined;
+    if (!dataPoints.some(needsOrigin)) return;
+    try {
+      const current: any = await this.client.getDataSource(dataSourceId, { fields: 'dataPoints' });
+      const originById = new Map<string, string>();
+      for (const dp of current?.dataPoints ?? []) {
+        if (dp?.id !== undefined && typeof dp.originId === 'string' && dp.originId !== '') {
+          originById.set(String(dp.id), dp.originId);
+        }
+      }
+      updates.dataPoints = dataPoints.map((dp: any) =>
+        needsOrigin(dp) && originById.has(String(dp.id)) ? { ...dp, originId: originById.get(String(dp.id)) } : dp);
+    } catch {
+      // Keep the caller's datapoints as they are.
+    }
+  }
+
   private async runToolCall(
     name: string,
     args: any,
@@ -643,6 +669,7 @@ export class LogicMonitorHandlers {
 
         case 'update_datasource': {
           const { dataSourceId, ...updates } = args;
+          await this.keepDatapointOriginIds(dataSourceId, updates);
           return await this.client.updateDataSource(dataSourceId, updates);
         }
 
