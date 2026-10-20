@@ -22,9 +22,9 @@ const DATAPOINT_OPTIONAL_FIELDS = ['userParam1', 'userParam2', 'userParam3'];
 
 const SCRIPT_HINT = 'use get_datasource_scripts';
 
-function truncate(text: string): string {
+function truncate(text: string, hint: string): string {
   return text.length > MAX_TEXT_LENGTH
-    ? `${text.slice(0, MAX_TEXT_LENGTH)}... (${text.length} chars, ${SCRIPT_HINT} or fields)`
+    ? `${text.slice(0, MAX_TEXT_LENGTH)}... (${text.length} chars, ${hint})`
     : text;
 }
 
@@ -61,10 +61,10 @@ function compactDataPoint(dataPoint: any): any {
     }
   }
   if (typeof dataPoint?.description === 'string' && dataPoint.description !== '') {
-    compact.description = truncate(dataPoint.description);
+    compact.description = truncate(dataPoint.description, 'pass fields for the full text');
   }
   if (typeof dataPoint?.postProcessorParam === 'string' && dataPoint.postProcessorParam !== '') {
-    compact.postProcessorParam = truncate(dataPoint.postProcessorParam);
+    compact.postProcessorParam = truncate(dataPoint.postProcessorParam, `${SCRIPT_HINT} or fields`);
   }
   return compact;
 }

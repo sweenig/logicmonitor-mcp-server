@@ -119,6 +119,15 @@ describe('curateDataSource', () => {
     expect(curated.dataPoints[1].userParam1).toBe('path');
   });
 
+  it('points a truncated description at fields, not at the scripts tool', () => {
+    const dataSource = buildDataSource();
+    dataSource.dataPoints[0].description = 'long description '.repeat(40);
+    const description = curateDataSource(dataSource).dataPoints[0].description;
+
+    expect(description).toContain('chars, pass fields for the full text');
+    expect(description).not.toContain('get_datasource_scripts');
+  });
+
   it('adds an explanatory note when something was left out', () => {
     expect(curateDataSource(buildDataSource()).note).toContain('get_datasource_scripts');
   });
