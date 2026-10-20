@@ -1096,6 +1096,7 @@ describe('LogicMonitorHandlers', () => {
 
         const result = await handlers.handleToolCall('create_datasource', {
           name: 'MyDS',
+          displayName: 'My DS',
           collectMethod: 'script',
           collectInterval: 300,
           collectorAttribute: { name: 'script', groovyScript: 'return 0' },
@@ -1112,6 +1113,7 @@ describe('LogicMonitorHandlers', () => {
 
       const base = {
         name: 'MyDS',
+        displayName: 'My DS',
         collectMethod: 'script',
         collectInterval: 300,
         collectorAttribute: { name: 'script', groovyScript: 'return 0' },

@@ -494,7 +494,7 @@ describe('getLogicMonitorTools', () => {
         expect(deleteDS?.annotations?.readOnlyHint).toBe(false);
 
         expect(getScripts?.inputSchema.required).toEqual(['dataSourceId']);
-        expect(createDS?.inputSchema.required).toEqual(['name', 'collectMethod', 'collectInterval', 'collectorAttribute']);
+        expect(createDS?.inputSchema.required).toEqual(['name', 'displayName', 'collectMethod', 'collectInterval', 'collectorAttribute']);
         expect(updateDS?.inputSchema.required).toEqual(['dataSourceId']);
         expect(deleteDS?.inputSchema.required).toEqual(['dataSourceId']);
       });
