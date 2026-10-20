@@ -957,18 +957,24 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_collectors',
     description: 'List all LogicMonitor (LM) monitoring collectors (monitoring agents). ' +
-      '\n\n**Returns:** Array of collectors with: id, description (collector name), hostname, platform (Windows/Linux), status (alive/dead), build version, number of monitored resources/devices, last heartbeat time. ' +
+      '\n\n**Returns:** Array of collectors with (default fields): id, description (collector name), hostname, platform (windows/linux), status (registration status number, see below), isDown (true when the collector is down), build, numberOfHosts (resources/devices assigned), numberOfInstances (see below), collectorGroupName, collectorDeviceId (the resource/device that represents the collector host, 0 if none), escalatingChainId, suppressAlertClear. Pass "fields" for others, for example upTime, ea, collectorGroupId, backupAgentId, inSDT, acked. ' +
+      '\n\n**Field notes:** ' +
+      '\n- status is the registration status: 0 unregistered, 1 registered, 2 stopped, 3 suspended. It is NOT alive/dead; use isDown to tell whether a collector is up' +
+      '\n- numberOfHosts: how many resources/devices are assigned to the collector (capacity)' +
+      '\n- numberOfInstances: only maintained for collectors in auto-balanced collector groups (it is 0 for all others) and runs about one per host below the true instance count. For a real per-collector count, sum the instance counts of its resources/devices ("list\\_resource\\_datasources")' +
+      '\n- collectorDeviceId: use it with "list\\_resource\\_datasources" and "get\\_resource\\_instance\\_data" to read the collector\'s own metrics (CPU/memory, directory size, collection task queues)' +
       '\n\n**When to use:** ' +
       '\n- Check collector health status before adding resources/devices' +
       '\n- Find available collectors for new resource/device assignments' +
-      '\n- Monitor collector capacity and load' +
-      '\n- Identify offline/dead collectors' +
+      '\n- Review collector capacity (resources/devices assigned) and version' +
+      '\n- Identify collectors that are down (isDown)' +
       '\n\n**What are collectors:** Lightweight agents installed on-premise or in cloud that collect metrics from resources/devices. Each resource/device must be assigned to one collector. ' +
       '\n\n**Common filter patterns:** ' +
-      '\n- Alive collectors: filter:"status:alive"' +
-      '\n- By platform: filter:"platform:Linux" or filter:"platform:Windows"' +
+      '\n- Collectors that are up: filter:"isDown:false" (down: filter:"isDown:true")' +
+      '\n- Registered collectors: filter:"status:1"' +
+      '\n- By platform: filter:"platform:linux" or filter:"platform:windows"' +
       '\n- By name: filter:"description\\~\\*prod\\*"' +
-      '\n- Low capacity: filter:"numberOfHosts<100"' +
+      '\n- Few resources/devices assigned: filter:"numberOfHosts<100"' +
       '\n\n**Before creating resources/devices:** Use this tool to find collectorId for the "preferredCollectorId" parameter in "create\\_resource". ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_collector" (details), "list\\_collector\\_groups" (browse groups), "list\\_collector\\_versions" (check updates).',
@@ -989,19 +995,19 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'get_collector',
     description: 'Get detailed information about a specific collector by its ID in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Complete collector details: description (name), hostname, platform, status, build version, number of resource/device monitored, free disk space, CPU/memory usage, last heartbeat, configuration. ' +
+      '\n\n**Returns:** The collector object: description (name), hostname, platform, status (registration status number), isDown, upTime (seconds), build, ea (early access), numberOfHosts, numberOfInstances, collectorGroupId/collectorGroupName, collectorDeviceId, failover settings (backupAgentId, enableFailBack, hasFailOverDevice), automaticUpgradeInfo, inSDT, acked, and configuration. ' +
       '\n\n**When to use:** ' +
       '\n- Check collector health before assigning resources/devices' +
-      '\n- Verify collector capacity' +
+      '\n- Review collector capacity (resources/devices assigned)' +
       '\n- Troubleshoot connectivity issues' +
       '\n- Check version for updates' +
-      '\n- Monitor collector performance' +
       '\n\n**Health indicators to check:** ' +
-      '\n- status: "alive" (healthy) vs "dead" (offline/problem)' +
-      '\n- numberOfHosts: How many resource/device this collector monitors (capacity planning)' +
-      '\n- freeDiskSpace: Disk space available (needs GB for data buffering)' +
+      '\n- isDown: true means the collector is down; status is the registration status (0 unregistered, 1 registered, 2 stopped, 3 suspended), not alive/dead' +
+      '\n- upTime: seconds since the collector started; a small value means a recent restart' +
+      '\n- numberOfHosts: how many resources/devices this collector monitors (capacity planning)' +
+      '\n- numberOfInstances: only maintained for collectors in auto-balanced collector groups (0 for others) and about one per host below the true count' +
       '\n- build: Version number (compare with "list\\_collector\\_versions" for updates)' +
-      '\n- lastHeartbeatTime: Recent = healthy, old = potential issue' +
+      '\n\n**Not on the collector object:** free disk space, CPU/memory usage and heartbeat time. Read the collector host\'s own DataSources instead: take collectorDeviceId, then use "list\\_resource\\_datasources" and "get\\_resource\\_instance\\_data" (for example Collector Total CPU and Memory, Collector Directory, Collector Data Collecting Tasks). ' +
       '\n\n**Workflow:** Use "list\\_collectors" to find collectorId, then use this tool for detailed health check. ' +
       '\n\n**Related tools:** "list\\_collectors" (find collector), "list\\_collector\\_versions" (check updates), "list\\_resources" (see assigned resources/devices).',
     annotations: {

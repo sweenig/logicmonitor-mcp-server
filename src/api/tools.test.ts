@@ -774,4 +774,20 @@ describe('tool descriptions', () => {
 
     expect(unknown).toEqual([]);
   });
+
+  it('describe collector health with the real fields, not alive/dead or heartbeat fields', () => {
+    const tools = getLogicMonitorTools(false);
+    const text = ['list_collectors', 'get_collector']
+      .map(name => tools.find(tool => tool.name === name)?.description ?? '')
+      .join('\n');
+
+    // status is a registration number; the API has no "alive" value, so this filter silently matches nothing.
+    expect(text).not.toMatch(/status:\\?"?alive/);
+    // These are not fields of the collector object.
+    expect(text).not.toContain('lastHeartbeatTime');
+    expect(text).not.toContain('freeDiskSpace');
+    // The fields that do tell up/down state and where the collector host lives.
+    expect(text).toContain('isDown');
+    expect(text).toContain('collectorDeviceId');
+  });
 });

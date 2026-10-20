@@ -655,6 +655,33 @@ describe('LogicMonitorHandlers', () => {
         expect(result.items[0]).toHaveProperty('hostname');
         expect(result.items[0]).not.toHaveProperty('extraField');
       });
+
+      it('should include the fields needed to judge health, version and layout by default', async () => {
+        mockClient.listCollectors.mockResolvedValue({
+          items: [{
+            id: 3,
+            description: 'COV\\COLLECTOR',
+            hostname: 'host',
+            platform: 'windows',
+            status: 1,
+            isDown: false,
+            build: '41000',
+            numberOfHosts: 12,
+            numberOfInstances: 0,
+            collectorGroupName: 'EUS',
+            collectorDeviceId: 99,
+            upTime: 123,
+          }],
+          total: 1,
+        });
+
+        const result = await handlers.handleToolCall('list_collectors', {});
+
+        expect(Object.keys(result.items[0])).toEqual(expect.arrayContaining([
+          'isDown', 'build', 'numberOfInstances', 'collectorGroupName', 'collectorDeviceId',
+        ]));
+        expect(result.items[0]).not.toHaveProperty('upTime');
+      });
     });
 
     describe('list_collector_events', () => {

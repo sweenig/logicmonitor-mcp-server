@@ -30,7 +30,8 @@ const DEFAULT_ALERT_FIELDS = [
 ];
 
 const DEFAULT_COLLECTOR_FIELDS = [
-  'id', 'description', 'hostname', 'platform', 'status', 'numberOfHosts',
+  'id', 'description', 'hostname', 'platform', 'status', 'isDown', 'build',
+  'numberOfHosts', 'numberOfInstances', 'collectorGroupName', 'collectorDeviceId',
   'escalatingChainId', 'suppressAlertClear',
 ];
 
