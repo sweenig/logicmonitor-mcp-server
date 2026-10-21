@@ -34,7 +34,7 @@ EC2 scans (`nec2`) exist in the API, but LogicMonitor says cloud resources must 
 
 ## NetScan groups
 
-Folders for scans: `list_netscan_groups`, `create_netscan_group`, `update_netscan_group`, `delete_netscan_group`. A group that still holds scans cannot be deleted; move scans with `update_netscan` and `nsgId`.
+Folders for scans: `list_netscan_groups`, `create_netscan_group`, `update_netscan_group`, `delete_netscan_group`. **Deleting a group also deletes every scan inside it** (LogicMonitor does not refuse; verified on a live portal). Move scans you want to keep with `update_netscan` and `nsgId` first. Devices that the scans already discovered stay in monitoring.
 
 ## Recipes
 

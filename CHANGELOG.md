@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: `fields="*"` is no longer sent to the API (some endpoints, such as `get_website`, took it literally and returned an empty object)
 
 ### Added
-- NetScans: `create_netscan` and `update_netscan` rewritten for the three methods (`nmap`, `script`, `enhancedScript`) with schedules, duplicate handling, discovered-device rules, credentials, filters, update policy and NetScan groups (they previously omitted the required `method` and used the wrong field names, so creating a scan could not succeed); new tools `list_netscan_groups`, `create_netscan_group`, `update_netscan_group`, `delete_netscan_group`; MCP resource `lm://knowledge/netscans`
+- NetScans: `create_netscan` and `update_netscan` rewritten for the three methods (`nmap`, `script`, `enhancedScript`) with schedules, duplicate handling, discovered-device rules, credentials, filters, update policy and NetScan groups (they previously omitted the required `method` and used the wrong field names, so creating a scan could not succeed); new tools `list_netscan_groups`, `create_netscan_group`, `update_netscan_group`, `delete_netscan_group`; MCP resource `lm://knowledge/netscans`; `delete_netscan_group` deletes the scans in the group too (the API does not refuse), which the tool description and the knowledge resource now state
 
 ### Fixed
 - Arguments rejected by the server's own checks (for example a missing `subnet`, an invalid website setting) are now reported as INVALID_PARAMETERS with a note to fix the argument, instead of generic advice about credentials and server logs

@@ -7297,7 +7297,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'delete_netscan_group',
-    description: '**WARNING: permanent.** Delete a NetScan group in LogicMonitor (LM) monitoring. Required: groupId (from "list_netscan_groups"). Move or delete the scans in the group first ("list_netscans" with filter:"nsgId:<id>"; "update_netscan" with nsgId moves one). Related tools: "list_netscan_groups", "update_netscan".',
+    description: '**WARNING: permanent, and it also deletes every NetScan in the group.** LogicMonitor does not refuse to delete a NetScan group that still contains scans; it deletes the group and all of its scans (verified: the scan inside was gone afterwards). Move scans you want to keep to another group first ("list_netscans" with filter:"nsgId:<id>" to see what is inside; "update_netscan" with nsgId moves one). Devices the scans already discovered stay in monitoring. Required: groupId (from "list_netscan_groups"). Related tools: "list_netscan_groups", "list_netscans", "update_netscan".',
     annotations: {
       title: 'Delete netscan group',
       readOnlyHint: false,
