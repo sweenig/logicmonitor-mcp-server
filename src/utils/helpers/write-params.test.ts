@@ -11,12 +11,14 @@ describe('alertRuleMatch', () => {
       devices: ['web*'],
       deviceGroups: ['Production*', 'Staging*'],
       datasource: 'CPU*',
+      instance: 'C:*',
       datapoint: 'CPUBusyPercent',
       severity: 'critical',
     })).toEqual({
       devices: ['web*'],
       deviceGroups: ['Production*', 'Staging*'],
       datasource: 'CPU*',
+      instance: 'C:*',
       datapoint: 'CPUBusyPercent',
       levelStr: 'Critical',
     });

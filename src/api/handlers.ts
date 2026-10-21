@@ -8,6 +8,7 @@ import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
 import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
+import { websiteCheckpointRows } from '../utils/helpers/website-data.js';
 import { alertRuleMatch, opsNoteScopes, opsNoteTags } from '../utils/helpers/write-params.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
@@ -150,6 +151,14 @@ function toolsByName(): Map<string, Tool> {
 
 // Type for progress notification callback
 type ProgressCallback = (progress: number, total: number) => Promise<void>;
+
+/**
+ * True when a 403 message from LogicMonitor is about the caller's identity or rights (token, role,
+ * permission) rather than about the state of the object; only those get "check your token" advice.
+ */
+export function looksLikePermissionDenial(message: string): boolean {
+  return /permission|privilege|authori[sz]|forbidden|access (is )?denied|not allowed to|token|\brole\b|rbac|credential/i.test(message);
+}
 
 export class LogicMonitorHandlers {
   constructor(private client: LogicMonitorClient) {}
@@ -933,6 +942,16 @@ export class LogicMonitorHandlers {
             Object.assign(body, { isInternal }, await this.resolveUptimeLocation(isInternal, parseJsonObject(args.testLocation)));
           }
           return await this.client.updateWebsite(args.websiteId, body, args.opType ? { opType: args.opType } : undefined);
+        }
+
+        case 'get_website_checkpoint_data': {
+          const raw = await this.client.getWebsiteCheckpointData(args.websiteId, args.checkpointId, {
+            start: toEpochSeconds(args.start),
+            end: toEpochSeconds(args.end),
+            period: args.period,
+            datapoints: Array.isArray(args.datapoints) ? args.datapoints.join(',') : args.datapoints,
+          });
+          return websiteCheckpointRows(raw);
         }
 
         case 'list_website_alerts':
@@ -2102,7 +2121,19 @@ export class LogicMonitorHandlers {
     let suggestions: string[] = [];
 
     // Authentication errors (401, 403)
-    if (httpStatus === 401 || httpStatus === 403) {
+    if (httpStatus === 403 && lmError && !looksLikePermissionDenial(lmError)) {
+      // LogicMonitor also answers 403 when an operation conflicts with the state of the object
+      // (for example deleting a group that still contains websites); the token is not the problem.
+      code = ErrorCodes.OPERATION_NOT_ALLOWED;
+      suggestions = [
+        `LogicMonitor refused the operation: ${lmError.trim()}`,
+        'This is a condition on the object or the request, not a token or permission problem: resolve it and retry',
+      ];
+      if (/delete|empty|contain|remove/i.test(lmError)) {
+        suggestions.push('Move or delete what the object still contains (list its contents first), then retry the delete');
+      }
+    }
+    else if (httpStatus === 401 || httpStatus === 403) {
       code = httpStatus === 401 ? ErrorCodes.AUTHENTICATION_FAILED : ErrorCodes.INSUFFICIENT_PERMISSIONS;
       suggestions = [...ErrorSuggestions.authentication];
     }

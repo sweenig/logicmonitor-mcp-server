@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Website suite: `create_website` and `update_website` rewritten for web (HTTP/HTTPS) and ping (ICMP) checks, internal (collector) and external (cloud checkpoint) locations, steps and alert settings; `create_website_group`, `update_website_group` (also moves a group), `delete_website_group` (the group must be empty; the API's `deleteChildren` option answers HTTP 404 and is not offered); `list_website_alerts`, `list_website_properties`, `list_website_sdts`, `list_website_group_websites`, `list_website_group_sdts`; MCP resource `lm://knowledge/websites`
+- `get_website_checkpoint_data`: recent check results of one website checkpoint as rows of {time, datapoint: value}
+- `create_alert_rule` / `update_alert_rule` accept `instance` (with a specific datasource it must match a real instance of it)
+- HTTP 403 errors that describe the state of an object (for example deleting a non-empty website group) now show LogicMonitor's message with a matching hint instead of the generic token advice; permission and token 403s are unchanged
 - Fixed: `fields="*"` is no longer sent to the API (some endpoints, such as `get_website`, took it literally and returned an empty object)
 
 ### Removed

@@ -1074,6 +1074,20 @@ export class LogicMonitorClient {
     return this.listWebsiteSubresource(`/website/groups/${groupId}/sdts`, params);
   }
 
+  async getWebsiteCheckpointData(websiteId: number, checkpointId: number, params?: {
+    start?: number;
+    end?: number;
+    period?: number;
+    datapoints?: string;
+  }) {
+    return this.request<any>(
+      'GET',
+      `/website/websites/${websiteId}/checkpoints/${checkpointId}/data`,
+      undefined,
+      this.cleanParams(params),
+    );
+  }
+
   private async listWebsiteSubresource(path: string, params?: Record<string, any>) {
     const { autoPaginate = false, ...otherParams } = params || {};
     const cleanedParams = this.cleanParams(otherParams);

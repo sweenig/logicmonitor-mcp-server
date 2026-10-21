@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { LogicMonitorHandlers } from './handlers.js';
+import { LogicMonitorHandlers, looksLikePermissionDenial } from './handlers.js';
 import { LogicMonitorClient } from './client.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError } from '../utils/core/error-handler.js';
@@ -81,6 +81,7 @@ describe('LogicMonitorHandlers', () => {
       listWebsiteAlerts: jest.fn(),
       listWebsiteProperties: jest.fn(),
       listWebsiteSdts: jest.fn(),
+      getWebsiteCheckpointData: jest.fn(),
       getWebsiteGroup: jest.fn(),
       listUsers: jest.fn(),
       getUser: jest.fn(),
@@ -1964,6 +1965,37 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('get_website_checkpoint_data', () => {
+      it('zips the parallel arrays into rows and normalizes the time range', async () => {
+        mockClient.getWebsiteCheckpointData.mockResolvedValue({
+          dataPoints: ['status', 'responseTime'],
+          values: [[11, 72], [11, 'No Data']],
+          time: [1792605106000, 1792604806000],
+          nextPageParams: '',
+        });
+
+        const result = await handlers.handleToolCall('get_website_checkpoint_data', {
+          websiteId: 57, checkpointId: 99, start: 1792601506000, end: 1792605106, datapoints: ['status', 'responseTime'],
+        });
+
+        expect(mockClient.getWebsiteCheckpointData).toHaveBeenCalledWith(57, 99, {
+          start: 1792601506, end: 1792605106, period: undefined, datapoints: 'status,responseTime',
+        });
+        expect(result.dataPoints).toEqual(['status', 'responseTime']);
+        expect(result.rows).toEqual([
+          { time: '2026-10-21T17:51:46.000Z', status: 11, responseTime: 72 },
+          { time: '2026-10-21T17:46:46.000Z', status: 11, responseTime: 'No Data' },
+        ]);
+        expect(result.nextPageParams).toBeUndefined();
+      });
+
+      it('passes through a response it does not recognise', async () => {
+        mockClient.getWebsiteCheckpointData.mockResolvedValue({ unexpected: true });
+        const result = await handlers.handleToolCall('get_website_checkpoint_data', { websiteId: 1, checkpointId: 2, period: 6 });
+        expect(result).toEqual({ unexpected: true });
+      });
+    });
+
     describe('website groups and website sub-resources', () => {
       it('creates a website group under the root by default and under a parent when given', async () => {
         mockClient.createWebsiteGroup.mockResolvedValue({ id: 1 });
@@ -2879,6 +2911,51 @@ describe('LogicMonitorHandlers', () => {
       await expect(
         handlers.handleToolCall('get_resource', { deviceId: 123 }),
       ).rejects.toThrow();
+    });
+
+    describe('HTTP 403 handling', () => {
+      const forbidden = (message: string) => new LogicMonitorApiError('API Error', {
+        status: 403, errorCode: 1403, errorMessage: message, errorDetail: null, path: '/website/groups/1', duration: 5,
+      });
+
+      it('explains a state conflict with LogicMonitor\'s own message instead of blaming the token', async () => {
+        mockClient.deleteWebsiteGroup.mockRejectedValue(forbidden('Please delete all websites and subfolers in this folder first.'));
+
+        const error: any = await handlers.handleToolCall('delete_website_group', { groupId: 1 }).catch(e => e);
+
+        expect(error).toBeInstanceOf(MCPError);
+        expect(error.code).toBe('OPERATION_NOT_ALLOWED');
+        const text = (error.suggestions ?? []).join(' ');
+        expect(text).toContain('Please delete all websites and subfolers in this folder first.');
+        expect(text).toMatch(/Move or delete what the object still contains/);
+        expect(text).not.toMatch(/LM_BEARER_TOKEN/);
+      });
+
+      it('keeps the token and permission advice for genuine permission errors', async () => {
+        mockClient.deleteWebsiteGroup.mockRejectedValue(forbidden('User does not have permission to delete this group'));
+
+        const error: any = await handlers.handleToolCall('delete_website_group', { groupId: 1 }).catch(e => e);
+
+        expect(error.code).toBe('INSUFFICIENT_PERMISSIONS');
+        expect((error.suggestions ?? []).join(' ')).toMatch(/LM_BEARER_TOKEN/);
+      });
+
+      it('treats a 403 with no message as a permission problem', async () => {
+        mockClient.deleteWebsiteGroup.mockRejectedValue(forbidden(''));
+
+        const error: any = await handlers.handleToolCall('delete_website_group', { groupId: 1 }).catch(e => e);
+
+        expect(error.code).toBe('INSUFFICIENT_PERMISSIONS');
+      });
+
+      it('classifies messages', () => {
+        expect(looksLikePermissionDenial('Forbidden')).toBe(true);
+        expect(looksLikePermissionDenial('Insufficient privileges for this role')).toBe(true);
+        expect(looksLikePermissionDenial('Access is denied')).toBe(true);
+        expect(looksLikePermissionDenial('The token has expired')).toBe(true);
+        expect(looksLikePermissionDenial('Please delete all websites and subfolers in this folder first.')).toBe(false);
+        expect(looksLikePermissionDenial('The collector is in use')).toBe(false);
+      });
     });
 
     it('should handle generic errors', async () => {

@@ -5701,7 +5701,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- escalationChainId: Which escalation chain receives matching alerts ' +
       '\n\n**Optional parameters (matching conditions):** ' +
       '\n- deviceGroups: Array of device group paths to match, wildcards allowed (e.g., ["Production*"]) ' +
-      '\n- datasource: DataSource name to match, wildcards allowed (e.g., "CPU*") ' +
+      '\n- datasource: DataSource name or display name to match (it must exist, otherwise "Invalid LogicModule"), or a wildcard such as "CPU*" (default all) ' +
+      '\n- instance: Instance name pattern to match (default all); with a specific datasource it must match a real instance of that datasource, otherwise the API answers "Invalid Instance" ' +
       '\n- datapoint: Datapoint name to match, wildcards allowed ' +
       '\n- severity: Alert level to match: all, warn, error or critical ' +
       '\n\n**How alert rules work:** ' +
@@ -5767,6 +5768,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'string',
           description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
         },
+        instance: {
+          type: 'string',
+          description: 'Instance name pattern the rule applies to (default "*": all). With a specific datasource the pattern must match the name or display name of at least one existing instance of that datasource (wildcards allowed, for example "Logi*"), otherwise LogicMonitor answers "Invalid Instance". With datasource "*" any pattern is accepted.',
+        },
         datapoint: {
           type: 'string',
           description: 'Datapoint name the rule applies to; wildcards allowed. Default: all.',
@@ -5818,7 +5823,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- priority: Change evaluation order ' +
       '\n- escalationChainId: Route to different chain ' +
       '\n- deviceGroups: Update resource/device scope ' +
-      '\n- datasource: Update datasource filter ' +
+      '\n- datasource: Update datasource filter (an existing DataSource name or display name, or a wildcard) ' +
+      '\n- instance: Update the instance pattern (with a specific datasource it must match a real instance of it) ' +
+      '\n- datapoint: Update the datapoint pattern ' +
       '\n- severity: Change severity matching ' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Route to different team:** ' +
@@ -5859,6 +5866,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         datasource: {
           type: 'string',
           description: 'DataSource name the rule applies to; wildcards allowed (for example "CPU*"). Default: all.',
+        },
+        instance: {
+          type: 'string',
+          description: 'Instance name pattern the rule applies to (default "*": all). With a specific datasource the pattern must match the name or display name of at least one existing instance of that datasource (wildcards allowed, for example "Logi*"), otherwise LogicMonitor answers "Invalid Instance". With datasource "*" any pattern is accepted.',
         },
         datapoint: {
           type: 'string',
@@ -7704,6 +7715,50 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       },
       additionalProperties: false,
       required: ['websiteId'],
+    },
+  },
+  {
+    name: 'get_website_checkpoint_data',
+    description: 'Get recent check results of one website monitor at one checkpoint location in LogicMonitor (LM) monitoring, as rows of {time, <datapoint>: value}. ' +
+      '\n\n**Which checkpointId:** use the "id" of an entry in the website\'s "checkpoints" array from "get_website" (each external checkpoint is a location such as "US - Oregon"; an internal website has one per collector). The "Overall" checkpoint (smgId 0) gives the combined result across locations. This is the checkpoint\'s own id, not its smgId. ' +
+      '\n\n**Datapoints by kind:** webcheck checkpoint: status, responseTime, dnsResolveTime, connectTime, sslHandshakeTime, firstByteReadTime, readTime, externalResources, brokenExternalResources, fullPageLoadTime, sslDaysUntilExpiration, sslStatus. pingcheck checkpoint: status, maxrtt, minrtt, avgrtt, sentpks, rcvdpks. Overall checkpoint: overallStatus, totalSmCount, failSmCount, reportlSmEpoch, sslDaysUntilExpiration, sslStatus, failSmSSLCount. A value of "No Data" means the check produced no value for that datapoint. ' +
+      '\n\n**Time range:** pass start and end (epoch seconds; milliseconds are converted), or period (hours back from now, default 1). **datapoints:** comma-separated names to return only those. ' +
+      '\n\nExample: {websiteId: 57, checkpointId: 1942518134, period: 6, datapoints: "status,responseTime"} ' +
+      '\n\n**Related tools:** "get_website" (find checkpoint ids), "list_websites", "list_website_alerts".',
+    annotations: {
+      title: 'Get website checkpoint data',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        websiteId: {
+          type: 'number',
+          description: 'The ID of the website',
+        },
+        checkpointId: {
+          type: 'number',
+          description: 'The id of a checkpoint from the website\'s checkpoints array (not the smgId)',
+        },
+        start: {
+          type: 'number',
+          description: 'Start of the time range, epoch seconds',
+        },
+        end: {
+          type: 'number',
+          description: 'End of the time range, epoch seconds',
+        },
+        period: {
+          type: 'number',
+          description: 'Hours back from now when start and end are not given (default 1)',
+        },
+        datapoints: {
+          type: 'string',
+          description: 'Comma-separated datapoint names to return (default: all)',
+        },
+      },
+      additionalProperties: false,
+      required: ['websiteId', 'checkpointId'],
     },
   },
   {

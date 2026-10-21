@@ -22,7 +22,7 @@ function toStringList(input: unknown): string[] {
 
 /**
  * The matching conditions of an alert rule (which resources, groups, datasources,
- * datapoints and severities it applies to), as API fields. Only the conditions that were given are
+ * instances, datapoints and severities it applies to), as API fields. Only the conditions that were given are
  * returned, so an update changes nothing else. `datasources` (array) is the older argument name for
  * `datasource` and is joined with commas.
  */
@@ -34,6 +34,7 @@ export function alertRuleMatch(args: Record<string, any>): Record<string, any> {
 
   const datasource = args.datasource ?? args.datasources;
   if (datasource !== undefined) match.datasource = toStringList(datasource).join(',');
+  if (args.instance !== undefined) match.instance = String(args.instance);
   if (args.datapoint !== undefined) match.datapoint = String(args.datapoint);
 
   if (args.severity !== undefined) {
