@@ -21,7 +21,7 @@ import { findMissingRequired } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
-import { MCPError, ErrorCodes, ErrorSuggestions, createMCPError } from '../utils/core/error-handler.js';
+import { MCPError, ErrorCodes, ErrorSuggestions, InvalidArgumentError, createMCPError } from '../utils/core/error-handler.js';
 
 // Default field sets for curated responses (when no fields parameter specified)
 const DEFAULT_DEVICE_FIELDS = [
@@ -989,10 +989,10 @@ export class LogicMonitorHandlers {
         case 'create_uptime_check': {
           const useDefaultAlertSetting = this.resolveUptimeAlertSetting(args);
           if (args.checkType === 'ping') {
-            if (!args.host) throw new Error('host is required when checkType is "ping"');
+            if (!args.host) throw new InvalidArgumentError('host is required when checkType is "ping"');
             this.validatePingCount(args.count);
           } else if (!args.domain) {
-            throw new Error('domain is required when checkType is "web" (the default)');
+            throw new InvalidArgumentError('domain is required when checkType is "web" (the default)');
           }
           const isInternal = args.isInternal ?? false;
           const { useDefaultLocationSetting, testLocation } = await this.resolveUptimeLocation(isInternal, args.testLocation);
@@ -1045,17 +1045,17 @@ export class LogicMonitorHandlers {
         case 'update_uptime_check': {
           const existing: any = await this.client.getDevice(args.deviceId);
           if (existing.type !== 'uptimewebcheck' && existing.type !== 'uptimepingcheck') {
-            throw new Error(
+            throw new InvalidArgumentError(
               `Resource ${args.deviceId} is type "${existing.type}", not an LM Uptime check. Use update_resource for other resource types.`,
             );
           }
           const isPing = existing.type === 'uptimepingcheck';
           if (!isPing && (args.host !== undefined || args.count !== undefined
               || args.percentPktsNotReceiveInTime !== undefined || args.timeoutInMSPktsNotReceive !== undefined)) {
-            throw new Error('host, count, percentPktsNotReceiveInTime and timeoutInMSPktsNotReceive only apply to ping checks');
+            throw new InvalidArgumentError('host, count, percentPktsNotReceiveInTime and timeoutInMSPktsNotReceive only apply to ping checks');
           }
           if (isPing && (args.domain !== undefined || args.schema !== undefined || args.steps !== undefined)) {
-            throw new Error('domain, schema and steps only apply to web checks');
+            throw new InvalidArgumentError('domain, schema and steps only apply to web checks');
           }
           this.validatePingCount(args.count);
           const patch: any = {};
@@ -1079,7 +1079,7 @@ export class LogicMonitorHandlers {
           }
           if (args.steps) patch.steps = args.steps.map((step: any) => this.withStepDefaults(step));
           if (Object.keys(patch).length === 0) {
-            throw new Error('No changes specified; provide at least one field to update');
+            throw new InvalidArgumentError('No changes specified; provide at least one field to update');
           }
           return await this.client.updateDevice(args.deviceId, patch, { opType: 'replace' });
         }
@@ -2007,6 +2007,15 @@ export class LogicMonitorHandlers {
         throw this.convertLMErrorToMCPError(error, name);
       }
 
+      // An argument problem found before calling the API is the caller's to fix, not a server fault
+      if (error instanceof InvalidArgumentError) {
+        throw createMCPError(error, {
+          operation: name,
+          code: ErrorCodes.INVALID_PARAMETERS,
+          suggestions: ['Correct the argument described in the message and call the tool again'],
+        });
+      }
+
       // For other errors, wrap them in MCPError
       if (error instanceof Error) {
         throw createMCPError(error, {
@@ -2042,7 +2051,7 @@ export class LogicMonitorHandlers {
 
   private validatePingCount(count: number | undefined) {
     if (count !== undefined && ![5, 10, 15, 20, 30, 50].includes(count)) {
-      throw new Error('count must be one of 5, 10, 15, 20, 30, 50');
+      throw new InvalidArgumentError('count must be one of 5, 10, 15, 20, 30, 50');
     }
   }
 
@@ -2052,7 +2061,7 @@ export class LogicMonitorHandlers {
    */
   private resolveUptimeAlertSetting(args: any): boolean {
     if (args.pollingInterval !== undefined && args.useDefaultAlertSetting === true) {
-      throw new Error(
+      throw new InvalidArgumentError(
         'pollingInterval cannot be combined with useDefaultAlertSetting: true (LM would ignore it and use the account default interval). Omit pollingInterval, or set useDefaultAlertSetting: false.',
       );
     }
@@ -2068,16 +2077,16 @@ export class LogicMonitorHandlers {
     const collectorIds: number[] = loc?.collectorIds ?? [];
     let smgIds: number[] = loc?.smgIds ?? [];
     if (collectorIds.length && smgIds.length) {
-      throw new Error('testLocation.collectorIds and testLocation.smgIds cannot be used together');
+      throw new InvalidArgumentError('testLocation.collectorIds and testLocation.smgIds cannot be used together');
     }
     if (isInternal && smgIds.length) {
-      throw new Error('testLocation.smgIds is only valid for external checks');
+      throw new InvalidArgumentError('testLocation.smgIds is only valid for external checks');
     }
     if (!isInternal && collectorIds.length) {
-      throw new Error('testLocation.collectorIds is only valid for internal checks (set isInternal: true)');
+      throw new InvalidArgumentError('testLocation.collectorIds is only valid for internal checks (set isInternal: true)');
     }
     if (isInternal && !collectorIds.length) {
-      throw new Error('testLocation.collectorIds is required for internal checks');
+      throw new InvalidArgumentError('testLocation.collectorIds is required for internal checks');
     }
     const useDefaultLocationSetting = !isInternal && !smgIds.length;
     if (useDefaultLocationSetting) {
@@ -2086,7 +2095,7 @@ export class LogicMonitorHandlers {
         .filter((c: any) => c.isEnabledInRoot !== false)
         .map((c: any) => c.id);
       if (!smgIds.length) {
-        throw new Error('No enabled checkpoint locations found; specify testLocation.smgIds explicitly');
+        throw new InvalidArgumentError('No enabled checkpoint locations found; specify testLocation.smgIds explicitly');
       }
     }
     return {

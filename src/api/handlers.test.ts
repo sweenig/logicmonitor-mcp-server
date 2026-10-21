@@ -2917,6 +2917,16 @@ describe('LogicMonitorHandlers', () => {
       ).rejects.toThrow();
     });
 
+    it('reports an invalid argument as INVALID_PARAMETERS without blaming credentials', async () => {
+      const error: any = await handlers.handleToolCall('create_netscan', { name: 'n', method: 'nmap', collectorId: 1 }).catch(e => e);
+
+      expect(error).toBeInstanceOf(MCPError);
+      expect(error.code).toBe('INVALID_PARAMETERS');
+      expect(error.message).toMatch(/subnet is required/);
+      expect((error.suggestions ?? []).join(' ')).not.toMatch(/credentials|server logs|endpoint/i);
+      expect(mockClient.createNetscan).not.toHaveBeenCalled();
+    });
+
     describe('HTTP 403 handling', () => {
       const forbidden = (message: string) => new LogicMonitorApiError('API Error', {
         status: 403, errorCode: 1403, errorMessage: message, errorDetail: null, path: '/website/groups/1', duration: 5,

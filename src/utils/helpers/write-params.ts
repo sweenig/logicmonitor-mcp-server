@@ -12,6 +12,7 @@ export const ALERT_RULE_LEVELS: Record<string, string> = {
 };
 
 import { parseJsonArray } from './coerce.js';
+import { InvalidArgumentError } from '../core/error-handler.js';
 
 function toStringList(input: unknown): string[] {
   const value = parseJsonArray(input);
@@ -40,7 +41,7 @@ export function alertRuleMatch(args: Record<string, any>): Record<string, any> {
   if (args.severity !== undefined) {
     const level = ALERT_RULE_LEVELS[String(args.severity).trim().toLowerCase()];
     if (!level) {
-      throw new Error(`severity must be one of: ${Object.keys(ALERT_RULE_LEVELS).join(', ')} (got "${args.severity}")`);
+      throw new InvalidArgumentError(`severity must be one of: ${Object.keys(ALERT_RULE_LEVELS).join(', ')} (got "${args.severity}")`);
     }
     match.levelStr = level;
   }

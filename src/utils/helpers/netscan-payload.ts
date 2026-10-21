@@ -9,6 +9,7 @@
  */
 
 import { isTrue, parseJsonArray, parseJsonObject, toNumberIfNumeric } from './coerce.js';
+import { InvalidArgumentError } from '../core/error-handler.js';
 
 export const NETSCAN_METHODS = ['nmap', 'script', 'enhancedScript'];
 export const SCHEDULE_TYPES = ['manual', 'hourly', 'daily', 'weekly', 'monthly'];
@@ -23,7 +24,7 @@ const ENHANCED_ONLY = ['filters', 'resourceUpdateCriteria'];
 function asObject(value: unknown, name: string): Record<string, any> {
   const parsed = parseJsonObject(value);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`${name} must be an object`);
+    throw new InvalidArgumentError(`${name} must be an object`);
   }
   return parsed as Record<string, any>;
 }
@@ -33,14 +34,14 @@ export function normalizeSchedule(value: unknown): Record<string, any> {
   if (value === undefined) return { type: 'manual' };
   if (typeof value === 'string' && !value.trim().startsWith('{')) {
     if (value.trim() === 'manual') return { type: 'manual' };
-    throw new Error('schedule must be an object like {type: "daily", cron: "00 04 * * *", timezone: "America/Chicago"}, or "manual"');
+    throw new InvalidArgumentError('schedule must be an object like {type: "daily", cron: "00 04 * * *", timezone: "America/Chicago"}, or "manual"');
   }
   const schedule = { ...asObject(value, 'schedule') };
   if (!SCHEDULE_TYPES.includes(schedule.type)) {
-    throw new Error(`schedule.type must be one of ${SCHEDULE_TYPES.join(', ')}`);
+    throw new InvalidArgumentError(`schedule.type must be one of ${SCHEDULE_TYPES.join(', ')}`);
   }
   if (schedule.type !== 'manual' && !schedule.cron) {
-    throw new Error(`schedule.cron is required when schedule.type is "${schedule.type}" (a cron expression such as "00 04 * * *"; LogicMonitor rejects a timed schedule without one)`);
+    throw new InvalidArgumentError(`schedule.cron is required when schedule.type is "${schedule.type}" (a cron expression such as "00 04 * * *"; LogicMonitor rejects a timed schedule without one)`);
   }
   if (schedule.notify !== undefined) schedule.notify = isTrue(schedule.notify);
   if (schedule.recipients !== undefined) schedule.recipients = parseJsonArray(schedule.recipients);
@@ -56,7 +57,7 @@ export function normalizeDuplicate(args: Record<string, any>): Record<string, an
   if (duplicate.type === undefined && legacyType !== undefined) duplicate.type = legacyType;
   duplicate.type = toNumberIfNumeric(duplicate.type);
   if (![1, 2, 3, 4].includes(duplicate.type)) {
-    throw new Error('duplicate.type must be 1 (matches any monitored device), 2 (already found by this scan), 3 (in the given groups) or 4 (on the given collectors)');
+    throw new InvalidArgumentError('duplicate.type must be 1 (matches any monitored device), 2 (already found by this scan), 3 (in the given groups) or 4 (on the given collectors)');
   }
   if (duplicate.groups !== undefined) duplicate.groups = parseJsonArray(duplicate.groups);
   if (duplicate.collectors !== undefined) duplicate.collectors = parseJsonArray(duplicate.collectors);
@@ -100,7 +101,7 @@ function checkMethodFields(method: string, args: Record<string, any>): void {
       : method === 'script'
         ? 'those belong to nmap scans (subnet settings) or enhancedScript scans (filters and update policy)'
         : 'those belong to nmap scans (subnet settings)';
-    throw new Error(`${foreign.join(', ')} ${foreign.length === 1 ? 'does' : 'do'} not apply to a ${method} scan (${why})`);
+    throw new InvalidArgumentError(`${foreign.join(', ')} ${foreign.length === 1 ? 'does' : 'do'} not apply to a ${method} scan (${why})`);
   }
 }
 
@@ -111,7 +112,7 @@ function scriptSettings(args: Record<string, any>): Record<string, any> {
   }
   if (out.scriptType === 'embedded') out.scriptType = 'embeded'; // LogicMonitor's own spelling
   if (out.scriptType !== undefined && !['embeded', 'external'].includes(out.scriptType)) {
-    throw new Error('scriptType must be "embeded" (script text in groovyScript; "embedded" is accepted too) or "external" (a file named in scriptPath on the collector)');
+    throw new InvalidArgumentError('scriptType must be "embeded" (script text in groovyScript; "embedded" is accepted too) or "external" (a file named in scriptPath on the collector)');
   }
   return out;
 }
@@ -130,12 +131,12 @@ function commonSettings(args: Record<string, any>): Record<string, any> {
 
 /** The body of a new NetScan; throws a clear error for anything LogicMonitor would reject. */
 export function buildNetscanCreate(args: Record<string, any>): Record<string, any> {
-  if (!args.name) throw new Error('name is required');
+  if (!args.name) throw new InvalidArgumentError('name is required');
   if (!NETSCAN_METHODS.includes(args.method)) {
-    throw new Error(`method must be one of ${NETSCAN_METHODS.join(', ')}: nmap scans a subnet, script lists devices from a script or CSV file, enhancedScript adds credentials, filters and an update policy`);
+    throw new InvalidArgumentError(`method must be one of ${NETSCAN_METHODS.join(', ')}: nmap scans a subnet, script lists devices from a script or CSV file, enhancedScript adds credentials, filters and an update policy`);
   }
   if (args.collectorId === undefined) {
-    throw new Error('collectorId is required (the collector that runs the scan; find it with list_collectors)');
+    throw new InvalidArgumentError('collectorId is required (the collector that runs the scan; find it with list_collectors)');
   }
   checkMethodFields(args.method, args);
 
@@ -147,7 +148,7 @@ export function buildNetscanCreate(args: Record<string, any>): Record<string, an
   };
 
   if (args.method === 'nmap') {
-    if (!args.subnet) throw new Error('subnet is required for an nmap scan (CIDR such as "10.0.1.0/24", or an IP range)');
+    if (!args.subnet) throw new InvalidArgumentError('subnet is required for an nmap scan (CIDR such as "10.0.1.0/24", or an IP range)');
     body.subnet = args.subnet;
     if (args.exclude !== undefined) body.exclude = args.exclude;
     if (args.includeNetworkAndBroadcast !== undefined) body.includeNetworkAndBroadcast = isTrue(args.includeNetworkAndBroadcast);
@@ -160,10 +161,10 @@ export function buildNetscanCreate(args: Record<string, any>): Record<string, an
   Object.assign(body, scriptSettings(args));
   body.scriptType = body.scriptType ?? 'embeded';
   if (body.scriptType === 'embeded' && !body.groovyScript && !body.windowsScript && !body.linuxScript) {
-    throw new Error('an embedded script scan needs groovyScript (the script text); use scriptType "external" with scriptPath for a file on the collector');
+    throw new InvalidArgumentError('an embedded script scan needs groovyScript (the script text); use scriptType "external" with scriptPath for a file on the collector');
   }
   if (body.scriptType === 'external' && !body.scriptPath) {
-    throw new Error('an external script scan needs scriptPath (the script or CSV file on the collector)');
+    throw new InvalidArgumentError('an external script scan needs scriptPath (the script or CSV file on the collector)');
   }
   if (args.defaultGroup !== undefined) body.defaultGroup = toNumberIfNumeric(args.defaultGroup);
   return body;
@@ -182,7 +183,7 @@ export function updateNeedsMethod(args: Record<string, any>): boolean {
 /** The fields to change on an existing NetScan. The method cannot be changed. */
 export function buildNetscanUpdate(args: Record<string, any>, method?: string): Record<string, any> {
   if (args.method !== undefined) {
-    throw new Error('method cannot be changed; create a new scan instead');
+    throw new InvalidArgumentError('method cannot be changed; create a new scan instead');
   }
   if (method) checkMethodFields(method, args);
 

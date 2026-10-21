@@ -175,6 +175,17 @@ export const ErrorSuggestions = {
  * @param context Additional context about where the error occurred
  * @returns MCPError instance with structured information
  */
+/**
+ * An argument that does not fit the tool (missing, malformed, or a combination LogicMonitor would
+ * reject), found before any request is made. Reported as INVALID_PARAMETERS, not as a server fault.
+ */
+export class InvalidArgumentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidArgumentError';
+  }
+}
+
 export function createMCPError(
   error: unknown,
   context: {

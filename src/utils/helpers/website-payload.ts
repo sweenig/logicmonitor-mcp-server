@@ -8,6 +8,7 @@
  */
 
 import { isTrue, parseJsonArray, toNumberIfNumeric } from './coerce.js';
+import { InvalidArgumentError } from '../core/error-handler.js';
 
 export const WEBSITE_TYPES = ['webcheck', 'pingcheck'];
 export const ALERT_LEVELS = ['warn', 'error', 'critical'];
@@ -45,7 +46,7 @@ function pick(args: Record<string, any>, numbers: string[], booleans: string[], 
 export function normalizeSteps(steps: unknown, defaultSchema = 'https'): any[] {
   const list = parseJsonArray(steps);
   if (!Array.isArray(list)) {
-    throw new Error('steps must be an array of step objects');
+    throw new InvalidArgumentError('steps must be an array of step objects');
   }
   return list.map((step: any, index: number) => ({
     type: 'config',
@@ -69,33 +70,33 @@ export function normalizeSteps(steps: unknown, defaultSchema = 'https'): any[] {
 function validate(fields: Record<string, any>): void {
   const interval = fields.pollingInterval;
   if (interval !== undefined && !(Number.isInteger(interval) && interval >= 1 && interval <= 10)) {
-    throw new Error('pollingInterval must be a whole number of minutes from 1 to 10');
+    throw new InvalidArgumentError('pollingInterval must be a whole number of minutes from 1 to 10');
   }
   const transition = fields.transition;
   if (transition !== undefined && !TRANSITIONS.includes(transition)) {
-    throw new Error(`transition must be one of ${TRANSITIONS.join(', ')}`);
+    throw new InvalidArgumentError(`transition must be one of ${TRANSITIONS.join(', ')}`);
   }
   for (const field of ['overallAlertLevel', 'individualAlertLevel']) {
     if (fields[field] !== undefined && !ALERT_LEVELS.includes(fields[field])) {
-      throw new Error(`${field} must be one of ${ALERT_LEVELS.join(', ')}`);
+      throw new InvalidArgumentError(`${field} must be one of ${ALERT_LEVELS.join(', ')}`);
     }
   }
   if (fields.schema !== undefined && !['http', 'https'].includes(fields.schema)) {
-    throw new Error('schema must be "http" or "https"');
+    throw new InvalidArgumentError('schema must be "http" or "https"');
   }
 }
 
 /** The non-location part of the body for a new website; throws a clear error for invalid combinations. */
 export function buildWebsiteCreate(args: Record<string, any>): Record<string, any> {
-  if (!args.name) throw new Error('name is required');
+  if (!args.name) throw new InvalidArgumentError('name is required');
   if (!WEBSITE_TYPES.includes(args.type)) {
-    throw new Error(`type must be "webcheck" (HTTP/HTTPS) or "pingcheck" (ICMP ping), got "${args.type}"`);
+    throw new InvalidArgumentError(`type must be "webcheck" (HTTP/HTTPS) or "pingcheck" (ICMP ping), got "${args.type}"`);
   }
   const isWeb = args.type === 'webcheck';
 
   const wrong = (isWeb ? PING_ONLY : WEB_ONLY).filter(field => args[field] !== undefined);
   if (wrong.length) {
-    throw new Error(
+    throw new InvalidArgumentError(
       `${wrong.join(', ')} ${wrong.length === 1 ? 'does' : 'do'} not apply to a ${args.type}` +
       (isWeb ? ' (those are ping check settings)' : ' (those are web check settings)'),
     );
@@ -110,14 +111,14 @@ export function buildWebsiteCreate(args: Record<string, any>): Record<string, an
   validate(fields);
 
   if (isWeb) {
-    if (!fields.domain) throw new Error('domain is required for a webcheck (for example "www.example.com", without the scheme)');
+    if (!fields.domain) throw new InvalidArgumentError('domain is required for a webcheck (for example "www.example.com", without the scheme)');
     fields.schema = fields.schema ?? 'https';
     const given = parseJsonArray(args.steps);
     fields.steps = args.steps !== undefined && !(Array.isArray(given) && given.length === 0)
       ? normalizeSteps(given, fields.schema)
       : normalizeSteps([{}], fields.schema);
   } else if (!fields.host) {
-    throw new Error('host is required for a pingcheck (hostname or IP address, without a scheme)');
+    throw new InvalidArgumentError('host is required for a pingcheck (hostname or IP address, without a scheme)');
   }
 
   return { type: args.type, ...fields };
