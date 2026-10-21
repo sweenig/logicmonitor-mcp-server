@@ -166,14 +166,10 @@
 
 ---
 
-### Services & Business Logic ⭐ COMPLETE
-**Status:** Fully implemented
+### Services & Business Services — NOT SUPPORTED
+**Status:** Removed.
 
-**Implemented:**
-- ✅ Services (List, Get, Create, Update, Delete)
-- ✅ Service Groups (List, Get, Create, Update, Delete)
-
-**Tools:** `list_services`, `get_service`, `create_service`, `update_service`, `delete_service`, `list_service_groups`, `get_service_group`, `create_service_group`, `update_service_group`, `delete_service_group`
+The `/service/services` and `/service/groups` endpoints are legacy (pre-v3) endpoints that reject `X-Version: 3`. They return the website monitors under an older name, not business services, so the former `*_service` and `*_service_group` tools never worked and were removed. Use the website tools (`list_websites`, `list_website_groups`, ...). The business-service rollup feature (Service Insight) is a separate API that this server does not support.
 
 ---
 

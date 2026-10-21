@@ -132,16 +132,6 @@ describe('LogicMonitorHandlers', () => {
       createOpsNote: jest.fn(),
       updateOpsNote: jest.fn(),
       deleteOpsNote: jest.fn(),
-      listServices: jest.fn(),
-      getService: jest.fn(),
-      createService: jest.fn(),
-      updateService: jest.fn(),
-      deleteService: jest.fn(),
-      listServiceGroups: jest.fn(),
-      getServiceGroup: jest.fn(),
-      createServiceGroup: jest.fn(),
-      updateServiceGroup: jest.fn(),
-      deleteServiceGroup: jest.fn(),
       listReportGroups: jest.fn(),
       getReportGroup: jest.fn(),
       createReportGroup: jest.fn(),
@@ -2965,16 +2955,6 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.updateOpsNote.mock.calls[0]).toEqual(['abc', { happenOnInSec: 1699889500 }]);
     });
 
-    it('sends parentId and groupId when moving service groups and services', async () => {
-      mockClient.updateServiceGroup.mockResolvedValue({ id: 1 });
-      mockClient.updateService.mockResolvedValue({ id: 1 });
-
-      await handlers.handleToolCall('update_service_group', { groupId: 3, parentId: 4 });
-      expect(mockClient.updateServiceGroup.mock.calls[0]).toEqual([3, { parentId: 4 }]);
-      await handlers.handleToolCall('update_service', { serviceId: 6, groupId: 9 });
-      expect(mockClient.updateService.mock.calls[0]).toEqual([6, { groupId: 9 }]);
-    });
-
     it('sends sharable and widgetTokens when creating a dashboard', async () => {
       mockClient.createDashboard.mockResolvedValue({ id: 1 });
       await handlers.handleToolCall('create_dashboard', { name: 'd', sharable: false, widgetTokens: [{ name: 'a', value: 'b' }] });
@@ -3002,38 +2982,6 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.createOpsNote).toHaveBeenCalled();
       expect(mockClient.updateOpsNote).toHaveBeenCalled();
       expect(mockClient.deleteOpsNote).toHaveBeenCalled();
-    });
-
-    it('should handle services and service groups', async () => {
-      const mockService = { id: 1, name: 'test-service' };
-      const mockGroup = { id: 1, name: 'test-group' };
-
-      mockClient.createService.mockResolvedValue(mockService);
-      mockClient.updateService.mockResolvedValue(mockService);
-      mockClient.deleteService.mockResolvedValue({});
-      mockClient.createServiceGroup.mockResolvedValue(mockGroup);
-      mockClient.updateServiceGroup.mockResolvedValue(mockGroup);
-      mockClient.deleteServiceGroup.mockResolvedValue({});
-
-      await handlers.handleToolCall('create_service', { name: 'test-service' });
-      await handlers.handleToolCall('update_service', {
-        serviceId: 1,
-        name: 'updated',
-      });
-      await handlers.handleToolCall('delete_service', { serviceId: 1 });
-      await handlers.handleToolCall('create_service_group', { name: 'test-group' });
-      await handlers.handleToolCall('update_service_group', {
-        groupId: 1,
-        name: 'updated',
-      });
-      await handlers.handleToolCall('delete_service_group', { groupId: 1 });
-
-      expect(mockClient.createService).toHaveBeenCalled();
-      expect(mockClient.updateService).toHaveBeenCalled();
-      expect(mockClient.deleteService).toHaveBeenCalled();
-      expect(mockClient.createServiceGroup).toHaveBeenCalled();
-      expect(mockClient.updateServiceGroup).toHaveBeenCalled();
-      expect(mockClient.deleteServiceGroup).toHaveBeenCalled();
     });
 
     it('should handle netscans and integrations', async () => {

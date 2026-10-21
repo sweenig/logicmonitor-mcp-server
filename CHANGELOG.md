@@ -22,11 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `schedule_resource_discovery` tool - trigger Active Discovery on a resource/device via `POST /device/devices/{id}/scheduleAutoDiscovery`; classified read-only (it only requests a discovery run) so it is available in read-only mode
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
+### Removed
+- The ten legacy `*_service` and `*_service_group` tools (`list_services`, `get_service`, `create_service`, `update_service`, `delete_service`, `list_service_groups`, `get_service_group`, `create_service_group`, `update_service_group`, `delete_service_group`). They called the pre-v3 `/service/*` endpoints, which reject `X-Version: 3` (HTTP 415) and return website monitors rather than business services; use the website tools instead
+
 ### Changed
 - Report tool descriptions: report groups are a flat, single level of folders; each report carries its group as `groupId` (filter `list_reports` with `groupId:<id>`); `reportsCount` on groups is not reliable
 - Alert rules: `create_alert_rule` / `update_alert_rule` now apply `deviceGroups`, `datasource`, `datapoint` and `severity` (all, warn, error, critical), and send the datasource filter as the API field `datasource` (before, `datasources` was sent and ignored)
 - OpsNotes: tags may be plain strings (sent as `{name}` objects, which is what the API requires); array arguments that clients send as JSON strings are parsed; `create_opsnote` / `update_opsnote` accept `deviceId`, `deviceGroupId` and `websiteId` (turned into scopes); `update_opsnote` accepts `happenOnInSec`; descriptions use epoch seconds
-- `parentId` on `update_service_group` and `groupId` on `update_service` (not verifiable on the test portal, whose service API answers HTTP 415); `sharable` and `widgetTokens` on `create_dashboard`; `widgetsConfig` and `widgetTokens` on `update_dashboard`
+ `sharable` and `widgetTokens` on `create_dashboard`; `widgetsConfig` and `widgetTokens` on `update_dashboard`
 - Removed descriptions of parameters that do not exist in the LogicMonitor API (access group membership, recipient `schedule`/`rateLimit`, escalation chain `enabled`, alert rule `enabled`, `alertStatus`, resource datasource `pollingInterval`/`customProperties`)
 - `create_datasource` lists `displayName` as required (the API returns HTTP 400 without it)
 - `update_datasource` keeps each existing datapoint's `originId` when the caller sends the datapoint with its `id` but without an `originId` (LogicMonitor otherwise blanks it)

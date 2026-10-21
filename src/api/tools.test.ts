@@ -888,3 +888,11 @@ describe('report tool descriptions', () => {
     expect(text('list_report_groups')).toContain('flat');
   });
 });
+
+describe('removed service tools', () => {
+  it('no longer offers the legacy service and service group tools', () => {
+    const names = getLogicMonitorTools(false).map(t => t.name);
+    const removed = names.filter(name => /^(list|get|create|update|delete)_service(s|_group(s)?)?$/.test(name));
+    expect(removed).toEqual([]);
+  });
+});

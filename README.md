@@ -652,22 +652,6 @@ The server provides 146 tools for comprehensive LogicMonitor operations. Tools a
 - `create_uptime_check` - Create a new LM Uptime synthetic HTTP or ping check, internal or external (distinct from legacy website/checkpoint monitors)
 - `update_uptime_check` - Modify an existing LM Uptime check (host/domain, locations, interval, alert settings, HTTP steps)
 
-### Services (Business Logic)
-
-**Read-Only:**
-- `list_services` - List business services
-- `get_service` - Get service details
-- `list_service_groups` - List service groups
-- `get_service_group` - Get service group details
-
-**Write Operations:**
-- `create_service` - Create new business service
-- `update_service` - Modify service
-- `delete_service` - Delete service
-- `create_service_group` - Create service group
-- `update_service_group` - Modify service group
-- `delete_service_group` - Delete service group
-
 ### Alert Configuration
 
 **Read-Only:**
