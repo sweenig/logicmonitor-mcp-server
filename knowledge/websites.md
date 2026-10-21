@@ -29,11 +29,13 @@ Any combination is valid: external web check (public site from the internet), ex
 - `testLocation.smgIds`: which checkpoints to use. With no `smgIds` the website follows the account default locations (`useDefaultLocationSetting: true`).
 - Use for public services: anything reachable from the internet.
 - Needs no collector. Cannot reach private addresses.
+- The response lists one checkpoint per location plus an "Overall" checkpoint (smgId 0) that aggregates them.
 
 **Internal** (`isInternal: true`)
 - Runs from one or more of your collectors, so it can reach private hosts and applications.
 - `testLocation.collectorIds`: required, the collectors that run the check (`list_collectors`).
 - Cannot be combined with `smgIds`; an internal website's status is `dead-collector` if its collectors are down.
+- In the response each collector appears as a checkpoint whose `smgId` is the collector ID, and the web check's first step has type `script` (LogicMonitor sets this for internal web checks).
 - Use for private apps, VPN-only services, and internal hosts.
 
 Rule of thumb: if LogicMonitor's cloud can reach the target, use external; otherwise internal.
@@ -45,7 +47,7 @@ Rule of thumb: if LogicMonitor's cloud can reach the target, use external; other
 - `overallAlertLevel` (`warn`, `error`, `critical`) with `globalSmAlertCond`: the level raised when a check fails from the number of locations given by `globalSmAlertCond` (0 = all locations).
 - `individualSmAlertEnable` and `individualAlertLevel`: also alert when a single location fails.
 - `useDefaultAlertSetting`: follow the account's website default alert settings. LogicMonitor ignores the other alert fields while this is true.
-- `disableAlerting` mutes alerts but keeps collecting; `stopMonitoring` stops the checks entirely.
+- `disableAlerting` mutes alerts but keeps collecting; `stopMonitoring` stops the checks entirely, and LogicMonitor then also turns alerting off for the website (the response shows `disableAlerting: true`).
 
 ## Website groups
 
