@@ -2447,7 +2447,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_reports',
     description: 'List all reports (scheduled and on-demand) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of reports with: id, name, type (alert/availability/capacity/performance), description, schedule, recipients, format (PDF/HTML/CSV), last run time. ' +
+      '\n\n**Returns:** Array of reports with: id, name, type (alert/availability/capacity/performance), description, schedule, recipients, format (PDF/HTML/CSV), last run time, and groupId (the report group the report is in; 0 = not in a group). ' +
       '\n\n**What are reports:** Scheduled or on-demand documents summarizing monitoring data. Generate PDFs, HTML, or CSV files with metrics, alerts, availability statistics, capacity planning data. Automatically email to stakeholders. ' +
       '\n\n**When to use:** ' +
       '\n- Find existing reports before creating duplicates' +
@@ -2472,7 +2472,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Monthly: End-of-month SLA reports' +
       '\n- Quarterly: Capacity planning reviews' +
       '\n- On-demand: Generate for specific incidents/audits' +
-      '\n\n**Workflow:** Use this tool to find reports, then "get\\_report" for details. ' +
+      '\n\n**Reports in a group:** report groups are a flat, single level of folders. Each report carries its group as groupId, so list the reports of a group with filter:"groupId:64" (get the group IDs from "list\_report\_groups"). \n\n**Workflow:** Use this tool to find reports, then "get\\_report" for details. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_report" (details), "list\\_report\\_groups" (organization).',
     annotations: {
@@ -2492,7 +2492,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'get_report',
     description: 'Get detailed information about a specific report by its ID in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Complete report details: name, type, description, schedule (daily/weekly/monthly), recipients, format, data sources (which resources/devices/groups), date range, customization settings, last run timestamp, delivery status. ' +
+      '\n\n**Returns:** Complete report details: name, type, groupId (the report group it is in), description, schedule (daily/weekly/monthly), recipients, format, data sources (which resources/devices/groups), date range, customization settings, last run timestamp, delivery status. ' +
       '\n\n**When to use:** ' +
       '\n- Review report configuration before modification' +
       '\n- Check recipients and schedule' +
@@ -6697,12 +6697,12 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_report_groups',
     description: 'List all report groups (folders) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of report groups with: id, name, parentId, full path, description, number of reports, number of subgroups. ' +
+      '\n\n**Returns:** Array of report groups with: id, name, description, and reportsCount. Report groups are a flat, single level of folders (no parent or subgroups). reportsCount is not reliable (it was 0 for groups that contain reports), so use "list\_reports" with filter:"groupId:<id>" to see what is in a group. ' +
       '\n\n**What are report groups:** Organizational folders for reports, like directories for files. Used to categorize reports by audience, frequency, purpose, or department. ' +
       '\n\n**When to use:**' +
       '\n- Browse report organization before creating reports' +
       '\n- Find group IDs for report operations' +
-      '\n- Understand report hierarchy' +
+      '\n- See which report folders exist' +
       '\n- Navigate to specific report folders' +
       '\n' +
       '\n\n**Common organization patterns:** ' +
@@ -6715,7 +6715,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Group compliance/audit reports separately ' +
       '\n- Separate internal vs customer-facing reports ' +
       '\n- Structure reports by delivery schedule ' +
-      '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\\_reports" filtered by groupId to see reports in specific folder. ' +
+      '\n\n**Workflow:** Use this tool to browse hierarchy, then "list\_reports" with filter:"groupId:<id>" to see the reports in a folder. ' +
       '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
       '\n\n**Related tools:** "get\\_report\\_group" (details), "list\\_reports" (reports in group), "create\\_report\\_group" (create folder).',
     annotations: {
@@ -6735,11 +6735,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'get_report_group',
     description: 'Get detailed information about a specific report group by ID in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Complete report group details: name, full path, parentId, description, number of reports (direct and total), number of subgroups. ' +
+      '\n\n**Returns:** Report group details: name, description, and reportsCount (not reliable; use "list\_reports" with filter:"groupId:<id>" to list the reports in the group). Report groups are a flat, single level of folders. ' +
       '\n\n**When to use:**' +
       '\n- Get group path for documentation' +
       '\n- Check report membership counts' +
-      '\n- Verify group hierarchy' +
+      '\n- Check the group name and description' +
       '\n- Review group structure before creating reports' +
       '\n' +
       '\n\n**Workflow:** Use "list\\_report\\_groups" to find groupId, then use this tool for complete details. ' +
@@ -6783,7 +6783,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Best practices:** ' +
       '\n- Create groups before creating reports ' +
       '\n- Use descriptive names matching business needs ' +
-      '\n\n**Related tools:** "list\\_report\\_groups" (view hierarchy), "update\\_report\\_group" (modify).',
+      '\n\n**Related tools:** "list\\_report\\_groups" (find groups), "update\\_report\\_group" (modify).',
     annotations: {
       title: 'Create report group',
       readOnlyHint: false,

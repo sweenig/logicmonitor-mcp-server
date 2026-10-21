@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
 ### Changed
+- Report tool descriptions: report groups are a flat, single level of folders; each report carries its group as `groupId` (filter `list_reports` with `groupId:<id>`); `reportsCount` on groups is not reliable
 - Alert rules: `create_alert_rule` / `update_alert_rule` now apply `deviceGroups`, `datasource`, `datapoint` and `severity` (all, warn, error, critical), and send the datasource filter as the API field `datasource` (before, `datasources` was sent and ignored)
 - OpsNotes: tags may be plain strings (sent as `{name}` objects, which is what the API requires); array arguments that clients send as JSON strings are parsed; `create_opsnote` / `update_opsnote` accept `deviceId`, `deviceGroupId` and `websiteId` (turned into scopes); `update_opsnote` accepts `happenOnInSec`; descriptions use epoch seconds
 - `parentId` on `update_service_group` and `groupId` on `update_service` (not verifiable on the test portal, whose service API answers HTTP 415); `sharable` and `widgetTokens` on `create_dashboard`; `widgetsConfig` and `widgetTokens` on `update_dashboard`

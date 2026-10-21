@@ -870,3 +870,21 @@ describe('create_datasource required fields', () => {
     expect(tool.inputSchema.required).toContain('displayName');
   });
 });
+
+describe('report tool descriptions', () => {
+  const tools = getLogicMonitorTools(false);
+  const text = (name: string) => tools.find(t => t.name === name)!.description!;
+
+  it('tell callers to find the reports in a group through the reports groupId', () => {
+    expect(text('list_reports')).toContain('groupId');
+    expect(text('list_report_groups')).toContain('groupId:<id>');
+    expect(text('get_report_group')).toContain('groupId:<id>');
+  });
+
+  it('describe report groups as flat, without a parentId or subgroups', () => {
+    for (const name of ['list_report_groups', 'get_report_group', 'create_report_group', 'update_report_group']) {
+      expect(text(name)).not.toMatch(/parentId|number of subgroups/);
+    }
+    expect(text('list_report_groups')).toContain('flat');
+  });
+});
