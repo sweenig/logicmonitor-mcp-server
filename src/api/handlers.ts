@@ -6,14 +6,14 @@
 
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
-import { parseJsonArray } from '../utils/helpers/coerce.js';
+import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
+import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
 import { alertRuleMatch, opsNoteScopes, opsNoteTags } from '../utils/helpers/write-params.js';
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource } from '../utils/helpers/datasource-view.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
-import { isTrue } from '../utils/helpers/coerce.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
@@ -56,8 +56,8 @@ const DEFAULT_WIDGET_FIELDS = [
 ];
 
 const DEFAULT_WEBSITE_FIELDS = [
-  'id', 'name', 'description', 'type', 'schema', 'domain', 'isInternal',
-  'status', 'stopMonitoring', 'overallAlertLevel',
+  'id', 'name', 'description', 'type', 'schema', 'domain', 'host', 'isInternal', 'groupId',
+  'pollingInterval', 'status', 'stopMonitoring', 'overallAlertLevel',
 ];
 
 const DEFAULT_USER_FIELDS = [
@@ -174,6 +174,19 @@ export class LogicMonitorHandlers {
     // Create/update responses can be very large (a whole DataSource, a whole resource); shorten them
     // unless the caller asked for everything.
     return !returnFull && isConciseResultTool(name) ? compactWriteResult(result) : result;
+  }
+
+  /** The fields of a website group request body (create or update) that were given. */
+  private websiteGroupFields(args: Record<string, any>, includeName = false): Record<string, any> {
+    const fields: Record<string, any> = {};
+    if (includeName && args.name !== undefined) fields.name = args.name;
+    if (args.description !== undefined) fields.description = args.description;
+    if (args.parentId !== undefined && includeName) fields.parentId = args.parentId;
+    if (args.disableAlerting !== undefined) fields.disableAlerting = isTrue(args.disableAlerting);
+    if (args.stopMonitoring !== undefined) fields.stopMonitoring = isTrue(args.stopMonitoring);
+    if (args.testLocation !== undefined) fields.testLocation = parseJsonObject(args.testLocation);
+    if (args.properties !== undefined) fields.properties = parseJsonArray(args.properties);
+    return fields;
   }
 
   /**
@@ -901,20 +914,54 @@ export class LogicMonitorHandlers {
           });
 
         case 'create_website': {
-          const website: any = {
-            name: args.name,
-            domain: args.domain,
-            type: args.type,
-          };
-          if (args.description) website.description = args.description;
-          if (args.checkpointId) website.checkpointId = args.checkpointId;
-          return await this.client.createWebsite(website);
+          const body = buildWebsiteCreate(args);
+          const isInternal = isTrue(args.isInternal);
+          const location = await this.resolveUptimeLocation(isInternal, parseJsonObject(args.testLocation));
+          return await this.client.createWebsite({ ...body, isInternal, ...location });
         }
 
         case 'update_website': {
-          const { websiteId, ...websiteData } = args;
-          return await this.client.updateWebsite(websiteId, websiteData);
+          const body: Record<string, any> = buildWebsiteUpdate(args);
+          if (args.isInternal !== undefined || args.testLocation !== undefined) {
+            let isInternal: boolean;
+            if (args.isInternal !== undefined) {
+              isInternal = isTrue(args.isInternal);
+            } else {
+              const current: any = await this.client.getWebsite(args.websiteId, { fields: 'isInternal' });
+              isInternal = !!current?.isInternal;
+            }
+            Object.assign(body, { isInternal }, await this.resolveUptimeLocation(isInternal, parseJsonObject(args.testLocation)));
+          }
+          return await this.client.updateWebsite(args.websiteId, body, args.opType ? { opType: args.opType } : undefined);
         }
+
+        case 'list_website_alerts':
+          return await this.client.listWebsiteAlerts(args.websiteId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            needMessage: args.needMessage === undefined ? undefined : isTrue(args.needMessage),
+            autoPaginate: args.autoPaginate,
+          });
+
+        case 'list_website_properties':
+          return await this.client.listWebsiteProperties(args.websiteId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
+        case 'list_website_sdts':
+          return await this.client.listWebsiteSdts(args.websiteId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
 
         case 'delete_website':
           return await this.client.deleteWebsite(args.websiteId);
@@ -1042,6 +1089,51 @@ export class LogicMonitorHandlers {
         case 'get_website_group':
           return await this.client.getWebsiteGroup(args.groupId, {
             fields: args.fields,
+          });
+
+        case 'create_website_group': {
+          const group: Record<string, any> = { name: args.name, parentId: args.parentId ?? 1 };
+          Object.assign(group, this.websiteGroupFields(args));
+          return await this.client.createWebsiteGroup(group);
+        }
+
+        case 'update_website_group':
+          return await this.client.updateWebsiteGroup(
+            args.groupId,
+            this.websiteGroupFields(args, true),
+            args.opType ? { opType: args.opType } : undefined,
+          );
+
+        case 'delete_website_group':
+          return await this.client.deleteWebsiteGroup(
+            args.groupId,
+            args.deleteChildren === undefined ? undefined : { deleteChildren: isTrue(args.deleteChildren) },
+          );
+
+        case 'list_website_group_websites': {
+          const result = await this.client.listWebsiteGroupWebsites(args.groupId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+          if (args.fields) {
+            return result;
+          }
+          return {
+            ...result,
+            items: result.items.map((website: any) => filterFields(website, DEFAULT_WEBSITE_FIELDS)),
+          };
+        }
+
+        case 'list_website_group_sdts':
+          return await this.client.listWebsiteGroupSdts(args.groupId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
           });
 
         // Users

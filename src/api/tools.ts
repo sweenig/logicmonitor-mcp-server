@@ -2605,62 +2605,17 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'create_website',
-    description: 'Create a new website monitor (synthetic check) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** groupId, checkpoints, failedCount, responseTimeThreshold, schema, sslCertExpirationDays, steps, testLocation are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Creates synthetic monitoring for websites, APIs, or services. Tests from global checkpoint locations to verify availability, performance, and SSL certificate health. ' +
-      '\n\n**When to use:** ' +
-      '\n- Monitor customer-facing websites' +
-      '\n- Check API endpoint availability' +
-      '\n- Track response times from multiple regions' +
-      '\n- Monitor SSL certificate expiration' +
-      '\n- Verify multi-step transactions' +
-      '\n- Monitor third-party services' +
-      '\n\n**Required parameters:** ' +
-      '\n- name: Monitor name (e.g., "Production Website", "API Health Check")' +
-      '\n- domain: URL or hostname (e.g., "example.com", "https://api.example.com")' +
-      '\n- type: "webcheck" (HTTP/HTTPS) or "pingcheck" (ICMP ping")' +
-      '\n\n**Optional parameters:** ' +
-      '\n- groupId: Website folder ID (from "list\\_website\\_groups", default: root)' +
-      '\n- description: Monitor purpose/notes' +
-      '\n- checkpoints: Array of checkpoint IDs (from "list\\_website\\_checkpoints") for multi-region testing' +
-      '\n- steps: Array of HTTP steps for multi-step transactions (login, add to cart, checkout)' +
-      '\n- testLocation: "external" (from cloud) or "internal" (from collector)' +
-      '\n- schema: "https" or "http"' +
-      '\n- responseTimeThreshold: Alert if response time > X milliseconds' +
-      '\n- sslCertExpirationDays: Alert X days before SSL expires' +
-      '\n- failedCount: Alert after X consecutive failures (default: 2)' +
-      '\n\n**Monitor types explained:** ' +
-      '\n\n**webcheck (HTTP/HTTPS):** ' +
-      '\n- Full HTTP/HTTPS request with response validation' +
-      '\n- Check status codes, response time, content matching' +
-      '\n- Monitor SSL certificate expiration' +
-      '\n- Support for multi-step transactions' +
-      '\n- Custom headers, authentication, POST data' +
-      '\n\n**pingcheck (ICMP Ping):** ' +
-      '\n- Simple reachability test' +
-      '\n- Faster, lower overhead than webcheck' +
-      '\n- Good for network resources/devices, non-HTTP services' +
-      '\n- Only tests if host is reachable' +
-      '\n\n**Common monitoring scenarios:** ' +
-      '\n\n**Simple website availability:** ' +
-      '{name: "Company Website", domain: "example.com", type: "webcheck", checkpoints: [1,2,3], responseTimeThreshold: 3000} ' +
-      '\n\n**API health check:** ' +
-      '{name: "API /health", domain: "https://api.example.com/health", type: "webcheck", responseTimeThreshold: 500} ' +
-      '\n\n**SSL monitoring:** ' +
-      '{name: "SSL Cert Check", domain: "example.com", type: "webcheck", sslCertExpirationDays: 30} ' +
-      '\n\n**Multi-step transaction (e-commerce):** ' +
-      '{name: "Checkout Flow", domain: "shop.example.com", type: "webcheck", steps: [{url: "/login", method: "POST"}, {url: "/cart/add"}, {url: "/checkout"}]} ' +
-      '\n\n**Regional performance monitoring:** ' +
-      '{name: "Global Website Performance", domain: "example.com", type: "webcheck", checkpoints: [1,2,3,4,5,6]} // Test from US, EU, Asia ' +
-      '\n\n**Best practices:** ' +
-      '\n- Use multiple checkpoints for production sites (avoid false positives)' +
-      '\n- Set realistic responseTimeThreshold (not too sensitive)' +
-      '\n- Monitor SSL expiration 30+ days in advance' +
-      '\n- Use internal testLocation for private/VPN applications' +
-      '\n- Test multi-step transactions for critical user flows' +
-      '\n- Set failedCount >=2 to reduce false alarms' +
-      '\n\n**After creation:** Use "generate\\_website\\_link" to get direct URL to view monitor results. ' +
-      '\n\n**Related tools:** "list\\_website\\_checkpoints" (find locations), "generate\\_website\\_link" (get URL), "update\\_website" (modify), "list\\_websites" (browse existing).',
+    description: 'Create a website monitor (synthetic check) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Two independent choices:** type is "webcheck" (HTTP/HTTPS request) or "pingcheck" (ICMP ping); isInternal is false (external: run from LogicMonitor cloud checkpoints, for public targets) or true (internal: run from your collectors, for private targets). All four combinations are valid. Read the MCP resource "lm://knowledge/websites" for how website types and locations work. ' +
+      '\n\n**Required:** name, type; domain (webcheck) or host (pingcheck); testLocation.collectorIds when isInternal is true. ' +
+      '\n\n**Optional:** groupId (website group), description, pollingInterval (1-10 minutes), transition, alert settings (overallAlertLevel, globalSmAlertCond, individualSmAlertEnable, individualAlertLevel, useDefaultAlertSetting), disableAlerting, stopMonitoring. Webchecks also take schema (default https), steps (default: one GET / step), ignoreSSL, triggerSSLStatusAlert, triggerSSLExpirationAlert, alertExpr, pageLoadAlertTimeInMS. Pingchecks also take count, percentPktsNotReceiveInTime, timeoutInMSPktsNotReceive. ' +
+      '\n\n**testLocation: where the check runs from. External websites (isInternal: false): {smgIds: [checkpoint IDs from "list_website_checkpoints"]}, or omit it to follow the account default locations. Internal websites (isInternal: true): {collectorIds: [collector IDs from "list_collectors"]} is required.** ' +
+      '\n\n**Examples:** ' +
+      '\nExternal web: {name: "Company site", type: "webcheck", domain: "www.example.com"} ' +
+      '\nExternal ping: {name: "Edge router", type: "pingcheck", host: "198.51.100.10"} ' +
+      '\nInternal web: {name: "Intranet", type: "webcheck", domain: "intranet.corp.local", isInternal: true, testLocation: {collectorIds: [12]}} ' +
+      '\nInternal ping: {name: "DB host", type: "pingcheck", host: "10.0.0.5", isInternal: true, testLocation: {collectorIds: [12]}} ' +
+      '\n\n**Related tools:** "list_website_groups" (folders), "list_website_checkpoints" (external locations), "list_collectors" (internal locations), "update_website", "get_website", "generate_website_link". For LM Uptime checks (a different object) use "create_uptime_check".',
     annotations: {
       title: 'Create website monitor',
       readOnlyHint: false,
@@ -2668,72 +2623,136 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        type: {
+          type: 'string',
+          enum: ['webcheck', 'pingcheck'],
+          description: 'webcheck (HTTP/HTTPS) or pingcheck (ICMP ping)',
+        },
         name: {
           type: 'string',
           description: 'Name of the website monitor',
-        },
-        domain: {
-          type: 'string',
-          description: 'Domain or URL to monitor',
-        },
-        type: {
-          type: 'string',
-          description: 'Monitor type: "webcheck" or "pingcheck"',
         },
         description: {
           type: 'string',
           description: 'Description of the monitor',
         },
-        checkpointId: {
+        groupId: {
           type: 'number',
-          description: 'Checkpoint location ID',
+          description: 'ID of the website group (folder) the monitor is in; from "list_website_groups" (1 = root)',
+        },
+        isInternal: {
+          type: 'boolean',
+          description: 'false (default): external, run from LogicMonitor cloud checkpoints. true: internal, run from your collectors (set testLocation.collectorIds).',
+        },
+        testLocation: {
+          type: 'object',
+          description: 'Where the check runs from. External: {smgIds: [checkpoint IDs]} (omit to use the account default locations). Internal: {collectorIds: [collector IDs]} (required for internal).',
+        },
+        pollingInterval: {
+          type: 'number',
+          description: 'Minutes between checks, 1 to 10',
+        },
+        transition: {
+          type: 'number',
+          description: 'Consecutive failed checks before an alert: 1-10, 30 or 60',
+        },
+        overallAlertLevel: {
+          type: 'string',
+          enum: ['warn', 'error', 'critical'],
+          description: 'Alert level raised when the check fails at the number of locations in globalSmAlertCond',
+        },
+        globalSmAlertCond: {
+          type: 'number',
+          description: 'Number of locations that must fail to raise the overall alert (0 = all locations)',
+        },
+        individualSmAlertEnable: {
+          type: 'boolean',
+          description: 'Also alert when the check fails at a single location',
+        },
+        individualAlertLevel: {
+          type: 'string',
+          enum: ['warn', 'error', 'critical'],
+          description: 'Alert level for a failure at a single location',
+        },
+        useDefaultAlertSetting: {
+          type: 'boolean',
+          description: 'Follow the account default website alert settings (the other alert fields are ignored while true)',
+        },
+        disableAlerting: {
+          type: 'boolean',
+          description: 'true to mute alerts but keep collecting data',
+        },
+        stopMonitoring: {
+          type: 'boolean',
+          description: 'true to stop the checks entirely, false to resume',
+        },
+        domain: {
+          type: 'string',
+          description: 'webcheck only: host to request, for example "www.example.com" (no scheme)',
+        },
+        schema: {
+          type: 'string',
+          enum: ['http', 'https'],
+          description: 'webcheck only: http or https (default https)',
+        },
+        steps: {
+          type: 'array',
+          description: 'webcheck only: HTTP steps. Each step: url (path, default "/"), HTTPMethod (GET, HEAD, POST), statusCode, keyword, matchType, invertMatch, HTTPHeaders, HTTPBody, followRedirection, timeout (seconds), requireAuth, auth. One default step (GET /) is used when none are given.',
+        },
+        ignoreSSL: {
+          type: 'boolean',
+          description: 'webcheck only: ignore SSL certificate errors',
+        },
+        triggerSSLStatusAlert: {
+          type: 'boolean',
+          description: 'webcheck only: alert on SSL certificate status problems',
+        },
+        triggerSSLExpirationAlert: {
+          type: 'boolean',
+          description: 'webcheck only: alert before the SSL certificate expires',
+        },
+        alertExpr: {
+          type: 'string',
+          description: 'webcheck only: SSL certificate expiry threshold in days',
+        },
+        pageLoadAlertTimeInMS: {
+          type: 'number',
+          description: 'webcheck only: slowest acceptable page load, in milliseconds',
+        },
+        host: {
+          type: 'string',
+          description: 'pingcheck only: hostname or IP address to ping (no scheme)',
+        },
+        count: {
+          type: 'number',
+          description: 'pingcheck only: packets per check',
+        },
+        percentPktsNotReceiveInTime: {
+          type: 'number',
+          description: 'pingcheck only: percentage of packets that may be lost or late before the check fails',
+        },
+        timeoutInMSPktsNotReceive: {
+          type: 'number',
+          description: 'pingcheck only: milliseconds after which a packet counts as late',
         },
       },
       additionalProperties: false,
-      required: ['name', 'domain', 'type'],
+      required: ['name', 'type'],
     },
   },
   {
     name: 'update_website',
-    description: 'Update an existing website monitor in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** checkpoints, responseTimeThreshold, sslCertExpirationDays, failedCount, steps are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify website monitor settings including URL, checkpoints, thresholds, SSL settings, or multi-step transaction flows. ' +
-      '\n\n**When to use:** ' +
-      '\n- Change monitored URL' +
-      '\n- Add/remove checkpoint locations' +
-      '\n- Update response time thresholds' +
-      '\n- Modify SSL expiration alerts' +
-      '\n- Update multi-step transaction steps' +
-      '\n- Enable/disable monitoring' +
-      '\n\n**Required parameters:** ' +
-      '\n- websiteId: Website monitor ID (from "list\\_websites")' +
-      '\n\n**Optional parameters (what to change):** ' +
-      '\n- name: New monitor name' +
-      '\n- domain: New URL/hostname' +
-      '\n- description: Updated description' +
-      '\n- groupId: Move to different folder' +
-      '\n- checkpoints: Update checkpoint locations' +
-      '\n- responseTimeThreshold: New response time alert threshold' +
-      '\n- sslCertExpirationDays: Update SSL warning days' +
-      '\n- failedCount: Change consecutive failure threshold' +
-      '\n- steps: Update multi-step transaction flow' +
-      '\n- stopMonitoring: true (pause) or false (resume monitoring)' +
-      '\n\n**Common update scenarios:** ' +
-      '\n\n**Update URL after migration:** ' +
-      '{websiteId: 123, domain: "https://new-domain.com"} ' +
-      '\n\n**Add more checkpoint locations:** ' +
-      '{websiteId: 123, checkpoints: [1,2,3,4,5,6]} // Add Asia-Pacific checkpoints ' +
-      '\n\n**Adjust response time threshold:** ' +
-      '{websiteId: 123, responseTimeThreshold: 5000} // Increase to 5 seconds ' +
-      '\n\n**Update SSL certificate warning:** ' +
-      '{websiteId: 123, sslCertExpirationDays: 60} // Alert 60 days before expiry ' +
-      '\n\n**Temporarily pause monitoring:** ' +
-      '{websiteId: 123, stopMonitoring: true} // During maintenance ' +
-      '\n\n**Update multi-step transaction:** ' +
-      '{websiteId: 123, steps: [{url: "/api/v2/health"}, {url: "/api/v2/status"}]} // New API version ' +
-      '\n\n**Best practice:** Use "get\\_website" first to review current configuration, then update specific fields. ' +
-      '\n\n**After update:** Monitor may take 1-2 minutes to reflect changes in next check cycle. ' +
-      '\n\n**Related tools:** "get\\_website" (review before update), "list\\_websites" (find website), "generate\\_website\\_link" (get updated URL).',
+    description: 'Update a website monitor in LogicMonitor (LM) monitoring. Only the fields you pass change. ' +
+      '\n\nThe type (webcheck or pingcheck) cannot be changed; the settings that apply depend on it (webcheck: domain, schema, steps, SSL and page load settings; pingcheck: host, count, packet loss settings). Read the MCP resource "lm://knowledge/websites" for how website types and locations work. ' +
+      '\n\n**Required:** websiteId (from "list_websites"). ' +
+      '\n\n**testLocation: where the check runs from. External websites (isInternal: false): {smgIds: [checkpoint IDs from "list_website_checkpoints"]}, or omit it to follow the account default locations. Internal websites (isInternal: true): {collectorIds: [collector IDs from "list_collectors"]} is required.** Passing isInternal or testLocation replaces the check locations. ' +
+      '\n\n**Arrays (steps):** the list you pass replaces the existing steps unless opType is "add". ' +
+      '\n\n**Examples:** ' +
+      '\nPause: {websiteId: 123, stopMonitoring: true} ' +
+      '\nMove to a folder: {websiteId: 123, groupId: 45} ' +
+      '\nChange the checked host (ping): {websiteId: 123, host: "203.0.113.9"} ' +
+      '\nSlow-page alert at 5 seconds (web): {websiteId: 123, pageLoadAlertTimeInMS: 5000} ' +
+      '\n\n**Related tools:** "get_website" (review first), "list_websites", "create_website", "list_website_checkpoints", "list_collectors".',
     annotations: {
       title: 'Update website monitor',
       readOnlyHint: false,
@@ -2741,29 +2760,121 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        domain: {
-          type: 'string',
-          description: 'New URL or hostname to monitor',
-        },
-        groupId: {
-          type: 'number',
-          description: 'ID of the website group (folder) to move the monitor to',
-        },
-        stopMonitoring: {
-          type: 'boolean',
-          description: 'true to pause monitoring, false to resume',
-        },
         websiteId: {
           type: 'number',
           description: 'The ID of the website to update',
         },
+        opType: {
+          type: 'string',
+          enum: ['replace', 'add', 'refresh'],
+          description: 'How array fields such as steps are applied: replace (default), add, or refresh',
+        },
         name: {
           type: 'string',
-          description: 'New name',
+          description: 'Name of the website monitor',
         },
         description: {
           type: 'string',
-          description: 'New description',
+          description: 'Description of the monitor',
+        },
+        groupId: {
+          type: 'number',
+          description: 'ID of the website group (folder) the monitor is in; from "list_website_groups" (1 = root)',
+        },
+        isInternal: {
+          type: 'boolean',
+          description: 'false (default): external, run from LogicMonitor cloud checkpoints. true: internal, run from your collectors (set testLocation.collectorIds).',
+        },
+        testLocation: {
+          type: 'object',
+          description: 'Where the check runs from. External: {smgIds: [checkpoint IDs]} (omit to use the account default locations). Internal: {collectorIds: [collector IDs]} (required for internal).',
+        },
+        pollingInterval: {
+          type: 'number',
+          description: 'Minutes between checks, 1 to 10',
+        },
+        transition: {
+          type: 'number',
+          description: 'Consecutive failed checks before an alert: 1-10, 30 or 60',
+        },
+        overallAlertLevel: {
+          type: 'string',
+          enum: ['warn', 'error', 'critical'],
+          description: 'Alert level raised when the check fails at the number of locations in globalSmAlertCond',
+        },
+        globalSmAlertCond: {
+          type: 'number',
+          description: 'Number of locations that must fail to raise the overall alert (0 = all locations)',
+        },
+        individualSmAlertEnable: {
+          type: 'boolean',
+          description: 'Also alert when the check fails at a single location',
+        },
+        individualAlertLevel: {
+          type: 'string',
+          enum: ['warn', 'error', 'critical'],
+          description: 'Alert level for a failure at a single location',
+        },
+        useDefaultAlertSetting: {
+          type: 'boolean',
+          description: 'Follow the account default website alert settings (the other alert fields are ignored while true)',
+        },
+        disableAlerting: {
+          type: 'boolean',
+          description: 'true to mute alerts but keep collecting data',
+        },
+        stopMonitoring: {
+          type: 'boolean',
+          description: 'true to stop the checks entirely, false to resume',
+        },
+        domain: {
+          type: 'string',
+          description: 'webcheck only: host to request, for example "www.example.com" (no scheme)',
+        },
+        schema: {
+          type: 'string',
+          enum: ['http', 'https'],
+          description: 'webcheck only: http or https (default https)',
+        },
+        steps: {
+          type: 'array',
+          description: 'webcheck only: HTTP steps. Each step: url (path, default "/"), HTTPMethod (GET, HEAD, POST), statusCode, keyword, matchType, invertMatch, HTTPHeaders, HTTPBody, followRedirection, timeout (seconds), requireAuth, auth. One default step (GET /) is used when none are given.',
+        },
+        ignoreSSL: {
+          type: 'boolean',
+          description: 'webcheck only: ignore SSL certificate errors',
+        },
+        triggerSSLStatusAlert: {
+          type: 'boolean',
+          description: 'webcheck only: alert on SSL certificate status problems',
+        },
+        triggerSSLExpirationAlert: {
+          type: 'boolean',
+          description: 'webcheck only: alert before the SSL certificate expires',
+        },
+        alertExpr: {
+          type: 'string',
+          description: 'webcheck only: SSL certificate expiry threshold in days',
+        },
+        pageLoadAlertTimeInMS: {
+          type: 'number',
+          description: 'webcheck only: slowest acceptable page load, in milliseconds',
+        },
+        host: {
+          type: 'string',
+          description: 'pingcheck only: hostname or IP address to ping (no scheme)',
+        },
+        count: {
+          type: 'number',
+          description: 'pingcheck only: packets per check',
+        },
+        percentPktsNotReceiveInTime: {
+          type: 'number',
+          description: 'pingcheck only: percentage of packets that may be lost or late before the check fails',
+        },
+        timeoutInMSPktsNotReceive: {
+          type: 'number',
+          description: 'pingcheck only: milliseconds after which a packet counts as late',
         },
       },
       additionalProperties: false,
@@ -7359,6 +7470,246 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
 
   // Website Checkpoints
+  {
+    name: 'create_website_group',
+    description: 'Create a website group (folder) for website monitors in LogicMonitor (LM) monitoring. Website groups nest through parentId (1 = the root group). ' +
+      '\n\n**Required:** name. **Optional:** parentId (default 1), description, disableAlerting, stopMonitoring, testLocation (default check locations), properties. ' +
+      '\n\nExample: {name: "Production sites", parentId: 1, description: "Customer-facing checks"} ' +
+      '\n\n**Related tools:** "list_website_groups", "update_website_group", "create_website" (put monitors in the group with groupId).',
+    annotations: {
+      title: 'Create website group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the website group',
+        },
+        parentId: {
+          type: 'number',
+          description: 'ID of the parent website group (default 1, the root)',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the group',
+        },
+        disableAlerting: {
+          type: 'boolean',
+          description: 'true to mute alerts for the websites in this group',
+        },
+        stopMonitoring: {
+          type: 'boolean',
+          description: 'true to stop monitoring the websites in this group',
+        },
+        testLocation: {
+          type: 'object',
+          description: 'Default check locations for the group: {smgIds: [...], collectorIds: [...], all: true|false}',
+        },
+        properties: {
+          type: 'array',
+          description: 'Group properties: array of {name, value} objects',
+        },
+      },
+      additionalProperties: false,
+      required: ['name'],
+    },
+  },
+  {
+    name: 'update_website_group',
+    description: 'Update a website group (folder) in LogicMonitor (LM) monitoring. Only the fields you pass change. Pass parentId to move the group under another group. ' +
+      '\n\n**Required:** groupId (from "list_website_groups"). **Optional:** name, parentId, description, disableAlerting, stopMonitoring, testLocation, properties (the list you pass replaces the existing one unless opType is "add"). ' +
+      '\n\nExamples: {groupId: 12, name: "Production URLs"}; {groupId: 12, parentId: 30}; {groupId: 12, disableAlerting: true} ' +
+      '\n\n**Related tools:** "get_website_group", "list_website_groups", "delete_website_group".',
+    annotations: {
+      title: 'Update website group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the website group to update',
+        },
+        name: {
+          type: 'string',
+          description: 'New name for the group',
+        },
+        parentId: {
+          type: 'number',
+          description: 'ID of the new parent website group (moves the group)',
+        },
+        opType: {
+          type: 'string',
+          enum: ['replace', 'add', 'refresh'],
+          description: 'How array fields such as properties are applied: replace (default), add, or refresh',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the group',
+        },
+        disableAlerting: {
+          type: 'boolean',
+          description: 'true to mute alerts for the websites in this group',
+        },
+        stopMonitoring: {
+          type: 'boolean',
+          description: 'true to stop monitoring the websites in this group',
+        },
+        testLocation: {
+          type: 'object',
+          description: 'Default check locations for the group: {smgIds: [...], collectorIds: [...], all: true|false}',
+        },
+        properties: {
+          type: 'array',
+          description: 'Group properties: array of {name, value} objects',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'delete_website_group',
+    description: '**WARNING: permanent.** Delete a website group (folder) in LogicMonitor (LM) monitoring. A group that still contains websites cannot be deleted; move or delete them first ("list_website_group_websites"). Set deleteChildren to also delete its subgroups. ' +
+      '\n\n**Required:** groupId (from "list_website_groups"). **Optional:** deleteChildren. ' +
+      '\n\n**Related tools:** "list_website_group_websites" (check it is empty), "update_website" (move monitors with groupId), "list_website_groups".',
+    annotations: {
+      title: 'Delete website group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the website group to delete',
+        },
+        deleteChildren: {
+          type: 'boolean',
+          description: 'true to also delete the subgroups of this group (default false)',
+        },
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'list_website_group_websites',
+    description: 'List the website monitors directly inside one website group (folder) in LogicMonitor (LM) monitoring. Returns each monitor with id, name, type (webcheck/pingcheck), domain or host, isInternal, groupId, pollingInterval and status. Same as "list_websites" with filter:\"groupId:<id>\", but needs only the group ID. Related tools: "list_website_groups", "get_website".',
+    annotations: {
+      title: 'List websites in a website group',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the website group',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'list_website_group_sdts',
+    description: 'List scheduled downtimes (SDTs) set on a website group in LogicMonitor (LM) monitoring. Related tools: "list_website_groups", "list_website_sdts".',
+    annotations: {
+      title: 'List SDTs of a website group',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the website group',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'list_website_alerts',
+    description: 'List the alerts of one website monitor in LogicMonitor (LM) monitoring. Pass needMessage: true to include the alert message text. Related tools: "list_websites", "get_website", "get_alert".',
+    annotations: {
+      title: 'List alerts of a website',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        websiteId: {
+          type: 'number',
+          description: 'The ID of the website',
+        },
+        needMessage: {
+          type: 'boolean',
+          description: 'true to include the alert message text in each alert',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['websiteId'],
+    },
+  },
+  {
+    name: 'list_website_properties',
+    description: 'List the properties of one website monitor in LogicMonitor (LM) monitoring. Related tools: "get_website".',
+    annotations: {
+      title: 'List properties of a website',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        websiteId: {
+          type: 'number',
+          description: 'The ID of the website',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['websiteId'],
+    },
+  },
+  {
+    name: 'list_website_sdts',
+    description: 'List scheduled downtimes (SDTs) set on one website monitor in LogicMonitor (LM) monitoring. Related tools: "list_websites", "list_website_group_sdts".',
+    annotations: {
+      title: 'List SDTs of a website',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        websiteId: {
+          type: 'number',
+          description: 'The ID of the website',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['websiteId'],
+    },
+  },
   {
     name: 'list_website_checkpoints',
     description: 'List available checkpoint locations for website monitoring in LogicMonitor (LM) monitoring. ' +

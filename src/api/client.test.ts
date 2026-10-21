@@ -384,3 +384,22 @@ describe('property upsert', () => {
     expect(calls[0].url).toContain(path);
   });
 });
+
+describe('fields="*" handling', () => {
+  it('does not send fields=* to the API, which some endpoints take literally', async () => {
+    const mockFetch = jest.fn<any>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ id: 1 }),
+    });
+    (global as any).fetch = mockFetch;
+    const client = new LogicMonitorClient({ company: 'acme', bearerToken: 'token' });
+
+    await client.getWebsite(1, { fields: '*' });
+    expect(String(mockFetch.mock.calls[0][0])).not.toContain('fields=');
+
+    await client.getWebsite(1, { fields: 'id,name' });
+    expect(String(mockFetch.mock.calls[1][0])).toContain('fields=id%2Cname');
+  });
+});

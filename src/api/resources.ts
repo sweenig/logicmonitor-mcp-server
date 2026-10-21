@@ -71,6 +71,15 @@ export const LM_RESOURCES: LMResource[] = [
       'Covers the get/set/remove API, string-only values, expiry (per-key and the agent.conf default), key namespacing, and worked examples.',
     mimeType: 'text/markdown',
   },
+  {
+    uri: 'lm://knowledge/websites',
+    name: 'Websites (synthetic checks): web vs ping, internal vs external, groups',
+    description: 'How LogicMonitor website monitors work: the two types (webcheck = HTTP/HTTPS, pingcheck = ICMP) and the two locations ' +
+      '(external = run from LogicMonitor cloud checkpoints, internal = run from your collectors), what each combination needs, alert and timing settings, ' +
+      'website groups, how websites differ from LM Uptime checks, and ready-to-use create_website recipes. ' +
+      'Read this before creating or changing a website with "create_website" or "update_website", or when unsure which type or location to use.',
+    mimeType: 'text/markdown',
+  },
 ];
 
 /**
@@ -80,6 +89,7 @@ export const LM_RESOURCES: LMResource[] = [
 const FILE_RESOURCES: Record<string, string> = {
   'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
   'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
+  'lm://knowledge/websites': 'knowledge/websites.md',
 };
 
 /**

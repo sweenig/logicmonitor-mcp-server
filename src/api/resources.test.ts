@@ -119,3 +119,17 @@ describe('LogicMonitor Resources', () => {
   });
 });
 
+
+describe('website knowledge resource', () => {
+  it('is listed and explains types, locations and groups', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/websites');
+    expect(resource).toBeDefined();
+    expect(resource!.mimeType).toBe('text/markdown');
+
+    const content = await readLMResource('lm://knowledge/websites');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['webcheck', 'pingcheck', 'isInternal', 'collectorIds', 'smgIds', 'website group', 'create_website']) {
+      expect(text).toContain(term);
+    }
+  });
+});

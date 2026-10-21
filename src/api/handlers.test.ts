@@ -73,6 +73,14 @@ describe('LogicMonitorHandlers', () => {
       updateWebsite: jest.fn(),
       deleteWebsite: jest.fn(),
       listWebsiteGroups: jest.fn(),
+      createWebsiteGroup: jest.fn(),
+      updateWebsiteGroup: jest.fn(),
+      deleteWebsiteGroup: jest.fn(),
+      listWebsiteGroupWebsites: jest.fn(),
+      listWebsiteGroupSdts: jest.fn(),
+      listWebsiteAlerts: jest.fn(),
+      listWebsiteProperties: jest.fn(),
+      listWebsiteSdts: jest.fn(),
       getWebsiteGroup: jest.fn(),
       listUsers: jest.fn(),
       getUser: jest.fn(),
@@ -1837,34 +1845,172 @@ describe('LogicMonitorHandlers', () => {
       expect(result).toEqual(mockWebsite);
     });
 
-    it('should create website', async () => {
-      const mockWebsite = { id: 1, name: 'new-website' };
-      mockClient.createWebsite.mockResolvedValue(mockWebsite);
-
-      const result = await handlers.handleToolCall('create_website', {
-        name: 'new-website',
-        domain: 'example.com',
-        type: 'webcheck',
+    describe('create_website', () => {
+      beforeEach(() => {
+        mockClient.createWebsite.mockResolvedValue({ id: 1 });
+        mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 3, items: [{ id: 2 }, { id: 3 }, { id: 4 }] });
       });
 
-      expect(result).toEqual(mockWebsite);
-      expect(mockClient.createWebsite).toHaveBeenCalledWith({
-        name: 'new-website',
-        domain: 'example.com',
-        type: 'webcheck',
+      it('creates an external web check that follows the default locations, with one default step', async () => {
+        await handlers.handleToolCall('create_website', { name: 'site', type: 'webcheck', domain: 'www.example.com' });
+
+        const body = mockClient.createWebsite.mock.calls[0][0];
+        expect(body).toMatchObject({
+          name: 'site',
+          type: 'webcheck',
+          domain: 'www.example.com',
+          schema: 'https',
+          isInternal: false,
+          useDefaultLocationSetting: true,
+          testLocation: { smgIds: [2, 3, 4], collectorIds: [], all: false },
+        });
+        expect(body.steps).toHaveLength(1);
+        expect(body.steps[0]).toMatchObject({ url: '/', HTTPMethod: 'GET', schema: 'https', name: '__step0' });
+      });
+
+      it('creates an external ping check', async () => {
+        await handlers.handleToolCall('create_website', { name: 'p', type: 'pingcheck', host: '198.51.100.10', count: 10 });
+
+        const body = mockClient.createWebsite.mock.calls[0][0];
+        expect(body).toMatchObject({ type: 'pingcheck', host: '198.51.100.10', count: 10, isInternal: false });
+        expect(body.steps).toBeUndefined();
+        expect(body.domain).toBeUndefined();
+      });
+
+      it('creates an internal web check on collectors', async () => {
+        await handlers.handleToolCall('create_website', {
+          name: 'i', type: 'webcheck', domain: 'intranet.corp.local', schema: 'http', isInternal: true,
+          testLocation: { collectorIds: [12] },
+        });
+
+        const body = mockClient.createWebsite.mock.calls[0][0];
+        expect(body).toMatchObject({ isInternal: true, useDefaultLocationSetting: false, schema: 'http' });
+        expect(body.testLocation.collectorIds).toEqual([12]);
+        expect(body.testLocation.smgIds).toEqual([]);
+        expect(body.steps[0].schema).toBe('http');
+        expect(mockClient.listWebsiteCheckpoints).not.toHaveBeenCalled();
+      });
+
+      it('creates an internal ping check on collectors', async () => {
+        await handlers.handleToolCall('create_website', {
+          name: 'ip', type: 'pingcheck', host: '10.0.0.5', isInternal: 'true', testLocation: '{"collectorIds":[12,13]}',
+        });
+
+        const body = mockClient.createWebsite.mock.calls[0][0];
+        expect(body).toMatchObject({ isInternal: true, host: '10.0.0.5' });
+        expect(body.testLocation.collectorIds).toEqual([12, 13]);
+      });
+
+      it('rejects an internal check without collectors and an external check with collectors', async () => {
+        await expect(handlers.handleToolCall('create_website', {
+          name: 'x', type: 'pingcheck', host: 'h', isInternal: true,
+        })).rejects.toThrow(/collectorIds is required/);
+        await expect(handlers.handleToolCall('create_website', {
+          name: 'x', type: 'pingcheck', host: 'h', testLocation: { collectorIds: [1] },
+        })).rejects.toThrow(/internal/);
+        expect(mockClient.createWebsite).not.toHaveBeenCalled();
+      });
+
+      it('rejects settings that do not match the type, and a missing domain or host', async () => {
+        await expect(handlers.handleToolCall('create_website', { name: 'x', type: 'webcheck', host: 'h', domain: 'd' }))
+          .rejects.toThrow(/host does not apply to a webcheck/);
+        await expect(handlers.handleToolCall('create_website', { name: 'x', type: 'pingcheck', host: 'h', domain: 'd' }))
+          .rejects.toThrow(/domain does not apply to a pingcheck/);
+        await expect(handlers.handleToolCall('create_website', { name: 'x', type: 'webcheck' }))
+          .rejects.toThrow(/domain is required/);
+        await expect(handlers.handleToolCall('create_website', { name: 'x', type: 'pingcheck' }))
+          .rejects.toThrow(/host is required/);
+        expect(mockClient.createWebsite).not.toHaveBeenCalled();
       });
     });
 
-    it('should update website', async () => {
-      const mockWebsite = { id: 1, name: 'updated-website' };
-      mockClient.updateWebsite.mockResolvedValue(mockWebsite);
-
-      const result = await handlers.handleToolCall('update_website', {
-        websiteId: 1,
-        name: 'updated-website',
+    describe('update_website', () => {
+      beforeEach(() => {
+        mockClient.updateWebsite.mockResolvedValue({ id: 1 });
+        mockClient.listWebsiteCheckpoints.mockResolvedValue({ total: 2, items: [{ id: 2 }, { id: 3 }] });
       });
 
-      expect(result).toEqual(mockWebsite);
+      it('sends only the fields that were given, coercing loosely typed values', async () => {
+        const result = await handlers.handleToolCall('update_website', { websiteId: 1, name: 'n', stopMonitoring: 'true', pollingInterval: '3' });
+
+        expect(result).toEqual({ id: 1 });
+        expect(mockClient.updateWebsite).toHaveBeenCalledWith(1, { name: 'n', stopMonitoring: true, pollingInterval: 3 }, undefined);
+        expect(mockClient.getWebsite).not.toHaveBeenCalled();
+      });
+
+      it('passes opType and normalizes steps', async () => {
+        await handlers.handleToolCall('update_website', { websiteId: 1, opType: 'add', steps: '[{"url":"/health"}]' });
+
+        const [, body, params] = mockClient.updateWebsite.mock.calls[0];
+        expect(params).toEqual({ opType: 'add' });
+        expect(body.steps[0]).toMatchObject({ url: '/health', HTTPMethod: 'GET', name: '__step0' });
+      });
+
+      it('looks up whether the website is internal when only testLocation changes', async () => {
+        mockClient.getWebsite.mockResolvedValue({ isInternal: true });
+
+        await handlers.handleToolCall('update_website', { websiteId: 1, testLocation: { collectorIds: [5] } });
+
+        expect(mockClient.getWebsite).toHaveBeenCalledWith(1, { fields: 'isInternal' });
+        const [, body] = mockClient.updateWebsite.mock.calls[0];
+        expect(body).toMatchObject({ isInternal: true, useDefaultLocationSetting: false });
+        expect(body.testLocation.collectorIds).toEqual([5]);
+      });
+
+      it('rejects invalid settings before calling the API', async () => {
+        await expect(handlers.handleToolCall('update_website', { websiteId: 1, pollingInterval: 20 })).rejects.toThrow(/pollingInterval/);
+        await expect(handlers.handleToolCall('update_website', { websiteId: 1, overallAlertLevel: 'loud' })).rejects.toThrow(/overallAlertLevel/);
+        expect(mockClient.updateWebsite).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('website groups and website sub-resources', () => {
+      it('creates a website group under the root by default and under a parent when given', async () => {
+        mockClient.createWebsiteGroup.mockResolvedValue({ id: 1 });
+
+        await handlers.handleToolCall('create_website_group', { name: 'g' });
+        expect(mockClient.createWebsiteGroup.mock.calls[0][0]).toEqual({ name: 'g', parentId: 1 });
+
+        await handlers.handleToolCall('create_website_group', { name: 'g2', parentId: 30, description: 'd', disableAlerting: 'true' });
+        expect(mockClient.createWebsiteGroup.mock.calls[1][0]).toEqual({
+          name: 'g2', parentId: 30, description: 'd', disableAlerting: true,
+        });
+      });
+
+      it('updates, moves and deletes a website group', async () => {
+        mockClient.updateWebsiteGroup.mockResolvedValue({ id: 1 });
+        mockClient.deleteWebsiteGroup.mockResolvedValue({});
+
+        await handlers.handleToolCall('update_website_group', { groupId: 5, name: 'n', parentId: 9, properties: '[{"name":"a","value":"b"}]' });
+        expect(mockClient.updateWebsiteGroup).toHaveBeenCalledWith(
+          5, { name: 'n', parentId: 9, properties: [{ name: 'a', value: 'b' }] }, undefined);
+
+        await handlers.handleToolCall('delete_website_group', { groupId: 5, deleteChildren: true });
+        expect(mockClient.deleteWebsiteGroup).toHaveBeenCalledWith(5, { deleteChildren: true });
+        await handlers.handleToolCall('delete_website_group', { groupId: 6 });
+        expect(mockClient.deleteWebsiteGroup).toHaveBeenLastCalledWith(6, undefined);
+      });
+
+      it('lists websites in a group with the default fields, and the other sub-resources', async () => {
+        mockClient.listWebsiteGroupWebsites.mockResolvedValue({ total: 1, items: [{ id: 1, name: 'w', type: 'webcheck', secret: 'x' }] });
+        mockClient.listWebsiteAlerts.mockResolvedValue({ total: 0, items: [] });
+        mockClient.listWebsiteProperties.mockResolvedValue({ total: 0, items: [] });
+        mockClient.listWebsiteSdts.mockResolvedValue({ total: 0, items: [] });
+        mockClient.listWebsiteGroupSdts.mockResolvedValue({ total: 0, items: [] });
+
+        const result = await handlers.handleToolCall('list_website_group_websites', { groupId: 4 });
+        expect(result.items[0]).toEqual({ id: 1, name: 'w', type: 'webcheck' });
+        expect(mockClient.listWebsiteGroupWebsites.mock.calls[0][0]).toBe(4);
+
+        await handlers.handleToolCall('list_website_alerts', { websiteId: 7, needMessage: 'true', size: 5 });
+        expect(mockClient.listWebsiteAlerts).toHaveBeenCalledWith(7, expect.objectContaining({ needMessage: true, size: 5 }));
+        await handlers.handleToolCall('list_website_properties', { websiteId: 7 });
+        await handlers.handleToolCall('list_website_sdts', { websiteId: 7 });
+        await handlers.handleToolCall('list_website_group_sdts', { groupId: 4 });
+        expect(mockClient.listWebsiteProperties.mock.calls[0][0]).toBe(7);
+        expect(mockClient.listWebsiteSdts.mock.calls[0][0]).toBe(7);
+        expect(mockClient.listWebsiteGroupSdts.mock.calls[0][0]).toBe(4);
+      });
     });
 
     it('should delete website', async () => {

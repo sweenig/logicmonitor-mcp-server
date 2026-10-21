@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { isTrue, parseJsonArray } from './coerce.js';
+import { isTrue, parseJsonArray, parseJsonObject, toNumberIfNumeric } from './coerce.js';
 
 describe('isTrue', () => {
   it('accepts true and the string "true" in any case', () => {
@@ -28,5 +28,24 @@ describe('parseJsonArray', () => {
     expect(parseJsonArray('[not json')).toBe('[not json');
     expect(parseJsonArray('{"a":1}')).toBe('{"a":1}');
     expect(parseJsonArray(undefined)).toBeUndefined();
+  });
+});
+
+describe('parseJsonObject and toNumberIfNumeric', () => {
+  it('parses a JSON object sent as a string and leaves everything else alone', () => {
+    expect(parseJsonObject('{"collectorIds":[1]}')).toEqual({ collectorIds: [1] });
+    const obj = { a: 1 };
+    expect(parseJsonObject(obj)).toBe(obj);
+    expect(parseJsonObject('[1]')).toBe('[1]');
+    expect(parseJsonObject('{bad')).toBe('{bad');
+    expect(parseJsonObject(undefined)).toBeUndefined();
+  });
+
+  it('turns numeric strings into numbers', () => {
+    expect(toNumberIfNumeric('5')).toBe(5);
+    expect(toNumberIfNumeric(' 2.5 ')).toBe(2.5);
+    expect(toNumberIfNumeric('abc')).toBe('abc');
+    expect(toNumberIfNumeric('')).toBe('');
+    expect(toNumberIfNumeric(7)).toBe(7);
   });
 });

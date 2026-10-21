@@ -108,6 +108,11 @@ export class LogicMonitorClient {
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
+        // fields="*" means "every field", which is what omitting it returns. Some endpoints (for
+        // example /website/websites/{id}) take "*" literally and answer with an empty object.
+        if (key === 'fields' && value === '*') {
+          return;
+        }
         if (value !== undefined && value !== null) {
           // URLSearchParams.append() automatically does URL encoding
           // No special handling needed - standard encoding works for filters
@@ -1010,12 +1015,72 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('POST', '/website/websites', website);
   }
 
-  async updateWebsite(websiteId: number, website: any) {
-    return this.request<LMResponse<any>>('PATCH', `/website/websites/${websiteId}`, website);
+  async updateWebsite(websiteId: number, website: any, params?: { opType?: string }) {
+    return this.request<LMResponse<any>>('PATCH', `/website/websites/${websiteId}`, website, params);
   }
 
   async deleteWebsite(websiteId: number) {
     return this.request<LMResponse<any>>('DELETE', `/website/websites/${websiteId}`);
+  }
+
+  async listWebsiteAlerts(websiteId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    needMessage?: boolean;
+    autoPaginate?: boolean;
+  }) {
+    return this.listWebsiteSubresource(`/website/websites/${websiteId}/alerts`, params);
+  }
+
+  async listWebsiteProperties(websiteId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    return this.listWebsiteSubresource(`/website/websites/${websiteId}/properties`, params);
+  }
+
+  async listWebsiteSdts(websiteId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    return this.listWebsiteSubresource(`/website/websites/${websiteId}/sdts`, params);
+  }
+
+  async listWebsiteGroupWebsites(groupId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    return this.listWebsiteSubresource(`/website/groups/${groupId}/websites`, params);
+  }
+
+  async listWebsiteGroupSdts(groupId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    return this.listWebsiteSubresource(`/website/groups/${groupId}/sdts`, params);
+  }
+
+  private async listWebsiteSubresource(path: string, params?: Record<string, any>) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+    if (autoPaginate) {
+      return this.paginateAll<any>(path, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', path, undefined, cleanedParams);
   }
 
   // Website Groups
@@ -1037,6 +1102,18 @@ export class LogicMonitorClient {
 
   async getWebsiteGroup(groupId: number, params?: { fields?: string }) {
     return this.request<LMResponse<any>>('GET', `/website/groups/${groupId}`, undefined, params);
+  }
+
+  async createWebsiteGroup(group: any) {
+    return this.request<LMResponse<any>>('POST', '/website/groups', group);
+  }
+
+  async updateWebsiteGroup(groupId: number, group: any, params?: { opType?: string }) {
+    return this.request<LMResponse<any>>('PATCH', `/website/groups/${groupId}`, group, params);
+  }
+
+  async deleteWebsiteGroup(groupId: number, params?: { deleteChildren?: boolean }) {
+    return this.request<LMResponse<any>>('DELETE', `/website/groups/${groupId}`, undefined, params);
   }
 
   // Users
