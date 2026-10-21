@@ -80,6 +80,13 @@ export const LM_RESOURCES: LMResource[] = [
       'Read this before creating or changing a website with "create_website" or "update_website", or when unsure which type or location to use.',
     mimeType: 'text/markdown',
   },
+  {
+    uri: 'lm://knowledge/netscans',
+    name: 'NetScans (network discovery): methods, schedules, duplicates, groups',
+    description: 'How LogicMonitor NetScans work: the three methods (nmap subnet scan, script/CSV, enhancedScript), what each needs, schedules (a timed schedule needs a cron expression), duplicate handling, discovered-device rules, credentials, NetScan groups, and ready-to-use create_netscan recipes. ' +
+      'Read this before creating or changing a NetScan with "create_netscan" or "update_netscan", or when unsure which method to use.',
+    mimeType: 'text/markdown',
+  },
 ];
 
 /**
@@ -90,6 +97,7 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
   'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
+  'lm://knowledge/netscans': 'knowledge/netscans.md',
 };
 
 /**

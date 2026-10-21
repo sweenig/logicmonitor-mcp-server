@@ -81,6 +81,10 @@ describe('LogicMonitorHandlers', () => {
       listWebsiteAlerts: jest.fn(),
       listWebsiteProperties: jest.fn(),
       listWebsiteSdts: jest.fn(),
+      listNetscanGroups: jest.fn(),
+      createNetscanGroup: jest.fn(),
+      updateNetscanGroup: jest.fn(),
+      deleteNetscanGroup: jest.fn(),
       getWebsiteCheckpointData: jest.fn(),
       getWebsiteGroup: jest.fn(),
       listUsers: jest.fn(),
@@ -3205,6 +3209,66 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.deleteOpsNote).toHaveBeenCalled();
     });
 
+    describe('netscans', () => {
+      beforeEach(() => {
+        mockClient.createNetscan.mockResolvedValue({ id: 1 });
+        mockClient.updateNetscan.mockResolvedValue({ id: 1 });
+      });
+
+      it('creates an nmap scan with the body LogicMonitor expects', async () => {
+        await handlers.handleToolCall('create_netscan', {
+          name: 'n', method: 'nmap', collectorId: 12, subnet: '10.0.1.0/24', defaultGroup: 5,
+          schedule: { type: 'daily', cron: '00 02 * * *', timezone: 'America/New_York' },
+        });
+
+        expect(mockClient.createNetscan).toHaveBeenCalledWith({
+          name: 'n', method: 'nmap', collector: 12, subnet: '10.0.1.0/24',
+          schedule: { type: 'daily', cron: '00 02 * * *', timezone: 'America/New_York' },
+          duplicate: { type: 1 }, ports: { isGlobalDefault: true, value: '' },
+          ddr: { assignment: [{ group: 5, action: 'Include', disableAlerting: false, type: 1, query: '' }] },
+        });
+      });
+
+      it('rejects an invalid scan before calling the API', async () => {
+        await expect(handlers.handleToolCall('create_netscan', { name: 'n', method: 'nmap', collectorId: 1 })).rejects.toThrow(/subnet is required/);
+        await expect(handlers.handleToolCall('create_netscan', { name: 'n', method: 'nmap', collectorId: 1, subnet: 's', schedule: { type: 'daily' } })).rejects.toThrow(/cron/);
+        expect(mockClient.createNetscan).not.toHaveBeenCalled();
+      });
+
+      it('updates without looking the method up when only common fields change', async () => {
+        await handlers.handleToolCall('update_netscan', { netscanId: 3, name: 'x', reason: 'why' });
+
+        expect(mockClient.getNetscan).not.toHaveBeenCalled();
+        expect(mockClient.updateNetscan).toHaveBeenCalledWith(3, { name: 'x' }, { reason: 'why' });
+      });
+
+      it('looks the method up when a method-specific setting changes', async () => {
+        mockClient.getNetscan.mockResolvedValue({ method: 'script' });
+
+        await handlers.handleToolCall('update_netscan', { netscanId: 3, groovyScript: 'x', defaultGroup: 2 });
+        expect(mockClient.getNetscan).toHaveBeenCalledWith(3, { fields: 'method' });
+        expect(mockClient.updateNetscan).toHaveBeenCalledWith(3, { groovyScript: 'x', defaultGroup: 2 }, undefined);
+
+        await expect(handlers.handleToolCall('update_netscan', { netscanId: 3, subnet: 's' })).rejects.toThrow(/does not apply to a script scan/);
+      });
+
+      it('lists, creates, updates and deletes NetScan groups', async () => {
+        mockClient.listNetscanGroups.mockResolvedValue({ total: 1, items: [{ id: 1, name: '@default' }] });
+        mockClient.createNetscanGroup.mockResolvedValue({ id: 20 });
+        mockClient.updateNetscanGroup.mockResolvedValue({ id: 20 });
+        mockClient.deleteNetscanGroup.mockResolvedValue({});
+
+        const listed = await handlers.handleToolCall('list_netscan_groups', {});
+        expect(listed.items[0].name).toBe('@default');
+        await handlers.handleToolCall('create_netscan_group', { name: 'g', description: 'd' });
+        expect(mockClient.createNetscanGroup).toHaveBeenCalledWith({ name: 'g', description: 'd' });
+        await handlers.handleToolCall('update_netscan_group', { groupId: 20, description: 'x' });
+        expect(mockClient.updateNetscanGroup).toHaveBeenCalledWith(20, { description: 'x' });
+        await handlers.handleToolCall('delete_netscan_group', { groupId: 20 });
+        expect(mockClient.deleteNetscanGroup).toHaveBeenCalledWith(20);
+      });
+    });
+
     it('should handle netscans and integrations', async () => {
       const mockNetscan = { id: 1, name: 'test-netscan' };
       const mockIntegration = { id: 1, name: 'test-integration' };
@@ -3218,7 +3282,10 @@ describe('LogicMonitorHandlers', () => {
 
       await handlers.handleToolCall('create_netscan', {
         name: 'test-netscan',
+        method: 'script',
         collectorId: 1,
+        scriptType: 'external',
+        scriptPath: 'devices.csv',
       });
       await handlers.handleToolCall('update_netscan', {
         netscanId: 1,

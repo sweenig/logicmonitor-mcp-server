@@ -133,3 +133,16 @@ describe('website knowledge resource', () => {
     }
   });
 });
+
+describe('netscan knowledge resource', () => {
+  it('is listed and explains the methods, schedules and groups', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/netscans');
+    expect(resource).toBeDefined();
+
+    const content = await readLMResource('lm://knowledge/netscans');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['nmap', 'enhancedScript', 'embeded', 'cron', 'nsgId', 'create_netscan']) {
+      expect(text).toContain(term);
+    }
+  });
+});

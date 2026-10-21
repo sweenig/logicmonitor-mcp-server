@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP 403 errors that describe the state of an object (for example deleting a non-empty website group) now show LogicMonitor's message with a matching hint instead of the generic token advice; permission and token 403s are unchanged
 - Fixed: `fields="*"` is no longer sent to the API (some endpoints, such as `get_website`, took it literally and returned an empty object)
 
+### Added
+- NetScans: `create_netscan` and `update_netscan` rewritten for the three methods (`nmap`, `script`, `enhancedScript`) with schedules, duplicate handling, discovered-device rules, credentials, filters, update policy and NetScan groups (they previously omitted the required `method` and used the wrong field names, so creating a scan could not succeed); new tools `list_netscan_groups`, `create_netscan_group`, `update_netscan_group`, `delete_netscan_group`; MCP resource `lm://knowledge/netscans`
+
 ### Removed
 - The ten legacy `*_service` and `*_service_group` tools (`list_services`, `get_service`, `create_service`, `update_service`, `delete_service`, `list_service_groups`, `get_service_group`, `create_service_group`, `update_service_group`, `delete_service_group`). They called the pre-v3 `/service/*` endpoints, which reject `X-Version: 3` (HTTP 415) and return website monitors rather than business services; use the website tools instead
 

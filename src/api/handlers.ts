@@ -7,6 +7,7 @@
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
+import { buildNetscanCreate, buildNetscanUpdate, updateNeedsMethod } from '../utils/helpers/netscan-payload.js';
 import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
 import { websiteCheckpointRows } from '../utils/helpers/website-data.js';
 import { alertRuleMatch, opsNoteScopes, opsNoteTags } from '../utils/helpers/write-params.js';
@@ -1874,25 +1875,46 @@ export class LogicMonitorHandlers {
             fields: args.fields,
           });
 
-        case 'create_netscan': {
-          const netscan: any = {
-            name: args.name,
-            collectorId: args.collectorId,
-            schedule: args.schedule || { cron: '0 0 * * *' },
-          };
-          if (args.description) netscan.description = args.description;
-          if (args.excludeDuplicateType) netscan.excludeDuplicateType = args.excludeDuplicateType;
-          if (args.subnet) netscan.subnet = args.subnet;
-          return await this.client.createNetscan(netscan);
-        }
+        case 'create_netscan':
+          return await this.client.createNetscan(buildNetscanCreate(args));
 
         case 'update_netscan': {
-          const netscan: any = {};
-          if (args.name) netscan.name = args.name;
-          if (args.description !== undefined) netscan.description = args.description;
-          if (args.schedule) netscan.schedule = args.schedule;
-          return await this.client.updateNetscan(args.netscanId, netscan);
+          let method: string | undefined;
+          if (updateNeedsMethod(args)) {
+            const current: any = await this.client.getNetscan(args.netscanId, { fields: 'method' });
+            method = current?.method;
+          }
+          return await this.client.updateNetscan(
+            args.netscanId,
+            buildNetscanUpdate(args, method),
+            args.reason ? { reason: args.reason } : undefined,
+          );
         }
+
+        case 'list_netscan_groups':
+          return await this.client.listNetscanGroups({
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
+        case 'create_netscan_group': {
+          const group: Record<string, any> = { name: args.name };
+          if (args.description !== undefined) group.description = args.description;
+          return await this.client.createNetscanGroup(group);
+        }
+
+        case 'update_netscan_group': {
+          const group: Record<string, any> = {};
+          if (args.name !== undefined) group.name = args.name;
+          if (args.description !== undefined) group.description = args.description;
+          return await this.client.updateNetscanGroup(args.groupId, group);
+        }
+
+        case 'delete_netscan_group':
+          return await this.client.deleteNetscanGroup(args.groupId);
 
         case 'delete_netscan':
           return await this.client.deleteNetscan(args.netscanId);

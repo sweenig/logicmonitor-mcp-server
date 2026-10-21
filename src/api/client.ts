@@ -1777,8 +1777,30 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('POST', '/setting/netscans', netscan);
   }
 
-  async updateNetscan(netscanId: number, netscan: any) {
-    return this.request<LMResponse<any>>('PATCH', `/setting/netscans/${netscanId}`, netscan);
+  async updateNetscan(netscanId: number, netscan: any, params?: { reason?: string }) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/netscans/${netscanId}`, netscan, params);
+  }
+
+  // Netscan groups (an endpoint that exists but is not in the swagger file)
+  async listNetscanGroups(params?: { size?: number; offset?: number; filter?: string; fields?: string; autoPaginate?: boolean }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+    if (autoPaginate) {
+      return this.paginateAll<any>('/setting/netscans/groups', cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', '/setting/netscans/groups', undefined, cleanedParams);
+  }
+
+  async createNetscanGroup(group: any) {
+    return this.request<LMResponse<any>>('POST', '/setting/netscans/groups', group);
+  }
+
+  async updateNetscanGroup(groupId: number, group: any) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/netscans/groups/${groupId}`, group);
+  }
+
+  async deleteNetscanGroup(groupId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/netscans/groups/${groupId}`);
   }
 
   async deleteNetscan(netscanId: number) {

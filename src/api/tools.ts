@@ -6915,7 +6915,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_netscans',
     description: 'List all network discovery scans (NetScans) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of netscans with: id, name, description, scan method (nmap/script/ICMP/SNMP), schedule, target networks (IP ranges/subnets), collector, last run time, resource/device discovered. ' +
+      '\n\n**Returns:** Array of netscans with: id, name, description, method (nmap = subnet scan, script = script or CSV, enhancedScript), schedule and nextStart, collector, group (name) and nsgId (NetScan group id), duplicate handling, and the method\'s settings (subnet and ports for nmap, script settings for the script methods). Read the MCP resource "lm://knowledge/netscans" for how the methods work. ' +
       '\n\n**What are netscans:** Automated network discovery that finds resource/device on your network and adds them to monitoring. Instead of manually adding resource/device one-by-one, netscan automatically discovers and onboards resource/device based on IP ranges or subnets. ' +
       '\n\n**When to use:**' +
       '\n- Audit existing discovery configurations' +
@@ -7001,140 +7001,130 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'create_netscan',
-    description: 'Create a new network discovery scan (NetScan) in LogicMonitor (LM) monitoring to automatically discover and add resources/devices. ' +
-      '\n\n**Not supported yet:** targetType, target, deviceGroupId, credentials, excludeFilters are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Creates automated network scanner that discovers resource/device by IP range/subnet and adds them to monitoring. Runs on schedule to continuously discover new infrastructure. ' +
-      '\n\n**When to use:**' +
-      '\n- Automate resource/device discovery instead of manual adds' +
-      '\n- Onboard entire subnets' +
-      '\n- Keep monitoring in sync with dynamic infrastructure (cloud/containers)' +
-      '\n- Continuous discovery for DHCP/dynamic environments' +
-      '\n- Bulk resource/device onboarding' +
-      '\n' +
-      '\n\n**Required parameters:** ' +
-      '\n- name: NetScan name (e.g., "Production Network Scan", "AWS EC2 Discovery") ' +
-      '\n- collectorId: Collector to perform scan (from "list\\_collectors") ' +
-      '\n- targetType: "subnet", "iprange", "script", "awsEC2", "azureVMs", etc. ' +
-      '\n- target: What to scan (depends on type - subnet CIDR, IP range, script, etc.) ' +
-      '\n\n**Optional parameters:** ' +
-      '\n- schedule: When to run ("manual", "daily", "weekly", cron expression) ' +
-      '\n- deviceGroupId: Where to add discovered resource/device ' +
-      '\n- credentials: Authentication for discovered resource/device ' +
-      '\n- excludeFilters: IPs/ranges to skip ' +
-      '\n\n**Common netscan patterns:** ' +
-      '\n\n**Subnet discovery (on-prem):** ' +
-      '{name: "Production Subnet", collectorId: 5, targetType: "subnet", target: "192.168.1.0/24", schedule: "daily", deviceGroupId: 100} ' +
-      '// Scan 192.168.1.0/24 every day, add to Production group ' +
-      '\n\n**IP range discovery:** ' +
-      '{name: "Server Range", collectorId: 5, targetType: "iprange", target: "10.0.1.10-10.0.1.100", schedule: "0 0 2 * * ?", deviceGroupId: 200} ' +
-      '// Scan IPs 10.0.1.10-100 at 2am daily ' +
-      '\n\n**AWS EC2 discovery:** ' +
-      '{name: "AWS Production EC2", collectorId: 5, targetType: "awsEC2", target: "us-east-1", schedule: "0 */6 * * ?", deviceGroupId: 300} ' +
-      '// Discover EC2 instances every 6 hours ' +
-      '\n\n**Azure VMs discovery:** ' +
-      '{name: "Azure Production", collectorId: 5, targetType: "azureVMs", target: "subscription-id", schedule: "0 */4 * * ?", deviceGroupId: 400} ' +
-      '// Discover Azure VMs every 4 hours ' +
-      '\n\n**With exclusions:** ' +
-      '{name: "Office Network", collectorId: 5, targetType: "subnet", target: "172.16.0.0/16", excludeFilters: ["172.16.1.0/24", "172.16.2.50"], deviceGroupId: 500} ' +
-      '// Scan 172.16.0.0/16 except specific subnet/IP ' +
-      '\n\n**Schedule options:** ' +
-      '\n- "manual": Only run when manually triggered ' +
-      '\n- "daily": Run once per day ' +
-      '\n- "weekly": Run once per week ' +
-      '\n- Cron: "0 0 2 * * ?" = 2am daily, "0 */6 * * * ?" = every 6 hours ' +
-      '\n\n**TargetType options:** ' +
-      '\n- subnet: Scan CIDR (e.g., "10.0.0.0/24") ' +
-      '\n- iprange: Scan IP range (e.g., "10.0.1.1-10.0.1.255") ' +
-      '\n- awsEC2: Discover AWS EC2 instances in region ' +
-      '\n- azureVMs: Discover Azure VMs in subscription ' +
-      '\n- script: Custom discovery script ' +
-      '\n\n**Why use netscans:** ' +
-      '\n- **Automation:** No manual resource/device adds ' +
-      '\n- **Continuous:** Automatically discovers new infrastructure ' +
-      '\n- **Dynamic environments:** Cloud, containers, DHCP networks ' +
-      '\n- **Bulk onboarding:** Add hundreds of resource/device at once ' +
-      '\n- **Compliance:** Ensure all resource/device are monitored ' +
-      '\n\n**Best practices:** ' +
-      '\n- Start with small subnets to test ' +
-      '\n- Use excludeFilters for management IPs, printers, phones ' +
-      '\n- Schedule during low-traffic hours (scans generate network traffic) ' +
-      '\n- Test credentials before scheduling ' +
-      '\n- Group resource/device appropriately with deviceGroupId ' +
-      '\n\n**After creation:** NetScan runs on schedule. Use "list\\_netscans" to view, "get\\_netscan" for details. Check "list\\_resources" to see discovered resources/devices. ' +
-      '\n\n**Related tools:** "list\\_collectors" (find collector), "list\\_resource\\_groups" (find deviceGroupId), "update\\_netscan" (modify), "delete\\_netscan" (remove).',
+    description: 'Create a network discovery scan (NetScan) in LogicMonitor (LM) monitoring. ' +
+      '\n\n**method decides how devices are found** (it cannot be changed later): "nmap" scans a subnet; "script" runs a script or reads a CSV on the collector that lists devices; "enhancedScript" does the same with credentials, filters and an update policy. Read the MCP resource "lm://knowledge/netscans" for how the scan methods work. ' +
+      '\n\n**Required:** name, method, collectorId; subnet for nmap; groovyScript (scriptType "embeded", the default) or scriptPath (scriptType "external") for the script methods. ' +
+      '\n\n**Optional (all methods):** description, nsgId (NetScan group), schedule (default manual; a timed schedule needs a cron expression), duplicate (how existing devices are skipped, default type 1), defaultGroup (resource group for discovered devices). nmap also: exclude, ports, includeNetworkAndBroadcast, credentials, ddr. enhancedScript also: credentials, filters, resourceUpdateCriteria. ' +
+      '\n\n**Examples:** ' +
+      '\nSubnet scan every night: {name: "Datacenter A", method: "nmap", collectorId: 12, subnet: "10.0.1.0/24", defaultGroup: 345, schedule: {type: "daily", cron: "00 02 * * *", timezone: "America/New_York"}} ' +
+      '\nCSV import: {name: "Branch import", method: "script", collectorId: 12, scriptType: "external", scriptPath: "branches.csv"} ' +
+      '\nScripted discovery: {name: "Meraki", method: "enhancedScript", collectorId: 12, groovyScript: "...", defaultGroup: 345, credentials: {deviceGroupId: 345}} ' +
+      '\n\nA new scan runs on its schedule; a manual scan runs only when started in the LogicMonitor UI. EC2/cloud scans are not offered (onboard cloud resources through cloud monitoring). ' +
+      '\n\n**Related tools:** "list_collectors", "list_netscan_groups", "list_resource_groups", "update_netscan", "list_netscans".',
     annotations: {
-      title: 'Create NetScan',
+      title: 'Create netscan',
       readOnlyHint: false,
     },
     inputSchema: {
       type: 'object',
       properties: {
+        method: {
+          type: 'string',
+          enum: ['nmap', 'script', 'enhancedScript'],
+          description: 'How devices are found: nmap (scan a subnet), script (script or CSV), enhancedScript (script with credentials, filters and update policy)',
+        },
         name: {
           type: 'string',
-          description: 'Name of the netscan',
-        },
-        collectorId: {
-          type: 'number',
-          description: 'ID of the collector that will perform the scan',
+          description: 'Name of the scan',
         },
         description: {
           type: 'string',
-          description: 'Description',
+          description: 'Description of the scan',
+        },
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector that runs the scan (from "list_collectors")',
+        },
+        nsgId: {
+          type: 'number',
+          description: 'ID of the NetScan group the scan belongs to (from "list_netscan_groups"; default 1, "@default"). The group must exist.',
         },
         schedule: {
           type: 'object',
-          description: 'Schedule configuration (e.g., { cron: "0 0 * * *" })',
+          description: 'When the scan runs: {type: "manual"|"hourly"|"daily"|"weekly"|"monthly", cron: "00 04 * * *" (required unless manual), timezone: "America/Chicago", notify: true|false, recipients: [emails]}. Default {type: "manual"}.',
+        },
+        duplicate: {
+          type: 'object',
+          description: 'How devices that already exist are skipped: {type: 1|2|3|4, groups: [group names] (type 3), collectors: [collector names] (type 4)}. Type 1 = matches any monitored device (default), 2 = already found by this scan, 3 = in the given groups, 4 = on the given collectors.',
+        },
+        excludeDuplicateType: {
+          type: 'number',
+          description: 'Shortcut for duplicate.type (1-4)',
+        },
+        defaultGroup: {
+          type: 'number',
+          description: 'ID of the resource group that discovered devices are added to (from "list_resource_groups")',
+        },
+        credentials: {
+          type: 'object',
+          description: 'Credentials for nmap and enhancedScript scans: {deviceGroupId: N} or {deviceId: N} to inherit the credentials of a group or device, and/or custom: [...], snmpV3Credentials: [...]',
         },
         subnet: {
           type: 'string',
-          description: 'Subnet to scan (e.g., "192.168.1.0/24")',
+          description: 'nmap only: what to scan, a CIDR such as "10.0.1.0/24" or an IP range',
         },
-        excludeDuplicateType: {
+        exclude: {
           type: 'string',
-          description: 'How to handle duplicate resources/devices',
+          description: 'nmap only: addresses or ranges to skip',
+        },
+        ports: {
+          type: 'string',
+          description: 'nmap only: comma-separated ports to probe (default: the LogicMonitor default port list)',
+        },
+        includeNetworkAndBroadcast: {
+          type: 'boolean',
+          description: 'nmap only: also probe the network and broadcast addresses of a CIDR',
+        },
+        ddr: {
+          type: 'object',
+          description: 'nmap only: discovered-device rules {changeName: "##IPADDRESS##"|"##REVERSEDNS##"|..., assignment: [{group: resource group ID, action: "Include"|"Exclude", disableAlerting: false, query: "" }]}. defaultGroup builds a single include-everything rule for you.',
+        },
+        scriptType: {
+          type: 'string',
+          enum: ['embeded', 'embedded', 'external'],
+          description: 'script and enhancedScript only: embeded (script text in groovyScript; LogicMonitor spells it "embeded", "embedded" is accepted) or external (a file on the collector named in scriptPath). Default embeded.',
+        },
+        groovyScript: {
+          type: 'string',
+          description: 'script and enhancedScript only: the Groovy script text (embedded scans)',
+        },
+        groovyScriptParams: {
+          type: 'string',
+          description: 'script and enhancedScript only: parameters passed to the embedded script',
+        },
+        scriptPath: {
+          type: 'string',
+          description: 'script and enhancedScript only: path of the script or CSV file on the collector (external scans)',
+        },
+        scriptParams: {
+          type: 'string',
+          description: 'script and enhancedScript only: parameters for the external script',
+        },
+        filters: {
+          type: 'array',
+          description: 'enhancedScript only: filters applied to the devices the script reports: [{attribute, operation, value, comment}]',
+        },
+        resourceUpdateCriteria: {
+          type: 'object',
+          description: 'enhancedScript only: which existing devices the scan may update: {type: 1 (all)|2 (found by this scan, default)|3 (in groups)|4 (on collectors)|5 (none), groups: [...], collectors: [...]}',
         },
       },
       additionalProperties: false,
-      required: ['name', 'collectorId'],
+      required: ['name', 'method', 'collectorId'],
     },
   },
   {
     name: 'update_netscan',
-    description: 'Update an existing network discovery scan (NetScan) in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Not supported yet:** target, deviceGroupId, excludeFilters, credentials are mentioned in the text below but are not accepted by this tool and would be ignored; use the LogicMonitor UI for those. ' +
-      '\n\n**What this does:** Modify netscan name, target, schedule, credentials, or settings. Changes take effect on next scan run. ' +
-      '\n\n**When to use:**' +
-      '\n- Change IP range/subnet scanned' +
-      '\n- Update scan schedule' +
-      '\n- Modify credentials' +
-      '\n- Change destination group for discovered resources/devices' +
-      '\n- Update exclusion filters' +
-      '\n' +
-      '\n\n**Required parameters:** ' +
-      '\n- netscanId: NetScan ID (from "list\\_netscans") ' +
-      '\n\n**Optional parameters (what to change):** ' +
-      '\n- name: New NetScan name ' +
-      '\n- target: New IP range/subnet ' +
-      '\n- schedule: New schedule (daily, weekly, cron) ' +
-      '\n- deviceGroupId: New destination group ' +
-      '\n- excludeFilters: Updated exclusion list ' +
-      '\n- credentials: Updated authentication ' +
-      '\n\n**Common update scenarios:** ' +
-      '\n\n**Expand IP range:** ' +
-      '{netscanId: 123, target: "192.168.0.0/16"} // Expanded from /24 to /16 ' +
-      '\n\n**Change schedule:** ' +
-      '{netscanId: 123, schedule: "0 0 3 * * ?"} // Changed to 3am daily ' +
-      '\n\n**Update destination group:** ' +
-      '{netscanId: 123, deviceGroupId: 456} // Move discovered resource/device to different group ' +
-      '\n\n**Add exclusions:** ' +
-      '{netscanId: 123, excludeFilters: ["192.168.1.0/24", "192.168.2.50-192.168.2.100"]} ' +
-      '\n\n**Best practice workflow:** ' +
-      '1. Use "get\\_netscan" to review current settings ' +
-      '2. Update NetScan configuration ' +
-      '3. Changes apply on next scheduled run ' +
-      '\n\n**Related tools:** "get\\_netscan" (review), "list\\_netscans" (find netscan), "delete\\_netscan" (remove).',
+    description: 'Update a network discovery scan (NetScan) in LogicMonitor (LM) monitoring. Only the fields you pass change; the method cannot be changed. Read the MCP resource "lm://knowledge/netscans" for how the scan methods work. ' +
+      '\n\n**Required:** netscanId (from "list_netscans"). **Optional:** any field of "create_netscan" that applies to the scan\'s method (settings of another method are rejected), plus reason (recorded in the audit log). ' +
+      '\n\n**Examples:** ' +
+      '\nRun weekly: {netscanId: 12, schedule: {type: "weekly", cron: "00 00 * * 0", timezone: "America/New_York"}} ' +
+      '\nChange the target (nmap): {netscanId: 12, subnet: "10.0.2.0/24", exclude: "10.0.2.1"} ' +
+      '\nNew script: {netscanId: 12, groovyScript: "..."} ' +
+      '\nRename and explain: {netscanId: 12, name: "Datacenter B", reason: "renamed after the move"} ' +
+      '\n\n**Related tools:** "get_netscan" (review first), "list_netscans", "create_netscan", "list_netscan_groups".',
     annotations: {
-      title: 'Update NetScan',
+      title: 'Update netscan',
       readOnlyHint: false,
     },
     inputSchema: {
@@ -7144,6 +7134,154 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'number',
           description: 'The ID of the netscan to update',
         },
+        reason: {
+          type: 'string',
+          description: 'Reason for the change, recorded in the audit log',
+        },
+        name: {
+          type: 'string',
+          description: 'Name of the scan',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the scan',
+        },
+        collectorId: {
+          type: 'number',
+          description: 'ID of the collector that runs the scan (from "list_collectors")',
+        },
+        nsgId: {
+          type: 'number',
+          description: 'ID of the NetScan group the scan belongs to (from "list_netscan_groups"; default 1, "@default"). The group must exist.',
+        },
+        schedule: {
+          type: 'object',
+          description: 'When the scan runs: {type: "manual"|"hourly"|"daily"|"weekly"|"monthly", cron: "00 04 * * *" (required unless manual), timezone: "America/Chicago", notify: true|false, recipients: [emails]}. Default {type: "manual"}.',
+        },
+        duplicate: {
+          type: 'object',
+          description: 'How devices that already exist are skipped: {type: 1|2|3|4, groups: [group names] (type 3), collectors: [collector names] (type 4)}. Type 1 = matches any monitored device (default), 2 = already found by this scan, 3 = in the given groups, 4 = on the given collectors.',
+        },
+        excludeDuplicateType: {
+          type: 'number',
+          description: 'Shortcut for duplicate.type (1-4)',
+        },
+        defaultGroup: {
+          type: 'number',
+          description: 'ID of the resource group that discovered devices are added to (from "list_resource_groups")',
+        },
+        credentials: {
+          type: 'object',
+          description: 'Credentials for nmap and enhancedScript scans: {deviceGroupId: N} or {deviceId: N} to inherit the credentials of a group or device, and/or custom: [...], snmpV3Credentials: [...]',
+        },
+        subnet: {
+          type: 'string',
+          description: 'nmap only: what to scan, a CIDR such as "10.0.1.0/24" or an IP range',
+        },
+        exclude: {
+          type: 'string',
+          description: 'nmap only: addresses or ranges to skip',
+        },
+        ports: {
+          type: 'string',
+          description: 'nmap only: comma-separated ports to probe (default: the LogicMonitor default port list)',
+        },
+        includeNetworkAndBroadcast: {
+          type: 'boolean',
+          description: 'nmap only: also probe the network and broadcast addresses of a CIDR',
+        },
+        ddr: {
+          type: 'object',
+          description: 'nmap only: discovered-device rules {changeName: "##IPADDRESS##"|"##REVERSEDNS##"|..., assignment: [{group: resource group ID, action: "Include"|"Exclude", disableAlerting: false, query: "" }]}. defaultGroup builds a single include-everything rule for you.',
+        },
+        scriptType: {
+          type: 'string',
+          enum: ['embeded', 'embedded', 'external'],
+          description: 'script and enhancedScript only: embeded (script text in groovyScript; LogicMonitor spells it "embeded", "embedded" is accepted) or external (a file on the collector named in scriptPath). Default embeded.',
+        },
+        groovyScript: {
+          type: 'string',
+          description: 'script and enhancedScript only: the Groovy script text (embedded scans)',
+        },
+        groovyScriptParams: {
+          type: 'string',
+          description: 'script and enhancedScript only: parameters passed to the embedded script',
+        },
+        scriptPath: {
+          type: 'string',
+          description: 'script and enhancedScript only: path of the script or CSV file on the collector (external scans)',
+        },
+        scriptParams: {
+          type: 'string',
+          description: 'script and enhancedScript only: parameters for the external script',
+        },
+        filters: {
+          type: 'array',
+          description: 'enhancedScript only: filters applied to the devices the script reports: [{attribute, operation, value, comment}]',
+        },
+        resourceUpdateCriteria: {
+          type: 'object',
+          description: 'enhancedScript only: which existing devices the scan may update: {type: 1 (all)|2 (found by this scan, default)|3 (in groups)|4 (on collectors)|5 (none), groups: [...], collectors: [...]}',
+        },
+      },
+      additionalProperties: false,
+      required: ['netscanId'],
+    },
+  },
+  {
+    name: 'list_netscan_groups',
+    description: 'List the NetScan groups (folders for network discovery scans) in LogicMonitor (LM) monitoring. Each has an id, name and description; a scan belongs to one (its nsgId). The default group is "@default" (id 1). Use the id as nsgId in "create_netscan" and "update_netscan". Related tools: "create_netscan_group", "list_netscans".',
+    annotations: {
+      title: 'List netscan groups',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_netscan_group',
+    description: 'Create a NetScan group (a folder for network discovery scans) in LogicMonitor (LM) monitoring. Required: name. Optional: description. Use the returned id as nsgId when creating or moving scans. Related tools: "list_netscan_groups", "update_netscan_group", "create_netscan".',
+    annotations: {
+      title: 'Create netscan group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the NetScan group',
+        },
+        description: {
+          type: 'string',
+          description: 'Description of the group',
+        },
+      },
+      additionalProperties: false,
+      required: ['name'],
+    },
+  },
+  {
+    name: 'update_netscan_group',
+    description: 'Rename or re-describe a NetScan group in LogicMonitor (LM) monitoring. Required: groupId (from "list_netscan_groups"). Optional: name, description. Related tools: "list_netscan_groups", "delete_netscan_group".',
+    annotations: {
+      title: 'Update netscan group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the NetScan group to update',
+        },
         name: {
           type: 'string',
           description: 'New name',
@@ -7152,13 +7290,28 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'string',
           description: 'New description',
         },
-        schedule: {
-          type: 'object',
-          description: 'New schedule configuration',
+      },
+      additionalProperties: false,
+      required: ['groupId'],
+    },
+  },
+  {
+    name: 'delete_netscan_group',
+    description: '**WARNING: permanent.** Delete a NetScan group in LogicMonitor (LM) monitoring. Required: groupId (from "list_netscan_groups"). Move or delete the scans in the group first ("list_netscans" with filter:"nsgId:<id>"; "update_netscan" with nsgId moves one). Related tools: "list_netscan_groups", "update_netscan".',
+    annotations: {
+      title: 'Delete netscan group',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        groupId: {
+          type: 'number',
+          description: 'The ID of the NetScan group to delete',
         },
       },
       additionalProperties: false,
-      required: ['netscanId'],
+      required: ['groupId'],
     },
   },
   {
