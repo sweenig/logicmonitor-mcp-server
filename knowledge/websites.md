@@ -51,7 +51,7 @@ Rule of thumb: if LogicMonitor's cloud can reach the target, use external; other
 
 ## Website groups
 
-- Folders for websites, nestable through `parentId` (1 = root). Create with `create_website_group`, rename or move with `update_website_group`, delete with `delete_website_group` (`deleteChildren` also deletes the subgroups; the group must otherwise be empty).
+- Folders for websites, nestable through `parentId` (1 = root). Create with `create_website_group`, rename or move with `update_website_group`, delete with `delete_website_group`. A group can only be deleted when it is empty: while it holds websites or subgroups LogicMonitor answers HTTP 403 "Please delete all websites and subfolders in this folder first", so move or delete those first. (The API documents a `deleteChildren` option, but on the portals tested it makes the request fail with HTTP 404, so the tool does not offer it.) Moving a group (`update_website_group` with `parentId`) and moving a website (`update_website` with `groupId`) both work.
 - A website's folder is its `groupId`. List a folder's websites with `list_website_group_websites`, or `list_websites` with `filter: groupId:<id>`.
 - A group can carry default `testLocation`, `disableAlerting`, `stopMonitoring` and properties that its websites inherit.
 

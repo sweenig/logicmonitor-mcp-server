@@ -7573,8 +7573,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'delete_website_group',
-    description: '**WARNING: permanent.** Delete a website group (folder) in LogicMonitor (LM) monitoring. A group that still contains websites cannot be deleted; move or delete them first ("list_website_group_websites"). Set deleteChildren to also delete its subgroups. ' +
-      '\n\n**Required:** groupId (from "list_website_groups"). **Optional:** deleteChildren. ' +
+    description: '**WARNING: permanent.** Delete a website group (folder) in LogicMonitor (LM) monitoring. The group must be empty: LogicMonitor refuses to delete a group that still contains websites or subgroups (HTTP 403 "Please delete all websites and subfolders in this folder first"), so move or delete those first ("list_website_group_websites", "list_website_groups", "update_website" with groupId). ' +
+      '\n\n**Required:** groupId (from "list_website_groups"). ' +
       '\n\n**Related tools:** "list_website_group_websites" (check it is empty), "update_website" (move monitors with groupId), "list_website_groups".',
     annotations: {
       title: 'Delete website group',
@@ -7586,10 +7586,6 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         groupId: {
           type: 'number',
           description: 'The ID of the website group to delete',
-        },
-        deleteChildren: {
-          type: 'boolean',
-          description: 'true to also delete the subgroups of this group (default false)',
         },
       },
       additionalProperties: false,

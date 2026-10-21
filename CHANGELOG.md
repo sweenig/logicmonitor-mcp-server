@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `schedule_resource_discovery` tool - trigger Active Discovery on a resource/device via `POST /device/devices/{id}/scheduleAutoDiscovery`; classified read-only (it only requests a discovery run) so it is available in read-only mode
 - `list_integration_logs` tool - list integration delivery/audit logs (alerts sent to ServiceNow/Slack/PagerDuty/webhooks/etc.), backed by `/setting/integrations/auditlogs`
 
+### Added
+- Website suite: `create_website` and `update_website` rewritten for web (HTTP/HTTPS) and ping (ICMP) checks, internal (collector) and external (cloud checkpoint) locations, steps and alert settings; `create_website_group`, `update_website_group` (also moves a group), `delete_website_group` (the group must be empty; the API's `deleteChildren` option answers HTTP 404 and is not offered); `list_website_alerts`, `list_website_properties`, `list_website_sdts`, `list_website_group_websites`, `list_website_group_sdts`; MCP resource `lm://knowledge/websites`
+- Fixed: `fields="*"` is no longer sent to the API (some endpoints, such as `get_website`, took it literally and returned an empty object)
+
 ### Removed
 - The ten legacy `*_service` and `*_service_group` tools (`list_services`, `get_service`, `create_service`, `update_service`, `delete_service`, `list_service_groups`, `get_service_group`, `create_service_group`, `update_service_group`, `delete_service_group`). They called the pre-v3 `/service/*` endpoints, which reject `X-Version: 3` (HTTP 415) and return website monitors rather than business services; use the website tools instead
 

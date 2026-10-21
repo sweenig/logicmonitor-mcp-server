@@ -1112,8 +1112,9 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('PATCH', `/website/groups/${groupId}`, group, params);
   }
 
-  async deleteWebsiteGroup(groupId: number, params?: { deleteChildren?: boolean }) {
-    return this.request<LMResponse<any>>('DELETE', `/website/groups/${groupId}`, undefined, params);
+  async deleteWebsiteGroup(groupId: number) {
+    // The documented deleteChildren query parameter makes the API answer 404, so it is not offered.
+    return this.request<LMResponse<any>>('DELETE', `/website/groups/${groupId}`);
   }
 
   // Users

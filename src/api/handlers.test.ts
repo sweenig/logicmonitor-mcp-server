@@ -1985,10 +1985,8 @@ describe('LogicMonitorHandlers', () => {
         expect(mockClient.updateWebsiteGroup).toHaveBeenCalledWith(
           5, { name: 'n', parentId: 9, properties: [{ name: 'a', value: 'b' }] }, undefined);
 
-        await handlers.handleToolCall('delete_website_group', { groupId: 5, deleteChildren: true });
-        expect(mockClient.deleteWebsiteGroup).toHaveBeenCalledWith(5, { deleteChildren: true });
-        await handlers.handleToolCall('delete_website_group', { groupId: 6 });
-        expect(mockClient.deleteWebsiteGroup).toHaveBeenLastCalledWith(6, undefined);
+        await handlers.handleToolCall('delete_website_group', { groupId: 5 });
+        expect(mockClient.deleteWebsiteGroup).toHaveBeenCalledWith(5);
       });
 
       it('lists websites in a group with the default fields, and the other sub-resources', async () => {

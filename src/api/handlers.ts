@@ -1105,10 +1105,7 @@ export class LogicMonitorHandlers {
           );
 
         case 'delete_website_group':
-          return await this.client.deleteWebsiteGroup(
-            args.groupId,
-            args.deleteChildren === undefined ? undefined : { deleteChildren: isTrue(args.deleteChildren) },
-          );
+          return await this.client.deleteWebsiteGroup(args.groupId);
 
         case 'list_website_group_websites': {
           const result = await this.client.listWebsiteGroupWebsites(args.groupId, {
