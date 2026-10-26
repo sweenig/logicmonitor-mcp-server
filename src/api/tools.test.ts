@@ -502,7 +502,7 @@ describe('getLogicMonitorTools', () => {
           expect(all.find(t => t.name === name)?.annotations?.readOnlyHint).toBe(false);
           expect(readOnly).not.toContain(name);
         }
-        expect(all.find(t => t.name === 'create_datasource_graph')?.inputSchema.required).toEqual(['dataSourceId', 'name', 'lines']);
+        expect(all.find(t => t.name === 'create_datasource_graph')?.inputSchema.required).toEqual(['dataSourceId', 'name', 'verticalLabel', 'lines']);
         expect(all.find(t => t.name === 'update_datasource_overview_graph')?.inputSchema.required).toEqual(['dataSourceId', 'graphId']);
       });
 

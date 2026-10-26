@@ -1147,13 +1147,14 @@ describe('LogicMonitorHandlers', () => {
         mockClient.createDataSourceGraph.mockResolvedValue({ id: 5 });
 
         await handlers.handleToolCall('create_datasource_graph', {
-          dataSourceId: 7, name: 'g', lines: [{ dataPointName: 'alpha', type: 'area' }],
+          dataSourceId: 7, name: 'g', verticalLabel: 'count', lines: [{ dataPointName: 'alpha', type: 'area' }],
         });
 
         expect(mockClient.getDataSource).toHaveBeenCalledWith(7, { fields: 'dataPoints' });
         expect(mockClient.createDataSourceGraph).toHaveBeenCalledWith(7, {
           name: 'g',
           title: 'g',
+          verticalLabel: 'count',
           lines: [{ dataPointName: 'alpha', isVirtualDataPoint: false, type: 2, legend: 'alpha', colorName: 'blue' }],
           dataPoints: [{ name: 'alpha', dataPointId: 11, consolidateFunc: 1 }],
         });
@@ -1163,7 +1164,7 @@ describe('LogicMonitorHandlers', () => {
         mockClient.createDataSourceOverviewGraph.mockResolvedValue({ id: 6 });
 
         await handlers.handleToolCall('create_datasource_overview_graph', {
-          dataSourceId: 7, name: 'o', aggregated: false, lines: [{ dataPointName: 'beta', type: 'stack', legend: '##INSTANCE##' }],
+          dataSourceId: 7, name: 'o', verticalLabel: 'count', aggregated: false, lines: [{ dataPointName: 'beta', type: 'stack', legend: '##INSTANCE##' }],
         });
 
         expect(mockClient.createDataSourceOverviewGraph).toHaveBeenCalledWith(7, expect.objectContaining({
@@ -1174,7 +1175,7 @@ describe('LogicMonitorHandlers', () => {
 
       it('rejects an unknown datapoint before calling the API', async () => {
         await expect(handlers.handleToolCall('create_datasource_graph', {
-          dataSourceId: 7, name: 'g', lines: [{ dataPointName: 'nope' }],
+          dataSourceId: 7, name: 'g', verticalLabel: 'count', lines: [{ dataPointName: 'nope' }],
         })).rejects.toThrow(/not found/);
         expect(mockClient.createDataSourceGraph).not.toHaveBeenCalled();
       });
