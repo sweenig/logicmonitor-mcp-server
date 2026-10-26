@@ -2137,10 +2137,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Required parameters:** ' +
       '\n- name: Dashboard name (e.g., "Production Infrastructure", "Executive Summary")' +
       '\n\n**Optional parameters:** ' +
-      '\n- groupId: Dashboard folder ID (from "list\\_dashboard\\_groups", use 1 for root)' +
+      '\n- groupId: Dashboard folder ID (from "list\\_dashboard\\_groups", use 1 for root). **A dashboard in a folder must be public (sharable):** LogicMonitor silently leaves a private dashboard in the root group. When groupId is given (other than 1), sharable defaults to true here, and sharable:false is rejected.' +
       '\n- description: Dashboard purpose/audience' +
       '\n- widgetsConfig: JSON array of widget configurations (graphs, alerts, gauges, maps)' +
-      '\n- sharable: true (public link) or false (private, login required)' +
+      '\n- sharable: true (public, can be placed in a folder) or false (private, always in the root group, login required)' +
       '\n- widgetTokens: Template variables for dynamic filtering' +
       '\n\n**Dashboard workflow:** ' +
       '\n- Create empty dashboard with name and folder' +
@@ -2180,7 +2180,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         sharable: {
           type: 'boolean',
-          description: 'true to make the dashboard publicly shareable, false to require login',
+          description: 'true for a public dashboard, false for a private one (login required). Private dashboards cannot be in a folder, so this defaults to true when groupId is given.',
         },
         widgetTokens: {
           type: 'array',
@@ -2196,7 +2196,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         groupId: {
           type: 'number',
-          description: 'Dashboard group ID',
+          description: 'Dashboard group (folder) ID. The dashboard must be public (sharable); see "sharable".',
         },
         widgetsConfig: {
           type: 'string',
@@ -2222,8 +2222,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Optional parameters (what to change):** ' +
       '\n- name: New dashboard name' +
       '\n- description: Updated description' +
-      '\n- groupId: Move to different dashboard folder' +
-      '\n- sharable: true (make public) or false (require login)' +
+      '\n- groupId: Move to different dashboard folder. **Only a public (sharable) dashboard can be in a folder**; LogicMonitor ignores the move for a private one. To move a private dashboard, pass sharable:true in the same call; without it this tool rejects the move of a private dashboard with an explanation.' +
+      '\n- sharable: true (make public) or false (require login; a private dashboard sits in the root group)' +
       '\n- widgetsConfig: JSON widget configuration (advanced - usually modify in UI)' +
       '\n- widgetTokens: Update template variables' +
       '\n\n**Common update scenarios:** ' +
@@ -2260,11 +2260,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         groupId: {
           type: 'number',
-          description: 'ID of the dashboard group (folder) to move the dashboard to',
+          description: 'ID of the dashboard group (folder) to move the dashboard to. The dashboard must be public (sharable); pass sharable:true in the same call to make a private one public.',
         },
         sharable: {
           type: 'boolean',
-          description: 'true to make the dashboard publicly shareable, false to require login',
+          description: 'true to make the dashboard public, false to make it private (login required). Private dashboards cannot be in a folder.',
         },
         dashboardId: {
           type: 'number',

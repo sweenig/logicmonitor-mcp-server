@@ -164,6 +164,18 @@ export function looksLikePermissionDenial(message: string): boolean {
   return /permission|privilege|authori[sz]|forbidden|access (is )?denied|not allowed to|token|\brole\b|rbac|credential/i.test(message);
 }
 
+/** A groupId other than the root group (1) puts the dashboard in a folder. */
+function inFolder(groupId: unknown): boolean {
+  if (groupId === undefined || groupId === null || groupId === '') return false;
+  return Number(groupId) !== 1;
+}
+
+function privateInFolderError(): InvalidArgumentError {
+  return new InvalidArgumentError(
+    'A dashboard in a folder must be public: LogicMonitor keeps a private dashboard in the root group. Use sharable:true with groupId, or omit sharable.'
+  );
+}
+
 export class LogicMonitorHandlers {
   constructor(private client: LogicMonitorClient) {}
 
@@ -913,7 +925,13 @@ export class LogicMonitorHandlers {
           if (args.description) dashboard.description = args.description;
           if (args.groupId) dashboard.groupId = args.groupId;
           if (args.widgetsConfig) dashboard.widgetsConfig = args.widgetsConfig;
-          if (args.sharable !== undefined) dashboard.sharable = args.sharable;
+          const sharable = args.sharable === undefined ? undefined : isTrue(args.sharable);
+          if (sharable !== undefined) dashboard.sharable = sharable;
+          // LogicMonitor leaves a private dashboard in the root group, whatever groupId says
+          if (inFolder(args.groupId)) {
+            if (sharable === false) throw privateInFolderError();
+            dashboard.sharable = true;
+          }
           if (args.widgetTokens) dashboard.widgetTokens = parseJsonArray(args.widgetTokens);
           return await this.client.createDashboard(dashboard);
         }
@@ -921,6 +939,18 @@ export class LogicMonitorHandlers {
         case 'update_dashboard': {
           const { dashboardId, ...dashboardData } = args;
           if (dashboardData.widgetTokens !== undefined) dashboardData.widgetTokens = parseJsonArray(dashboardData.widgetTokens);
+          if (dashboardData.sharable !== undefined) dashboardData.sharable = isTrue(dashboardData.sharable);
+          if (inFolder(dashboardData.groupId)) {
+            if (dashboardData.sharable === false) throw privateInFolderError();
+            if (dashboardData.sharable === undefined) {
+              const current: any = await this.client.getDashboard(dashboardId);
+              if (current?.sharable !== true) {
+                throw new InvalidArgumentError(
+                  `Dashboard ${dashboardId} is private, and LogicMonitor only puts public dashboards in a folder (it silently ignores the move). Pass sharable:true to make it public and move it in the same call.`
+                );
+              }
+            }
+          }
           return await this.client.updateDashboard(dashboardId, dashboardData);
         }
 

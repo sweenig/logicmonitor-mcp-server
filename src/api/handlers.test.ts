@@ -1811,7 +1811,44 @@ describe('LogicMonitorHandlers', () => {
           description: 'Test dashboard',
           groupId: 2,
           widgetsConfig: [],
+          sharable: true,
         });
+      });
+
+      it('makes a dashboard in a folder public, since a private one cannot be in a folder', async () => {
+        mockClient.createDashboard.mockResolvedValue({ id: 1 });
+        await handlers.handleToolCall('create_dashboard', { name: 'd', groupId: 28 });
+        expect(mockClient.createDashboard).toHaveBeenLastCalledWith({ name: 'd', groupId: 28, sharable: true });
+        await handlers.handleToolCall('create_dashboard', { name: 'd', groupId: 28, sharable: 'true' });
+        expect(mockClient.createDashboard).toHaveBeenLastCalledWith({ name: 'd', groupId: 28, sharable: true });
+      });
+
+      it('rejects a private dashboard in a folder, but allows one in the root group', async () => {
+        await expect(handlers.handleToolCall('create_dashboard', { name: 'd', groupId: 28, sharable: false })).rejects.toThrow(/must be public/);
+        await expect(handlers.handleToolCall('create_dashboard', { name: 'd', groupId: 28, sharable: 'false' })).rejects.toThrow(/must be public/);
+        expect(mockClient.createDashboard).not.toHaveBeenCalled();
+        mockClient.createDashboard.mockResolvedValue({ id: 1 });
+        await handlers.handleToolCall('create_dashboard', { name: 'd', groupId: 1, sharable: false });
+        expect(mockClient.createDashboard).toHaveBeenLastCalledWith({ name: 'd', groupId: 1, sharable: false });
+      });
+    });
+
+    describe('update_dashboard folder', () => {
+      it('moves a public dashboard, or a private one when sharable:true is passed', async () => {
+        mockClient.updateDashboard.mockResolvedValue({ id: 1 });
+        mockClient.getDashboard.mockResolvedValue({ id: 1, sharable: true });
+        await handlers.handleToolCall('update_dashboard', { dashboardId: 1, groupId: 28 });
+        expect(mockClient.updateDashboard).toHaveBeenLastCalledWith(1, { groupId: 28 });
+        await handlers.handleToolCall('update_dashboard', { dashboardId: 1, groupId: 28, sharable: 'true' });
+        expect(mockClient.updateDashboard).toHaveBeenLastCalledWith(1, { groupId: 28, sharable: true });
+      });
+
+      it('explains instead of silently failing when a private dashboard is moved', async () => {
+        mockClient.getDashboard.mockResolvedValue({ id: 1, sharable: false });
+        mockClient.updateDashboard.mockClear();
+        await expect(handlers.handleToolCall('update_dashboard', { dashboardId: 1, groupId: 28 })).rejects.toThrow(/is private.*sharable:true/);
+        await expect(handlers.handleToolCall('update_dashboard', { dashboardId: 1, groupId: 28, sharable: false })).rejects.toThrow(/must be public/);
+        expect(mockClient.updateDashboard).not.toHaveBeenCalled();
       });
     });
 
