@@ -292,8 +292,8 @@ API Operations:
 API Operations:
 - importDataSource             POST   /setting/datasources/importxml
 - importDataSourceJson         POST   /setting/datasources/importjson
-- getDataSourceOverviewGraphList GET  /setting/datasources/{dsId}/ographs
-- getDataSourceOverviewGraphById GET  /setting/datasources/{dsId}/ographs/{id}
+- getDataSourceOverviewGraphList GET  /setting/datasources/{dsId}/ographs (implemented: list_datasource_overview_graphs; also list_datasource_graphs for /graphs, not in swagger)
+- getDataSourceOverviewGraphById GET  /setting/datasources/{dsId}/ographs/{id} (implemented: get_datasource_overview_graph; get_datasource_graph for /graphs/{id})
 - getAssociatedDeviceListByDataSourceId GET /setting/datasources/{id}/devices
 - getUpdateReasonListByDataSourceId GET /setting/datasources/{id}/updatereasons
 ```

@@ -43,6 +43,10 @@ describe('LogicMonitorHandlers', () => {
       getDebugCommandResult: jest.fn(),
       listDataSources: jest.fn(),
       getDataSource: jest.fn(),
+      listDataSourceOverviewGraphs: jest.fn(),
+      getDataSourceOverviewGraph: jest.fn(),
+      listDataSourceGraphs: jest.fn(),
+      getDataSourceGraph: jest.fn(),
       createDataSource: jest.fn(),
       updateDataSource: jest.fn(),
       deleteDataSource: jest.fn(),
@@ -1089,6 +1093,42 @@ describe('LogicMonitorHandlers', () => {
             },
           ],
         });
+      });
+    });
+
+    describe('datasource graphs', () => {
+      it('lists overview graphs of a datasource', async () => {
+        const list = { total: 1, items: [{ id: 3, name: 'g' }] };
+        mockClient.listDataSourceOverviewGraphs.mockResolvedValue(list);
+
+        const result = await handlers.handleToolCall('list_datasource_overview_graphs', { dataSourceId: 7, size: 10 });
+
+        expect(mockClient.listDataSourceOverviewGraphs).toHaveBeenCalledWith(7, { size: 10, offset: undefined, filter: undefined, fields: undefined });
+        expect(result).toEqual(list);
+      });
+
+      it('gets one overview graph', async () => {
+        mockClient.getDataSourceOverviewGraph.mockResolvedValue({ id: 3 });
+
+        await handlers.handleToolCall('get_datasource_overview_graph', { dataSourceId: 7, graphId: 3 });
+
+        expect(mockClient.getDataSourceOverviewGraph).toHaveBeenCalledWith(7, 3, { fields: undefined });
+      });
+
+      it('lists and gets instance graphs', async () => {
+        mockClient.listDataSourceGraphs.mockResolvedValue({ total: 0, items: [] });
+        mockClient.getDataSourceGraph.mockResolvedValue({ id: 4 });
+
+        await handlers.handleToolCall('list_datasource_graphs', { dataSourceId: 7, filter: 'name~"CPU"' });
+        await handlers.handleToolCall('get_datasource_graph', { dataSourceId: 7, graphId: 4, fields: 'id,lines' });
+
+        expect(mockClient.listDataSourceGraphs).toHaveBeenCalledWith(7, { size: undefined, offset: undefined, filter: 'name~"CPU"', fields: undefined });
+        expect(mockClient.getDataSourceGraph).toHaveBeenCalledWith(7, 4, { fields: 'id,lines' });
+      });
+
+      it('requires graphId for the single-graph tools', async () => {
+        await expect(handlers.handleToolCall('get_datasource_graph', { dataSourceId: 7 })).rejects.toThrow(/graphId/);
+        expect(mockClient.getDataSourceGraph).not.toHaveBeenCalled();
       });
     });
 

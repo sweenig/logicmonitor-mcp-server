@@ -565,6 +565,23 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}`, undefined, params);
   }
 
+  // DataSource graphs: overview graphs (ographs) show on the DataSource's overview page, instance graphs on each instance
+  async listDataSourceOverviewGraphs(dataSourceId: number, params?: { size?: number; offset?: number; filter?: string; fields?: string }) {
+    return this.request<LMListResponse<any>>('GET', `/setting/datasources/${dataSourceId}/ographs`, undefined, this.cleanParams(params || {}));
+  }
+
+  async getDataSourceOverviewGraph(dataSourceId: number, graphId: number, params?: { fields?: string }) {
+    return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}/ographs/${graphId}`, undefined, params);
+  }
+
+  async listDataSourceGraphs(dataSourceId: number, params?: { size?: number; offset?: number; filter?: string; fields?: string }) {
+    return this.request<LMListResponse<any>>('GET', `/setting/datasources/${dataSourceId}/graphs`, undefined, this.cleanParams(params || {}));
+  }
+
+  async getDataSourceGraph(dataSourceId: number, graphId: number, params?: { fields?: string }) {
+    return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}/graphs/${graphId}`, undefined, params);
+  }
+
   async createDataSource(dataSource: any) {
     return this.request<LMResponse<any>>('POST', '/setting/datasources', dataSource);
   }

@@ -671,6 +671,22 @@ export class LogicMonitorHandlers {
           };
         }
 
+        case 'list_datasource_overview_graphs':
+          return await this.client.listDataSourceOverviewGraphs(args.dataSourceId, {
+            size: args.size, offset: args.offset, filter: args.filter, fields: args.fields,
+          });
+
+        case 'get_datasource_overview_graph':
+          return await this.client.getDataSourceOverviewGraph(args.dataSourceId, args.graphId, { fields: args.fields });
+
+        case 'list_datasource_graphs':
+          return await this.client.listDataSourceGraphs(args.dataSourceId, {
+            size: args.size, offset: args.offset, filter: args.filter, fields: args.fields,
+          });
+
+        case 'get_datasource_graph':
+          return await this.client.getDataSourceGraph(args.dataSourceId, args.graphId, { fields: args.fields });
+
         case 'create_datasource':
           return await this.client.createDataSource({
             name: args.name,

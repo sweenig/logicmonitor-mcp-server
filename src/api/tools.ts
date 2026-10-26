@@ -1425,6 +1425,96 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'list_datasource_overview_graphs',
+    description: 'List the overview graphs (shown on the DataSource page, aggregating across instances) defined on a LogicMonitor (LM) DataSource. ' +
+      '\n\n**Returns:** `{total, items: [graph]}` - each graph has id, name, title, displayPrio, lines and the other graph settings. ' +
+      '\n\n**When to use:** ' +
+      '\n- See which overview graphs a DataSource already has, or copy the shape of an existing one ' +
+      '\n\n**Related tools:** "get\\_datasource\\_overview\\_graph", "list\\_datasource\\_graphs" (instance graphs), "get\\_datasource" (definition and datapoints; graphs are not part of it).',
+    annotations: {
+      title: 'List DataSource overview graphs',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource whose graphs to list' },
+        size: { type: 'number', description: 'Number of results to return (default 50, max 1000)' },
+        offset: { type: 'number', description: 'Offset for pagination' },
+        filter: { type: 'string', description: 'Filter expression, e.g. name~"CPU"' },
+        fields: { type: 'string', description: 'Comma-separated list of fields to return' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
+    name: 'get_datasource_overview_graph',
+    description: 'Get one overview graph definition of a LogicMonitor (LM) DataSource by ID. ' +
+      '\n\n**Returns:** The graph object: name, title, verticalLabel, rigid, base1024, maxValue/minValue, displayPrio, timeScale, dataPoints (each with dataPointName, aggregateMethod: average|min|max|sum, consolidateFunc: 1=avg 2=max 3=min), virtualDataPoints and lines (each with dataPointName, legend, colorName, type: 1=line 2=area 3=stack 4=column). ' +
+      '\n\n**Workflow:** Use "list\\_datasource\\_overview\\_graphs" to find graphId. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_overview\\_graphs", "get\\_datasource\\_graph" (instance graph), "get\\_datasource" (definition and datapoints).',
+    annotations: {
+      title: 'Get DataSource overview graph',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+        fields: { type: 'string', description: 'Comma-separated list of fields to return' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
+    name: 'list_datasource_graphs',
+    description: 'List the instance graphs (shown for each instance) defined on a LogicMonitor (LM) DataSource. ' +
+      '\n\n**Returns:** `{total, items: [graph]}` - each graph has id, name, title, displayPrio, lines and the other graph settings. ' +
+      '\n\n**When to use:** ' +
+      '\n- See which instance graphs a DataSource already has, or copy the shape of an existing one ' +
+      '\n\n**Related tools:** "get\\_datasource\\_graph", "list\\_datasource\\_overview\\_graphs" (overview graphs), "get\\_datasource" (definition and datapoints; graphs are not part of it).',
+    annotations: {
+      title: 'List DataSource instance graphs',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource whose graphs to list' },
+        size: { type: 'number', description: 'Number of results to return (default 50, max 1000)' },
+        offset: { type: 'number', description: 'Offset for pagination' },
+        filter: { type: 'string', description: 'Filter expression, e.g. name~"CPU"' },
+        fields: { type: 'string', description: 'Comma-separated list of fields to return' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
+    name: 'get_datasource_graph',
+    description: 'Get one instance graph definition of a LogicMonitor (LM) DataSource by ID. ' +
+      '\n\n**Returns:** The graph object: name, title, verticalLabel, rigid, base1024, maxValue/minValue, displayPrio and lines (each with dataPointName, legend, colorName, type: 1=line 2=area 3=stack 4=column). ' +
+      '\n\n**Workflow:** Use "list\\_datasource\\_graphs" to find graphId. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_graphs", "get\\_datasource\\_overview\\_graph" (overview graph), "get\\_datasource" (definition and datapoints).',
+    annotations: {
+      title: 'Get DataSource instance graph',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+        fields: { type: 'string', description: 'Comma-separated list of fields to return' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
     name: 'create_datasource',
     description: 'Create a new DataSource LogicModule in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** The created DataSource object, including its new "id". ' +

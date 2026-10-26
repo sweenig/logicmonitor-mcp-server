@@ -65,6 +65,30 @@ describe('LogicMonitor Client Utils', () => {
     });
   });
 
+  describe('datasource graph paths', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => { global.fetch = originalFetch; });
+
+    it('requests ographs and graphs under the datasource', async () => {
+      const fetchMock = jest.fn(async () => new Response(JSON.stringify({ data: { total: 0, items: [] } }), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+
+      await client.listDataSourceOverviewGraphs(5);
+      await client.getDataSourceOverviewGraph(5, 6);
+      await client.listDataSourceGraphs(5);
+      await client.getDataSourceGraph(5, 7);
+
+      const urls = (fetchMock.mock.calls as unknown as [string][]).map(c => new URL(String(c[0])).pathname);
+      expect(urls).toEqual([
+        '/santaba/rest/setting/datasources/5/ographs',
+        '/santaba/rest/setting/datasources/5/ographs/6',
+        '/santaba/rest/setting/datasources/5/graphs',
+        '/santaba/rest/setting/datasources/5/graphs/7',
+      ]);
+    });
+  });
+
   describe('rate limit retry', () => {
     const originalFetch = global.fetch;
 

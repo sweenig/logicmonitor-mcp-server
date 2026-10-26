@@ -480,6 +480,19 @@ describe('getLogicMonitorTools', () => {
         expect(getData?.annotations?.readOnlyHint).toBe(true);
       });
 
+      it('should expose the DataSource graph read tools as read-only', () => {
+        const names = ['list_datasource_overview_graphs', 'get_datasource_overview_graph', 'list_datasource_graphs', 'get_datasource_graph'];
+        const all = getLogicMonitorTools(false);
+        const readOnly = getLogicMonitorTools(true).map(t => t.name);
+
+        for (const name of names) {
+          const tool = all.find(t => t.name === name);
+          expect(tool?.annotations?.readOnlyHint).toBe(true);
+          expect(tool?.inputSchema.required).toContain('dataSourceId');
+          expect(readOnly).toContain(name);
+        }
+      });
+
       it('should include datasource management tools with correct read-only classification', () => {
         const tools = getLogicMonitorTools(false);
 
