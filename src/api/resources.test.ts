@@ -146,3 +146,16 @@ describe('netscan knowledge resource', () => {
     }
   });
 });
+
+describe('script datasource knowledge resource', () => {
+  it('is listed and covers the build recipe', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/script-datasource');
+    expect(resource).toBeDefined();
+
+    const content = await readLMResource('lm://knowledge/script-datasource');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['namevalue', '##WILDVALUE##', 'wildvalue##wildalias##description####', 'embeded', 'warning', 'verticalLabel', 'test_datasource', '__NUXT__']) {
+      expect(text).toContain(term);
+    }
+  });
+});

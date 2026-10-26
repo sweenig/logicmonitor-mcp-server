@@ -1232,7 +1232,10 @@ describe('LogicMonitorHandlers', () => {
           name: 'MyDS',
           collectMethod: 'script',
           collectInterval: 300,
-          collectorAttribute: { name: 'script', groovyScript: 'return 0' },
+          collectorAttribute: {
+            name: 'script', groovyScript: 'return 0',
+            linuxCmdline: '', linuxScript: '', windowsCmdline: '', windowsScript: '',
+          },
         }));
         expect(result).toEqual(mockCreated);
       });
@@ -1328,6 +1331,113 @@ describe('LogicMonitorHandlers', () => {
         mockClient.getDataSource.mockRejectedValue(new Error('boom'));
         await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [{ id: 1, name: 'a' }] });
         expect(mockClient.updateDataSource).toHaveBeenLastCalledWith(5, { dataPoints: [{ id: 1, name: 'a' }] });
+      });
+    });
+
+    describe('create/update_datasource defaults', () => {
+      it('fills in the script discriminator and discovery defaults on create', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', {
+          name: 'B', displayName: 'B', collectMethod: 'batchscript', collectInterval: 300,
+          collectorAttribute: { scriptType: 'embed', groovyScript: 'println 1' },
+          enableAutoDiscovery: true,
+          autoDiscoveryConfig: { instanceAutoGroupMethodParams: null, method: { groovyScript: 'println 2' } },
+        });
+        const body = mockClient.createDataSource.mock.calls[0][0];
+        expect(body.collectorAttribute).toMatchObject({ name: 'batchscript', linuxScript: '', windowsCmdline: '' });
+        expect(body.autoDiscoveryConfig).toEqual({
+          instanceAutoGroupMethodParams: '',
+          method: { groovyScript: 'println 2', name: 'ad_script', type: 'embeded' },
+          filters: [],
+        });
+      });
+
+      it('rejects a malformed autoDiscoveryConfig before calling LogicMonitor', async () => {
+        await expect(handlers.handleToolCall('create_datasource', {
+          name: 'B', displayName: 'B', collectMethod: 'script', collectInterval: 300,
+          collectorAttribute: { groovyScript: 'x' }, autoDiscoveryConfig: { instanceAutoGroupMethodParams: 3 },
+        })).rejects.toThrow(/must be a string/);
+        expect(mockClient.createDataSource).not.toHaveBeenCalled();
+      });
+
+      it('does not blank scripts on update, and warns about datapoints sent without an id', async () => {
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+        const result: any = await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, collectMethod: 'script', collectorAttribute: { groovyScript: 'y' }, dataPoints: [{ name: 'new' }],
+        });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, expect.objectContaining({
+          collectorAttribute: { groovyScript: 'y', name: 'script' },
+        }));
+        expect(result.warning).toContain('1 datapoint');
+      });
+    });
+
+    describe('get_datasource datapointsOnly', () => {
+      it('returns only the trimmed datapoints', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          id: 2, name: 'DS', dataPoints: [{ id: 5, name: 'dp', alertBody: 'long', postProcessorMethod: 'namevalue', postProcessorParam: 'x' }],
+        });
+        const result = await handlers.handleToolCall('get_datasource', { dataSourceId: 2, datapointsOnly: true });
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(2, { fields: 'id,name,dataPoints' });
+        expect(result).toEqual({ id: 2, name: 'DS', dataPoints: [{ id: 5, name: 'dp', postProcessorMethod: 'namevalue', postProcessorParam: 'x' }] });
+      });
+    });
+
+    describe('test_datasource', () => {
+      const batchDs = {
+        collectMethod: 'batchscript', hasMultiInstances: true, enableAutoDiscovery: true,
+        collectorAttribute: { groovyScript: 'collect' },
+        autoDiscoveryConfig: { method: { groovyScript: 'discover' } },
+        dataPoints: [{ name: 'load', postProcessorMethod: 'namevalue', postProcessorParam: '##WILDVALUE##.load' }],
+      };
+
+      beforeEach(() => {
+        mockClient.getDevice.mockResolvedValue({ id: 9, preferredCollectorId: 3 } as any);
+        mockClient.getCollector.mockResolvedValue({ id: 3, description: 'c', isDown: false } as any);
+        mockClient.executeDebugCommand.mockImplementation(async (cmd: string) =>
+          ({ output: cmd.includes('discover') ? 'returns 0\na##A##d####\nb##B##d####\n' : 'returns 0\na.load=1\nb.load=2\n' }) as any);
+      });
+
+      it('runs discovery and collection on the preferred collector and shows values per instance', async () => {
+        mockClient.getDataSource.mockResolvedValue(batchDs);
+        const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+        expect(mockClient.executeDebugCommand).toHaveBeenCalledWith(expect.stringMatching(/^!groovy hostId=9 \n/), 3);
+        expect(result.results).toEqual([
+          { instance: 'a', datapoints: [{ name: 'load', value: 1 }] },
+          { instance: 'b', datapoints: [{ name: 'load', value: 2 }] },
+        ]);
+      });
+
+      it('evaluates a single-instance script', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          collectMethod: 'script', collectorAttribute: { groovyScript: 'collect' },
+          dataPoints: [{ name: 'm', postProcessorMethod: 'namevalue', postProcessorParam: 'm' }],
+        });
+        mockClient.executeDebugCommand.mockResolvedValue({ output: 'm=5' } as any);
+        const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9, collectorId: 4 });
+        expect(mockClient.getCollector).toHaveBeenCalledWith(4, expect.anything());
+        expect(result.results).toEqual([{ datapoints: [{ name: 'm', value: 5 }] }]);
+      });
+
+      it('refuses a collector that is down and a resource without one', async () => {
+        mockClient.getCollector.mockResolvedValue({ id: 3, isDown: true } as any);
+        await expect(handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 })).rejects.toThrow(/is down/);
+        mockClient.getDevice.mockResolvedValue({ id: 9 } as any);
+        await expect(handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 })).rejects.toThrow(/pass collectorId/);
+        expect(mockClient.executeDebugCommand).not.toHaveBeenCalled();
+      });
+
+      it('rejects DataSources it cannot run', async () => {
+        mockClient.getDataSource.mockResolvedValue({ collectMethod: 'snmp', collectorAttribute: {} });
+        await expect(handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 })).rejects.toThrow(/script or batchscript/);
+      });
+    });
+
+    describe('missing required argument errors', () => {
+      it('name the unrecognized arguments and the accepted parameters', async () => {
+        await expect(handlers.handleToolCall('get_datasource', { id: 5 })).rejects.toThrow(/unrecognized argument received: id/);
+        await expect(handlers.handleToolCall('update_resource_property', { resourceId: 1, propertyName: 'a', value: 'b' }))
+          .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: resourceId\)/);
       });
     });
 

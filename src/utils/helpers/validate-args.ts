@@ -24,3 +24,17 @@ export function findMissingRequired(tool: ToolSchemaLike | undefined, args: unkn
       || (typeof value === 'string' && value.trim() === '');
   });
 }
+
+/** Argument names the tool's inputSchema does not declare (for example "id" where "dataSourceId" is expected). */
+export function findUnknownArguments(tool: { inputSchema?: { properties?: Record<string, unknown> } } | undefined, args: unknown): string[] {
+  const properties = tool?.inputSchema?.properties;
+  if (!properties) return [];
+  return Object.keys((args ?? {}) as Record<string, unknown>).filter(key => !(key in properties));
+}
+
+/** Names of all parameters the tool declares, required ones first. */
+export function acceptedParameterNames(tool: ToolSchemaLike & { inputSchema?: { properties?: Record<string, unknown> } } | undefined): string[] {
+  const names = Object.keys(tool?.inputSchema?.properties ?? {});
+  const required = new Set(tool?.inputSchema?.required ?? []);
+  return [...names.filter(n => required.has(n)), ...names.filter(n => !required.has(n))];
+}

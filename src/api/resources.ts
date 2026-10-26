@@ -72,6 +72,13 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/script-datasource',
+    name: 'Building a script DataSource (single-instance and batchscript with Active Discovery)',
+    description: 'How to build a script-based DataSource with "create_datasource": output formats for the collection and Active Discovery scripts, datapoint post-processors, appliesTo, alert thresholds, graphs, scaling small values, updating without breaking graphs, testing with "test_datasource", and what to do when asked to scrape a web page. ' +
+      'Read this before creating or substantially changing a script or batchscript DataSource.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/websites',
     name: 'Websites (synthetic checks): web vs ping, internal vs external, groups',
     description: 'How LogicMonitor website monitors work: the two types (webcheck = HTTP/HTTPS, pingcheck = ICMP) and the two locations ' +
@@ -96,6 +103,7 @@ export const LM_RESOURCES: LMResource[] = [
 const FILE_RESOURCES: Record<string, string> = {
   'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
   'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
+  'lm://knowledge/script-datasource': 'knowledge/script-datasource.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',
 };

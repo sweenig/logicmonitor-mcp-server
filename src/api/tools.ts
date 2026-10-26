@@ -1288,6 +1288,31 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'test_datasource',
+    description: 'Run a SAVED script-based DataSource against a resource, the way the collector would, and show the resulting values per instance. Runs the DataSource\'s Active Discovery script (if it has one) and its collection script on a collector with the resource\'s properties bound (hostId), then applies each datapoint\'s post-processor to the output. ' +
+      '\n\n**Why:** "execute\\_groovy\\_script" with hostId tests a script you paste in; this tests the DataSource as saved, so the build/test/fix loop ("update\\_datasource", then this tool) needs no hand-copied scripts. ' +
+      '\n\n**Collector:** uses collectorId if given, else the resource\'s preferredCollectorId; fails clearly if that collector is down. ' +
+      '\n\n**Returns:** { collectorId, discovery: {output, instances}, collection: {output}, results: [{instance, datapoints: [{name, value | note}]}] }. A datapoint with a note had no matching output line, or uses a post-processor that is not simulated (only namevalue and "none" are). If a stage is still running the result has pending: true and a sessionId for "get\\_debug\\_command\\_result". ' +
+      '\n\n**Supports:** collectMethod "script" (single instance) and "batchscript" with an embedded Groovy script. Other methods are rejected with an explanation. ' +
+      '\n\n**⚠️ Safety warning:** runs the DataSource\'s script on the collector with its privileges (same as "execute\\_groovy\\_script"). Nothing is saved to LogicMonitor. ' +
+      '\n\n**Related tools:** "get\\_datasource\\_scripts", "update\\_datasource", "execute\\_groovy\\_script". Building a DataSource: MCP resource "lm://knowledge/script-datasource".',
+    annotations: {
+      title: 'Test a saved script DataSource against a resource',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the saved DataSource to test' },
+        deviceId: { type: 'number', description: 'The ID of the resource/device whose properties the scripts run with (from "list_resources")' },
+        collectorId: { type: 'number', description: 'Collector to run on. Defaults to the resource\'s preferredCollectorId.' },
+        waitSeconds: debugRunSchema.waitSeconds,
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'deviceId'],
+    },
+  },
+  {
     name: 'execute_powershell_script',
     description: 'Execute a PowerShell script on a LogicMonitor (LM) collector - a typed wrapper around "execute\\_debug\\_command"\'s "!posh" command that builds the cmdline string for you. Windows collectors only - fails with "!posh is not supported on linux" on Linux/Unix collectors. ' +
       '\n\n**⚠️ Safety warning:** Same as "execute\\_debug\\_command" - this runs arbitrary code on the collector host with the collector process\'s privileges. ' +
@@ -1363,6 +1388,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     name: 'get_datasource',
     description: 'Get detailed information about a specific datasource by its ID in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** A compact view by default: name, displayName, description, appliesTo logic, collection method, intervals, discovery settings, and each datapoint with its post-processor and alert threshold. Script bodies are replaced by a size marker, and alert message templates, per-datapoint housekeeping fields and access-group details are left out, because the full definition of a typical datasource is tens of thousands of characters. ' +
+      '\n\n**Datapoints only:** pass datapointsOnly:true for just {id, name, dataPoints} with each datapoint trimmed (id, name, type, post-processor and its parameter, alert threshold), a fraction of the full view when you only need the datapoint list. ' +
       '\n\n**Getting more:** Use "get\\_datasource\\_scripts" for the embedded scripts. Pass the "fields" parameter to receive exactly those fields as the API returns them (fields="*" returns the complete raw definition, which can be very large). ' +
       '\n\n**When to use:** ' +
       '\n- Understand what datasource monitors' +
@@ -1392,6 +1418,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         dataSourceId: {
           type: 'number',
           description: 'The ID of the datasource to retrieve',
+        },
+        datapointsOnly: {
+          type: 'boolean',
+          description: 'Return only id, name and the trimmed datapoint list (ignored when "fields" is given).',
         },
         ...fieldsSchema,
       },
@@ -1534,7 +1564,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         name: { type: 'string', description: 'Graph name' },
         title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
         verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%" (required when creating: LogicMonitor rejects a graph without one)' },
-        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data. A bound of "NaN" means automatic; whether rigid:true with minValue:0 and maxValue:"NaN" pins only the minimum while the maximum stays automatic has not been verified against LogicMonitor, so check the rendered graph.' },
         base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
         maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
         minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
@@ -1542,7 +1572,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
         lines: {
           type: 'array',
-          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line; sent to LogicMonitor as 1=line, 2=area, 3=stack, 4=column, and 1-4 are accepted too); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines (on update the lines are recreated, so their line ids change).',
         },
         virtualDataPoints: {
           type: 'array',
@@ -1577,7 +1607,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         name: { type: 'string', description: 'Graph name' },
         title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
         verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%" (required when creating: LogicMonitor rejects a graph without one)' },
-        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data. A bound of "NaN" means automatic; whether rigid:true with minValue:0 and maxValue:"NaN" pins only the minimum while the maximum stays automatic has not been verified against LogicMonitor, so check the rendered graph.' },
         base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
         maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
         minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
@@ -1585,7 +1615,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
         lines: {
           type: 'array',
-          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line; sent to LogicMonitor as 1=line, 2=area, 3=stack, 4=column, and 1-4 are accepted too); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines (on update the lines are recreated, so their line ids change).',
         },
         virtualDataPoints: {
           type: 'array',
@@ -1639,7 +1669,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         name: { type: 'string', description: 'Graph name' },
         title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
         verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%" (required when creating: LogicMonitor rejects a graph without one)' },
-        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data. A bound of "NaN" means automatic; whether rigid:true with minValue:0 and maxValue:"NaN" pins only the minimum while the maximum stays automatic has not been verified against LogicMonitor, so check the rendered graph.' },
         base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
         maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
         minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
@@ -1647,7 +1677,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
         lines: {
           type: 'array',
-          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line; sent to LogicMonitor as 1=line, 2=area, 3=stack, 4=column, and 1-4 are accepted too); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines (on update the lines are recreated, so their line ids change).',
         },
         virtualDataPoints: {
           type: 'array',
@@ -1681,7 +1711,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         name: { type: 'string', description: 'Graph name' },
         title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
         verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%" (required when creating: LogicMonitor rejects a graph without one)' },
-        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data. A bound of "NaN" means automatic; whether rigid:true with minValue:0 and maxValue:"NaN" pins only the minimum while the maximum stays automatic has not been verified against LogicMonitor, so check the rendered graph.' },
         base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
         maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
         minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
@@ -1689,7 +1719,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
         lines: {
           type: 'array',
-          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line; sent to LogicMonitor as 1=line, 2=area, 3=stack, 4=column, and 1-4 are accepted too); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines (on update the lines are recreated, so their line ids change).',
         },
         virtualDataPoints: {
           type: 'array',
@@ -1729,7 +1759,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Returns:** The created DataSource object, including its new "id". ' +
       '\n\n**When to use:** ' +
       '\n- Define a new monitoring template programmatically (e.g. generated from a discovered API, or migrated from another system) ' +
-      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based DataSource sets collectMethod:"script" and collectorAttribute.groovyScript/windowsScript/linuxScript; an SNMP one sets collectMethod:"snmp" and different fields). This tool passes them through as-is; consult an existing similar DataSource (via "get\\_datasource") for the exact shape to replicate. ' +
+      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based DataSource sets collectMethod:"script" and collectorAttribute.groovyScript/windowsScript/linuxScript; an SNMP one sets collectMethod:"snmp" and different fields). For script/batchscript DataSources the tool fills in what LogicMonitor requires: collectorAttribute.name defaults to collectMethod and the unused linuxCmdline/linuxScript/windowsCmdline/windowsScript default to ""; in autoDiscoveryConfig, instanceAutoGroupMethodParams null/missing becomes "", a method that only has groovyScript gets name "ad_script" and type "embeded" (LogicMonitor\'s spelling), and filters defaults to []. Anything else is passed through as given. ' +
+      '\n\n**Minimal examples (no need to dump an existing DataSource):** ' +
+      '\n- Single instance: collectMethod:"script", collectorAttribute:{scriptType:"embed", groovyScript:"println \'metric=42\'"}, dataPoints:[{name:"metric", type:2, dataType:7, postProcessorMethod:"namevalue", postProcessorParam:"metric", rawDataFieldName:"output", alertExpr:"> 90 95 98"}]. ' +
+      '\n- Multi instance: collectMethod:"batchscript", enableAutoDiscovery:true, collectorAttribute as above printing "<wildvalue>.<metric>=<value>" lines, autoDiscoveryConfig:{method:{groovyScript:"println \'id1##name1##desc####\'"}}, datapoints with postProcessorParam:"##WILDVALUE##.metric". ' +
+      '\n- Full recipe (discovery output format, appliesTo, thresholds, scaling, testing): read MCP resource "lm://knowledge/script-datasource". ' +
       '\n\n**Multi-instance:** "hasMultiInstances" can only be set at creation time and cannot be changed later (not even via "update\\_datasource"). It defaults to true when "enableAutoDiscovery" is true (a discovery-enabled DataSource without multi-instance is not useful); pass hasMultiInstances:false to override. ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Related tools:** "get\\_datasource" (see the shape of an existing DataSource to model a new one on), "update\\_datasource", "delete\\_datasource", "get\\_datasource\\_scripts" (extract scripts from an existing one to reuse).',
@@ -1816,7 +1850,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
-      '\n\n**Graphs:** Datapoints you send without their "id" are recreated, and graphs that used them silently lose them (see "list\\_datasource\\_graphs" / "list\\_datasource\\_overview\\_graphs"). Keep each existing datapoint\'s id when editing the list. ' +
+      '\n\n**Graphs:** Datapoints you send without their "id" are recreated, and graphs that used them silently lose them (see "list\\_datasource\\_graphs" / "list\\_datasource\\_overview\\_graphs"). Keep each existing datapoint\'s id when editing the list; the response carries a "warning" when any datapoint was sent without one. ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
@@ -1846,7 +1880,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         dataPoints: {
           type: 'array',
-          description: 'Array of datapoint definitions. See "get_datasource" for the current shape before modifying.',
+          description: 'Array of datapoint definitions. See "get_datasource" (datapointsOnly:true) for the current shape before modifying. Include each existing datapoint\'s "id", or it is recreated and graphs silently lose it.',
         },
         enableAutoDiscovery: { type: 'boolean', description: 'Whether this DataSource uses Active Discovery' },
         autoDiscoveryConfig: {

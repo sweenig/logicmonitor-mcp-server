@@ -14,11 +14,13 @@ import { alertRuleMatch, opsNoteScopes, opsNoteTags } from '../utils/helpers/wri
 import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/helpers/filters.js';
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
-import { curateDataSource } from '../utils/helpers/datasource-view.js';
+import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig } from '../utils/helpers/datasource-payload.js';
+import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
-import { findMissingRequired } from '../utils/helpers/validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
@@ -232,6 +234,77 @@ export class LogicMonitorHandlers {
     return (dataSource?.dataPoints ?? []).map((dp: any) => ({ id: dp.id, name: dp.name }));
   }
 
+  /**
+   * Run a saved script DataSource against a resource: its Active Discovery script (if any) and its
+   * collection script, on a usable collector with the resource's properties bound, then apply each
+   * datapoint's post-processor to the output to show the values per instance.
+   */
+  private async testDataSource(args: any): Promise<any> {
+    const device: any = await this.client.getDevice(args.deviceId, { fields: 'id,displayName,preferredCollectorId' });
+    const collectorId = args.collectorId ?? device?.preferredCollectorId;
+    if (!collectorId) {
+      throw new InvalidArgumentError('The resource has no preferred collector; pass collectorId');
+    }
+    const collector: any = await this.client.getCollector(collectorId, { fields: 'id,description,isDown' });
+    if (collector?.isDown === true) {
+      throw new MCPError(
+        `Collector ${collectorId} is down`,
+        ErrorCodes.INVALID_PARAMETERS,
+        { collectorId },
+        ['Pass collectorId of a collector that is up (see list_collectors)'],
+      );
+    }
+
+    const ds: any = await this.client.getDataSource(args.dataSourceId);
+    const attr = ds?.collectorAttribute ?? {};
+    const batch = ds?.collectMethod === 'batchscript';
+    if ((ds?.collectMethod !== 'script' && !batch) || typeof attr.groovyScript !== 'string' || attr.groovyScript === '') {
+      throw new InvalidArgumentError('test_datasource supports DataSources whose collectMethod is script or batchscript with an embedded Groovy script');
+    }
+    if (ds.hasMultiInstances && !batch) {
+      throw new InvalidArgumentError('test_datasource does not support multi-instance DataSources that use collectMethod "script" (run per instance); use execute_groovy_script with hostId');
+    }
+
+    const run = async (script: string) => {
+      const cmdline = `!groovy hostId=${args.deviceId} \n${script}`;
+      return await runDebugCommand(this.client, cmdline, collectorId, { waitSeconds: args.waitSeconds });
+    };
+
+    const result: Record<string, any> = {
+      dataSourceId: args.dataSourceId,
+      deviceId: args.deviceId,
+      collectorId,
+      collectorUsed: collector?.description,
+    };
+
+    let instances: Array<{ wildvalue: string; wildalias?: string; description?: string; properties?: Record<string, string> }> = [];
+    const adScript = ds.autoDiscoveryConfig?.method?.groovyScript;
+    if (ds.enableAutoDiscovery && typeof adScript === 'string' && adScript !== '') {
+      const ad = await run(adScript);
+      if (ad.pending) return { ...result, stage: 'discovery', ...ad };
+      instances = parseDiscoveryOutput(String(ad.output ?? ''));
+      result.discovery = { output: stripReturnHeader(String(ad.output ?? '')), instances };
+    }
+
+    const collection = await run(attr.groovyScript);
+    if (collection.pending) return { ...result, stage: 'collection', ...collection };
+    const output = String(collection.output ?? '');
+    result.collection = { output: stripReturnHeader(output) };
+
+    if (batch) {
+      result.results = instances.map(instance => ({
+        instance: instance.wildvalue,
+        datapoints: evaluateDatapoints(ds.dataPoints, output, instance.wildvalue),
+      }));
+      if (instances.length === 0) {
+        result.note = 'No instances were discovered, so no datapoints were evaluated; see discovery.output and collection.output.';
+      }
+    } else {
+      result.results = [{ datapoints: evaluateDatapoints(ds.dataPoints, output) }];
+    }
+    return result;
+  }
+
   private async runToolCall(
     name: string,
     args: any,
@@ -240,18 +313,18 @@ export class LogicMonitorHandlers {
     try {
       // Reject calls missing required arguments before any request is built, since
       // request paths interpolate IDs (a missing one would hit /.../undefined).
-      const missing = findMissingRequired(
-        toolsByName().get(name),
-        args,
-      );
+      const tool = toolsByName().get(name);
+      const missing = findMissingRequired(tool, args);
       if (missing.length) {
+        const unknown = findUnknownArguments(tool, args);
         throw new MCPError(
-          `Missing required argument${missing.length > 1 ? 's' : ''} for ${name}: ${missing.join(', ')}`,
+          `Missing required argument${missing.length > 1 ? 's' : ''} for ${name}: ${missing.join(', ')}`
+            + (unknown.length ? ` (unrecognized argument${unknown.length > 1 ? 's' : ''} received: ${unknown.join(', ')})` : ''),
           ErrorCodes.MISSING_REQUIRED_FIELD,
-          { toolName: name, missing },
+          { toolName: name, missing, unrecognized: unknown },
           [
             `Provide: ${missing.join(', ')}`,
-            `Check the inputSchema for ${name} for the full parameter list`,
+            `Accepted parameters for ${name}: ${acceptedParameterNames(tool).join(', ')}`,
           ],
         );
       }
@@ -663,12 +736,19 @@ export class LogicMonitorHandlers {
 
         case 'get_datasource': {
           const dataSource = await this.client.getDataSource(args.dataSourceId, {
-            fields: args.fields,
+            fields: args.fields ?? (isTrue(args.datapointsOnly) ? 'id,name,dataPoints' : undefined),
           });
           // An explicit fields selection is returned as asked; the full definition (every script,
           // alert template and access group) is too large to be a useful default.
-          return args.fields ? dataSource : curateDataSource(dataSource);
+          if (args.fields) return dataSource;
+          if (isTrue(args.datapointsOnly)) {
+            return { id: dataSource?.id, name: dataSource?.name, dataPoints: (dataSource?.dataPoints ?? []).map(compactDataPoint) };
+          }
+          return curateDataSource(dataSource);
         }
+
+        case 'test_datasource':
+          return await this.testDataSource(args);
 
         case 'get_datasource_scripts': {
           const dataSource = await this.client.getDataSource(args.dataSourceId);
@@ -737,20 +817,32 @@ export class LogicMonitorHandlers {
             tags: args.tags,
             collectMethod: args.collectMethod,
             collectInterval: args.collectInterval,
-            collectorAttribute: args.collectorAttribute,
+            collectorAttribute: normalizeCollectorAttribute(args.collectorAttribute, args.collectMethod, true),
             dataPoints: args.dataPoints,
             // hasMultiInstances is create-only in LM; default to true when Active Discovery is on
             hasMultiInstances: args.hasMultiInstances ?? (args.enableAutoDiscovery ? true : undefined),
             enableAutoDiscovery: args.enableAutoDiscovery,
-            autoDiscoveryConfig: args.autoDiscoveryConfig,
+            autoDiscoveryConfig: normalizeAutoDiscoveryConfig(args.autoDiscoveryConfig, true),
             enableEriDiscovery: args.enableEriDiscovery,
             eriDiscoveryConfig: args.eriDiscoveryConfig,
           });
 
         case 'update_datasource': {
           const { dataSourceId, ...updates } = args;
+          if (updates.collectorAttribute !== undefined) {
+            updates.collectorAttribute = normalizeCollectorAttribute(updates.collectorAttribute, updates.collectMethod, false);
+          }
+          if (updates.autoDiscoveryConfig !== undefined) {
+            updates.autoDiscoveryConfig = normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false);
+          }
           await this.keepDatapointOriginIds(dataSourceId, updates);
-          return await this.client.updateDataSource(dataSourceId, updates);
+          const updated = await this.client.updateDataSource(dataSourceId, updates);
+          const withoutId = Array.isArray(updates.dataPoints)
+            ? updates.dataPoints.filter((dp: any) => dp && typeof dp === 'object' && dp.id === undefined).length
+            : 0;
+          return withoutId > 0 && updated && typeof updated === 'object'
+            ? { ...updated, warning: `${withoutId} datapoint(s) were sent without an "id" and were recreated; graphs that used them lost them. Re-save the lines of each graph (update_datasource_graph / update_datasource_overview_graph), and pass each datapoint's id on future updates.` }
+            : updated;
         }
 
         case 'delete_datasource':

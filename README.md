@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 156 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 157 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
@@ -634,6 +634,7 @@ The server provides 156 tools for comprehensive LogicMonitor operations. Tools a
 - `get_debug_command_result` - Fetch the output of a debug command that was still running (`pending: true`)
 - `execute_groovy_script` - Typed wrapper to run a Groovy script (path or inline body) on a collector
 - `execute_powershell_script` - Typed wrapper to run a PowerShell script on a Windows collector
+- `test_datasource` - Run a saved script/batchscript DataSource (discovery + collection) against a resource and show the datapoint values per instance
 
 ### Website Monitoring
 

@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `test_datasource` tool - runs a saved script/batchscript DataSource's Active Discovery and collection scripts against a resource (on its preferred collector, refusing one that is down) and shows each datapoint's value per instance for the namevalue/none post-processors
+- `lm://knowledge/script-datasource` resource - how to build script and batchscript DataSources (output formats, appliesTo, thresholds, scaling, graphs, testing, web-page scraping)
+- `get_datasource` `datapointsOnly` option returning just the trimmed datapoint list
+- `create_datasource` defaults `collectorAttribute.name` from `collectMethod`, the unused script fields to `""`, and for `autoDiscoveryConfig` an empty-string `instanceAutoGroupMethodParams` (null previously caused a 500), `method.name:"ad_script"`, `method.type:"embeded"` and `filters:[]`; `update_datasource` applies the name and null fixes only. `update_datasource` returns a `warning` when datapoints are sent without an `id`
+- Missing-required-argument errors now list the unrecognized arguments received and all accepted parameter names
 - `delete_resource_property` and `delete_resource_group_property` tools - delete a single custom property from a resource/device or resource group (`DELETE .../properties/{name}`) without replacing the whole property list
 - `update_uptime_check` tool - partially update an LM Uptime web/ping check (host/domain, locations, interval, alert settings, HTTP steps) with the same default-settings rules as create
 - `create_uptime_check` supports `checkType: "ping"` and internal checks

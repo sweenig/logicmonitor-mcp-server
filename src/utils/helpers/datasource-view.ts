@@ -48,7 +48,7 @@ function stripScripts(value: any, state: { replaced: boolean }): any {
   return value;
 }
 
-function compactDataPoint(dataPoint: any): any {
+export function compactDataPoint(dataPoint: any): any {
   const compact: Record<string, any> = {};
   for (const field of DATAPOINT_SCALAR_FIELDS) {
     if (dataPoint?.[field] !== undefined && dataPoint[field] !== '') {

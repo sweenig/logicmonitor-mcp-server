@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { findMissingRequired } from './validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames } from './validate-args.js';
 
 describe('findMissingRequired', () => {
   const tool = { name: 't', inputSchema: { required: ['id', 'name'] } };
@@ -18,5 +18,18 @@ describe('findMissingRequired', () => {
 
   it('accepts 0 and false as provided', () => {
     expect(findMissingRequired(tool, { id: 0, name: 'x' })).toEqual([]);
+  });
+});
+
+describe('findUnknownArguments / acceptedParameterNames', () => {
+  const tool = { name: 't', inputSchema: { required: ['dataSourceId'], properties: { fields: {}, dataSourceId: {} } } };
+
+  it('lists arguments the schema does not declare', () => {
+    expect(findUnknownArguments(tool, { id: 1, fields: 'x' })).toEqual(['id']);
+    expect(findUnknownArguments(undefined, { id: 1 })).toEqual([]);
+  });
+
+  it('lists accepted names, required first', () => {
+    expect(acceptedParameterNames(tool)).toEqual(['dataSourceId', 'fields']);
   });
 });
