@@ -821,6 +821,7 @@ export class LogicMonitorHandlers {
             dataPoints: args.dataPoints,
             // hasMultiInstances is create-only in LM; default to true when Active Discovery is on
             hasMultiInstances: args.hasMultiInstances ?? (args.enableAutoDiscovery ? true : undefined),
+            useWildValueAsUUID: args.useWildValueAsUUID === undefined ? undefined : isTrue(args.useWildValueAsUUID),
             enableAutoDiscovery: args.enableAutoDiscovery,
             autoDiscoveryConfig: normalizeAutoDiscoveryConfig(args.autoDiscoveryConfig, true),
             enableEriDiscovery: args.enableEriDiscovery,
@@ -829,6 +830,7 @@ export class LogicMonitorHandlers {
 
         case 'update_datasource': {
           const { dataSourceId, ...updates } = args;
+          if (updates.useWildValueAsUUID !== undefined) updates.useWildValueAsUUID = isTrue(updates.useWildValueAsUUID);
           if (updates.collectorAttribute !== undefined) {
             updates.collectorAttribute = normalizeCollectorAttribute(updates.collectorAttribute, updates.collectMethod, false);
           }

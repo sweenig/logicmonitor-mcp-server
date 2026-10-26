@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `create_datasource` / `update_datasource` accept `useWildValueAsUUID` ("use wildvalue as unique identifier"); the client sends the `forceUniqueIdentifier=true` query parameter LogicMonitor requires, using a PUT of the current definition when turning it on for an existing DataSource (LogicMonitor ignores the parameter on PATCH). Turning it off on a DataSource with instances needs the one-time `forceRestrictedChangeKey` from the error, which `update_datasource` accepts
 - `test_datasource` tool - runs a saved script/batchscript DataSource's Active Discovery and collection scripts against a resource (on its preferred collector, refusing one that is down) and shows each datapoint's value per instance for the namevalue/none post-processors
 - `lm://knowledge/script-datasource` resource - how to build script and batchscript DataSources (output formats, appliesTo, thresholds, scaling, graphs, testing, web-page scraping)
 - `get_datasource` `datapointsOnly` option returning just the trimmed datapoint list

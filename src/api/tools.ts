@@ -1822,6 +1822,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'boolean',
           description: 'Whether this DataSource is multi-instance (one monitored instance per discovered item). **Can only be set at creation - LogicMonitor does not allow changing it afterward.** Defaults to true when enableAutoDiscovery is true; pass false explicitly to override.',
         },
+        useWildValueAsUUID: {
+          type: 'boolean',
+          description: 'Use the wildvalue as the instance\'s unique identifier ("use wildvalue as unique identifier" in the UI), so instances with the same name do not collide. Only for multi-instance DataSources whose discovery script returns stable, unique wildvalues. The tool sends the forceUniqueIdentifier=true query parameter LogicMonitor requires for this.',
+        },
         enableAutoDiscovery: {
           type: 'boolean',
           description: 'Whether this DataSource uses Active Discovery to find instances. When true, hasMultiInstances defaults to true unless explicitly set.',
@@ -1881,6 +1885,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         dataPoints: {
           type: 'array',
           description: 'Array of datapoint definitions. See "get_datasource" (datapointsOnly:true) for the current shape before modifying. Include each existing datapoint\'s "id", or it is recreated and graphs silently lose it.',
+        },
+        useWildValueAsUUID: {
+          type: 'boolean',
+          description: 'Use the wildvalue as the instance\'s unique identifier ("use wildvalue as unique identifier" in the UI). Can be changed on an existing DataSource; the tool sends the forceUniqueIdentifier=true query parameter LogicMonitor requires.',
+        },
+        forceRestrictedChangeKey: {
+          type: 'string',
+          description: 'Confirmation key for a change LogicMonitor refuses as potentially destructive (for example turning useWildValueAsUUID off on a DataSource that has instances). Make the change once without it; the error returns a one-time key (valid for about 2 minutes), then repeat the same call with that key.',
         },
         enableAutoDiscovery: { type: 'boolean', description: 'Whether this DataSource uses Active Discovery' },
         autoDiscoveryConfig: {

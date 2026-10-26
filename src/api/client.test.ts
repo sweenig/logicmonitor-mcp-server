@@ -65,6 +65,50 @@ describe('LogicMonitor Client Utils', () => {
     });
   });
 
+  describe('datasource useWildValueAsUUID', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => { global.fetch = originalFetch; });
+
+    const setup = () => {
+      const fetchMock = jest.fn(async (..._args: any[]) => new Response(JSON.stringify({ id: 5 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+      return { fetchMock, client: new LogicMonitorClient({ company: 'test', bearerToken: 'token' }) };
+    };
+
+    it('creates with forceUniqueIdentifier=true when useWildValueAsUUID is true', async () => {
+      const { fetchMock, client } = setup();
+      await client.createDataSource({ name: 'x', useWildValueAsUUID: true });
+      expect(String(fetchMock.mock.calls[0][0])).toContain('/setting/datasources?forceUniqueIdentifier=true');
+    });
+
+    it('turns useWildValueAsUUID on with a PUT of the current definition, since PATCH ignores the parameter', async () => {
+      const { fetchMock, client } = setup();
+      await client.updateDataSource(5, { useWildValueAsUUID: true, description: 'd' });
+      expect((fetchMock.mock.calls[0][1] as any).method).toBe('GET');
+      const [url, init] = fetchMock.mock.calls[1] as [string, any];
+      expect(String(url)).toContain('/setting/datasources/5?forceUniqueIdentifier=true');
+      expect(init.method).toBe('PUT');
+      expect(JSON.parse(init.body)).toEqual({ id: 5, useWildValueAsUUID: true, description: 'd' });
+    });
+
+    it('sends the confirmation key as a query parameter, not in the body', async () => {
+      const { fetchMock, client } = setup();
+      await client.updateDataSource(5, { useWildValueAsUUID: false, forceRestrictedChangeKey: 'abc123' });
+      const url = String(fetchMock.mock.calls[0][0]);
+      expect(url).toContain('forceUniqueIdentifier=true');
+      expect(url).toContain('forceRestrictedChangeKey=abc123');
+      expect(JSON.parse((fetchMock.mock.calls[0][1] as any).body)).toEqual({ useWildValueAsUUID: false });
+    });
+
+    it('sends no query parameter otherwise', async () => {
+      const { fetchMock, client } = setup();
+      await client.updateDataSource(5, { useWildValueAsUUID: false });
+      await client.updateDataSource(5, { description: 'd' });
+      expect(String(fetchMock.mock.calls[0][0])).not.toContain('forceUniqueIdentifier');
+      expect(String(fetchMock.mock.calls[1][0])).not.toContain('forceUniqueIdentifier');
+    });
+  });
+
   describe('datasource graph paths', () => {
     const originalFetch = global.fetch;
     afterEach(() => { global.fetch = originalFetch; });

@@ -606,12 +606,36 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('DELETE', `/setting/datasources/${dataSourceId}/graphs/${graphId}`);
   }
 
+  // LogicMonitor rejects useWildValueAsUUID:true unless the request also carries forceUniqueIdentifier=true.
+  // Turning it off on a DataSource with instances is refused with a one-time key; sending that key
+  // (forceRestrictedChangeKey, with forceUniqueIdentifier=true) confirms the change.
+  private uniqueIdentifierParams(dataSource: any): Record<string, string | boolean> | undefined {
+    const params: Record<string, string | boolean> = {};
+    if (dataSource?.useWildValueAsUUID === true || dataSource?.forceRestrictedChangeKey) {
+      params.forceUniqueIdentifier = true;
+    }
+    if (dataSource?.forceRestrictedChangeKey) {
+      params.forceRestrictedChangeKey = String(dataSource.forceRestrictedChangeKey);
+    }
+    return Object.keys(params).length > 0 ? params : undefined;
+  }
+
   async createDataSource(dataSource: any) {
-    return this.request<LMResponse<any>>('POST', '/setting/datasources', dataSource);
+    return this.request<LMResponse<any>>('POST', '/setting/datasources', dataSource, this.uniqueIdentifierParams(dataSource));
   }
 
   async updateDataSource(dataSourceId: number, dataSource: any) {
-    return this.request<LMResponse<any>>('PATCH', `/setting/datasources/${dataSourceId}`, dataSource);
+    // forceRestrictedChangeKey is a query parameter, not part of the DataSource definition
+    const { forceRestrictedChangeKey: _key, ...body } = dataSource ?? {};
+    const path = `/setting/datasources/${dataSourceId}`;
+    const params = this.uniqueIdentifierParams(dataSource);
+    if (body.useWildValueAsUUID === true) {
+      // LogicMonitor ignores forceUniqueIdentifier on PATCH, so turning useWildValueAsUUID on needs a
+      // PUT of the whole definition: read the current one and apply the requested changes to it.
+      const current = await this.getDataSource(dataSourceId);
+      return this.request<LMResponse<any>>('PUT', path, { ...current, ...body }, params);
+    }
+    return this.request<LMResponse<any>>('PATCH', path, body, params);
   }
 
   async deleteDataSource(dataSourceId: number) {

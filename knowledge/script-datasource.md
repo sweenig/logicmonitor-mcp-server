@@ -33,6 +33,8 @@ enableAutoDiscovery: true   (hasMultiInstances then defaults to true; it cannot 
 autoDiscoveryConfig: { method: { groovyScript: "println 'id1##Name 1##desc####'" } }
 ```
 
+Set `useWildValueAsUUID: true` ("use wildvalue as unique identifier") when the wildvalue is a stable id, so instances with the same display name do not collide. It can be changed on an existing DataSource.
+
 ## AppliesTo
 
 An expression that is just a property name means "the property is present". Prefer `prop.a && prop.b` over matching device names, so the DataSource follows the resources that carry the properties.

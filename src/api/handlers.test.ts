@@ -1352,6 +1352,20 @@ describe('LogicMonitorHandlers', () => {
         });
       });
 
+      it('coerces useWildValueAsUUID sent as a string (some clients send booleans as strings)', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('create_datasource', {
+          name: 'B', displayName: 'B', collectMethod: 'script', collectInterval: 300,
+          collectorAttribute: { groovyScript: 'x' }, useWildValueAsUUID: 'true',
+        });
+        expect(mockClient.createDataSource.mock.calls.at(-1)![0].useWildValueAsUUID).toBe(true);
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, useWildValueAsUUID: 'true' });
+        expect(mockClient.updateDataSource).toHaveBeenLastCalledWith(5, { useWildValueAsUUID: true });
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, useWildValueAsUUID: 'false' });
+        expect(mockClient.updateDataSource).toHaveBeenLastCalledWith(5, { useWildValueAsUUID: false });
+      });
+
       it('rejects a malformed autoDiscoveryConfig before calling LogicMonitor', async () => {
         await expect(handlers.handleToolCall('create_datasource', {
           name: 'B', displayName: 'B', collectMethod: 'script', collectInterval: 300,
