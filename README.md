@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 150 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 156 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
