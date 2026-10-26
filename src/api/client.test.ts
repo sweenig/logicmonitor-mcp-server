@@ -89,6 +89,35 @@ describe('LogicMonitor Client Utils', () => {
     });
   });
 
+  describe('datasource graph write paths', () => {
+    const originalFetch = global.fetch;
+    afterEach(() => { global.fetch = originalFetch; });
+
+    it('uses POST, PATCH and DELETE on graphs and ographs', async () => {
+      const fetchMock = jest.fn(async () => new Response(JSON.stringify({}), { status: 200 }));
+      global.fetch = fetchMock as unknown as typeof fetch;
+      const client = new LogicMonitorClient({ company: 'test', bearerToken: 'token' });
+
+      await client.createDataSourceGraph(5, { name: 'g' });
+      await client.updateDataSourceGraph(5, 7, { title: 't' });
+      await client.deleteDataSourceGraph(5, 7);
+      await client.createDataSourceOverviewGraph(5, { name: 'o' });
+      await client.updateDataSourceOverviewGraph(5, 6, { title: 't' });
+      await client.deleteDataSourceOverviewGraph(5, 6);
+
+      const calls = (fetchMock.mock.calls as unknown as [string, { method: string }][])
+        .map(([url, init]) => `${init.method} ${new URL(String(url)).pathname.replace('/santaba/rest', '')}`);
+      expect(calls).toEqual([
+        'POST /setting/datasources/5/graphs',
+        'PATCH /setting/datasources/5/graphs/7',
+        'DELETE /setting/datasources/5/graphs/7',
+        'POST /setting/datasources/5/ographs',
+        'PATCH /setting/datasources/5/ographs/6',
+        'DELETE /setting/datasources/5/ographs/6',
+      ]);
+    });
+  });
+
   describe('rate limit retry', () => {
     const originalFetch = global.fetch;
 

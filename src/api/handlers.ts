@@ -15,6 +15,7 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource } from '../utils/helpers/datasource-view.js';
+import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired } from '../utils/helpers/validate-args.js';
@@ -223,6 +224,12 @@ export class LogicMonitorHandlers {
     } catch {
       // Keep the caller's datapoints as they are.
     }
+  }
+
+  /** The id and name of each datapoint on a DataSource, for resolving graph lines written by name. */
+  private async dataSourcePoints(dataSourceId: number): Promise<Array<{ id: number; name: string }>> {
+    const dataSource: any = await this.client.getDataSource(dataSourceId, { fields: 'dataPoints' });
+    return (dataSource?.dataPoints ?? []).map((dp: any) => ({ id: dp.id, name: dp.name }));
   }
 
   private async runToolCall(
@@ -686,6 +693,38 @@ export class LogicMonitorHandlers {
 
         case 'get_datasource_graph':
           return await this.client.getDataSourceGraph(args.dataSourceId, args.graphId, { fields: args.fields });
+
+        case 'create_datasource_overview_graph':
+        case 'create_datasource_graph': {
+          const kind = name === 'create_datasource_graph' ? 'instance' : 'overview';
+          const body = buildGraphBody(kind, { ...args, title: args.title ?? args.name }, await this.dataSourcePoints(args.dataSourceId));
+          return kind === 'overview'
+            ? await this.client.createDataSourceOverviewGraph(args.dataSourceId, body)
+            : await this.client.createDataSourceGraph(args.dataSourceId, body);
+        }
+
+        case 'update_datasource_overview_graph':
+        case 'update_datasource_graph': {
+          const kind = name === 'update_datasource_graph' ? 'instance' : 'overview';
+          const needsPoints = args.lines !== undefined || args.dataPoints !== undefined;
+          const current: any = needsPoints && args.dataPoints === undefined
+            ? await (kind === 'overview'
+              ? this.client.getDataSourceOverviewGraph(args.dataSourceId, args.graphId, { fields: 'dataPoints' })
+              : this.client.getDataSourceGraph(args.dataSourceId, args.graphId, { fields: 'dataPoints' }))
+            : undefined;
+          const body = buildGraphBody(
+            kind, args, needsPoints ? await this.dataSourcePoints(args.dataSourceId) : [], current?.dataPoints ?? [],
+          );
+          return kind === 'overview'
+            ? await this.client.updateDataSourceOverviewGraph(args.dataSourceId, args.graphId, body)
+            : await this.client.updateDataSourceGraph(args.dataSourceId, args.graphId, body);
+        }
+
+        case 'delete_datasource_overview_graph':
+          return await this.client.deleteDataSourceOverviewGraph(args.dataSourceId, args.graphId);
+
+        case 'delete_datasource_graph':
+          return await this.client.deleteDataSourceGraph(args.dataSourceId, args.graphId);
 
         case 'create_datasource':
           return await this.client.createDataSource({

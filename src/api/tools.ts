@@ -1515,6 +1515,215 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'create_datasource_overview_graph',
+    description: 'Create an overview graph on a LogicMonitor (LM) DataSource (shown on the DataSource page, aggregating across instances). ' +
+      '\n\n**Returns:** The created graph, including its new "id". ' +
+      '\n\n**When to use:** ' +
+      '\n- Add a graph to a DataSource you are building or extending. Datapoints are referenced by name; they must already exist on the DataSource (see "get\\_datasource"). ' +
+      '\n\n**Stacked by instance:** set aggregated:false, line type:"stack" and legend:"##INSTANCE##". ' +
+      '\n\n**Note:** Graph edits change the DataSource checksum but not its version. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_overview\\_graphs" (existing graphs, to copy a shape), "update\\_datasource\\_overview\\_graph", "delete\\_datasource\\_overview\\_graph".',
+    annotations: {
+      title: 'Create DataSource overview graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        name: { type: 'string', description: 'Graph name' },
+        title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
+        verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%"' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
+        maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
+        minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
+        displayPrio: { type: 'number', description: 'Display order among the DataSource\'s graphs (lower first)' },
+        timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
+        lines: {
+          type: 'array',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+        },
+        virtualDataPoints: {
+          type: 'array',
+          description: 'Calculated datapoints, each {name, rpn}, e.g. {name:"loss", rpn:"sent-recd"}. A line whose dataPointName matches one is drawn as a virtual datapoint. The datapoints the rpn uses must be in dataPoints.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Datapoints the graph aggregates, each {dataPointName, aggregateMethod?: average|min|max|sum (default sum), consolidateFunc?: 1=avg 2=max 3=min (default 1)}. Defaults to one entry per real datapoint used by lines. Replaces the existing list.',
+        },
+        aggregated: { type: 'boolean', description: 'true aggregates across all instances into one line; false draws one line per instance (use legend "##INSTANCE##" and type "stack" for a stacked-by-instance graph)' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'name', 'lines'],
+    },
+  },
+  {
+    name: 'update_datasource_overview_graph',
+    description: 'Update an overview graph of a LogicMonitor (LM) DataSource. Partial update - only include what you want to change. ' +
+      '\n\n**Returns:** The updated graph. ' +
+      '\n\n**Replacement rules:** Sending lines replaces all lines; sending dataPoints replaces the datapoint list. When only lines are sent, existing dataPoints are kept and any the new lines need are added. ' +
+      '\n\n**Warning:** A graph refers to datapoints by ID. If the DataSource\'s datapoints are later recreated (via "update\\_datasource" without their id/originId) the graph silently loses them - re-save its lines with this tool afterwards. ' +
+      '\n\n**Related tools:** "get\\_datasource\\_overview\\_graph" (current graph), "create\\_datasource\\_overview\\_graph", "delete\\_datasource\\_overview\\_graph".',
+    annotations: {
+      title: 'Update DataSource overview graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+        name: { type: 'string', description: 'Graph name' },
+        title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
+        verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%"' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
+        maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
+        minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
+        displayPrio: { type: 'number', description: 'Display order among the DataSource\'s graphs (lower first)' },
+        timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
+        lines: {
+          type: 'array',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+        },
+        virtualDataPoints: {
+          type: 'array',
+          description: 'Calculated datapoints, each {name, rpn}, e.g. {name:"loss", rpn:"sent-recd"}. A line whose dataPointName matches one is drawn as a virtual datapoint. The datapoints the rpn uses must be in dataPoints.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Datapoints the graph aggregates, each {dataPointName, aggregateMethod?: average|min|max|sum (default sum), consolidateFunc?: 1=avg 2=max 3=min (default 1)}. Defaults to one entry per real datapoint used by lines. Replaces the existing list.',
+        },
+        aggregated: { type: 'boolean', description: 'true aggregates across all instances into one line; false draws one line per instance (use legend "##INSTANCE##" and type "stack" for a stacked-by-instance graph)' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
+    name: 'delete_datasource_overview_graph',
+    description: 'Delete an overview graph from a LogicMonitor (LM) DataSource. ' +
+      '\n\n**⚠️ Warning:** The graph is removed for every resource/device using this DataSource and cannot be restored. Use "get\\_datasource\\_overview\\_graph" first to keep a copy of its definition. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_overview\\_graphs", "update\\_datasource\\_overview\\_graph".',
+    annotations: {
+      title: 'Delete DataSource overview graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
+    name: 'create_datasource_graph',
+    description: 'Create an instance graph on a LogicMonitor (LM) DataSource (shown on each instance of the DataSource). ' +
+      '\n\n**Returns:** The created graph, including its new "id". ' +
+      '\n\n**When to use:** ' +
+      '\n- Add a graph to a DataSource you are building or extending. Datapoints are referenced by name; they must already exist on the DataSource (see "get\\_datasource"). ' +
+      '\n\n**Note:** Graph edits change the DataSource checksum but not its version. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_graphs" (existing graphs, to copy a shape), "update\\_datasource\\_graph", "delete\\_datasource\\_graph".',
+    annotations: {
+      title: 'Create DataSource instance graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        name: { type: 'string', description: 'Graph name' },
+        title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
+        verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%"' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
+        maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
+        minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
+        displayPrio: { type: 'number', description: 'Display order among the DataSource\'s graphs (lower first)' },
+        timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
+        lines: {
+          type: 'array',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+        },
+        virtualDataPoints: {
+          type: 'array',
+          description: 'Calculated datapoints, each {name, rpn}, e.g. {name:"loss", rpn:"sent-recd"}. A line whose dataPointName matches one is drawn as a virtual datapoint. The datapoints the rpn uses must be in dataPoints.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Datapoints the graph uses, each {dataPointName, consolidateFunc?: 1=avg 2=max 3=min (default 1)}. Defaults to one entry per real datapoint used by lines. Replaces the existing list.',
+        },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'name', 'lines'],
+    },
+  },
+  {
+    name: 'update_datasource_graph',
+    description: 'Update an instance graph of a LogicMonitor (LM) DataSource. Partial update - only include what you want to change. ' +
+      '\n\n**Returns:** The updated graph. ' +
+      '\n\n**Replacement rules:** Sending lines replaces all lines; sending dataPoints replaces the datapoint list. When only lines are sent, existing dataPoints are kept and any the new lines need are added. ' +
+      '\n\n**Warning:** A graph refers to datapoints by ID. If the DataSource\'s datapoints are later recreated (via "update\\_datasource" without their id/originId) the graph silently loses them - re-save its lines with this tool afterwards. ' +
+      '\n\n**Related tools:** "get\\_datasource\\_graph" (current graph), "create\\_datasource\\_graph", "delete\\_datasource\\_graph".',
+    annotations: {
+      title: 'Update DataSource instance graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+        name: { type: 'string', description: 'Graph name' },
+        title: { type: 'string', description: 'Graph title shown above the graph (defaults to name on create)' },
+        verticalLabel: { type: 'string', description: 'Vertical axis label, e.g. "count" or "%"' },
+        rigid: { type: 'boolean', description: 'Fix the axis to minValue/maxValue instead of scaling to the data' },
+        base1024: { type: 'boolean', description: 'Use base 1024 (bytes) instead of base 1000 for axis units' },
+        maxValue: { description: 'Axis maximum: a number, or "NaN" for automatic' },
+        minValue: { description: 'Axis minimum: a number, or "NaN" for automatic' },
+        displayPrio: { type: 'number', description: 'Display order among the DataSource\'s graphs (lower first)' },
+        timeScale: { type: 'string', description: 'Default time range, e.g. 1day (the portal also uses 1hour|2hour|5hour|week|month|year ...)' },
+        lines: {
+          type: 'array',
+          description: 'Lines to draw, each {dataPointName, legend?, colorName?, type?}. type is line|area|stack|column (default line); legend defaults to the datapoint name and may use tokens such as ##INSTANCE##; colorName defaults to blue. Datapoints are referenced by NAME (a datapoint\'s ID is looked up for you). Replaces all existing lines.',
+        },
+        virtualDataPoints: {
+          type: 'array',
+          description: 'Calculated datapoints, each {name, rpn}, e.g. {name:"loss", rpn:"sent-recd"}. A line whose dataPointName matches one is drawn as a virtual datapoint. The datapoints the rpn uses must be in dataPoints.',
+        },
+        dataPoints: {
+          type: 'array',
+          description: 'Datapoints the graph uses, each {dataPointName, consolidateFunc?: 1=avg 2=max 3=min (default 1)}. Defaults to one entry per real datapoint used by lines. Replaces the existing list.',
+        },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
+    name: 'delete_datasource_graph',
+    description: 'Delete an instance graph from a LogicMonitor (LM) DataSource. ' +
+      '\n\n**⚠️ Warning:** The graph is removed for every resource/device using this DataSource and cannot be restored. Use "get\\_datasource\\_graph" first to keep a copy of its definition. ' +
+      '\n\n**Related tools:** "list\\_datasource\\_graphs", "update\\_datasource\\_graph".',
+    annotations: {
+      title: 'Delete DataSource instance graph',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: { type: 'number', description: 'The ID of the datasource the graph belongs to' },
+        graphId: { type: 'number', description: 'The ID of the graph' },
+      },
+      additionalProperties: false,
+      required: ['dataSourceId', 'graphId'],
+    },
+  },
+  {
     name: 'create_datasource',
     description: 'Create a new DataSource LogicModule in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** The created DataSource object, including its new "id". ' +
@@ -1607,6 +1816,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
+      '\n\n**Graphs:** Datapoints you send without their "id" are recreated, and graphs that used them silently lose them (see "list\\_datasource\\_graphs" / "list\\_datasource\\_overview\\_graphs"). Keep each existing datapoint\'s id when editing the list. ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',

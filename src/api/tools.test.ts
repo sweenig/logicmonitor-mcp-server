@@ -493,6 +493,19 @@ describe('getLogicMonitorTools', () => {
         }
       });
 
+      it('should expose the DataSource graph write tools, and hide them on read-only servers', () => {
+        const names = ['create', 'update', 'delete'].flatMap(v => [`${v}_datasource_graph`, `${v}_datasource_overview_graph`]);
+        const all = getLogicMonitorTools(false);
+        const readOnly = getLogicMonitorTools(true).map(t => t.name);
+
+        for (const name of names) {
+          expect(all.find(t => t.name === name)?.annotations?.readOnlyHint).toBe(false);
+          expect(readOnly).not.toContain(name);
+        }
+        expect(all.find(t => t.name === 'create_datasource_graph')?.inputSchema.required).toEqual(['dataSourceId', 'name', 'lines']);
+        expect(all.find(t => t.name === 'update_datasource_overview_graph')?.inputSchema.required).toEqual(['dataSourceId', 'graphId']);
+      });
+
       it('should include datasource management tools with correct read-only classification', () => {
         const tools = getLogicMonitorTools(false);
 

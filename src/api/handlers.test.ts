@@ -47,6 +47,12 @@ describe('LogicMonitorHandlers', () => {
       getDataSourceOverviewGraph: jest.fn(),
       listDataSourceGraphs: jest.fn(),
       getDataSourceGraph: jest.fn(),
+      createDataSourceOverviewGraph: jest.fn(),
+      updateDataSourceOverviewGraph: jest.fn(),
+      deleteDataSourceOverviewGraph: jest.fn(),
+      createDataSourceGraph: jest.fn(),
+      updateDataSourceGraph: jest.fn(),
+      deleteDataSourceGraph: jest.fn(),
       createDataSource: jest.fn(),
       updateDataSource: jest.fn(),
       deleteDataSource: jest.fn(),
@@ -1129,6 +1135,82 @@ describe('LogicMonitorHandlers', () => {
       it('requires graphId for the single-graph tools', async () => {
         await expect(handlers.handleToolCall('get_datasource_graph', { dataSourceId: 7 })).rejects.toThrow(/graphId/);
         expect(mockClient.getDataSourceGraph).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('datasource graph writes', () => {
+      beforeEach(() => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 11, name: 'alpha' }, { id: 12, name: 'beta' }] });
+      });
+
+      it('creates an instance graph, resolving datapoint names to ids and defaulting the title', async () => {
+        mockClient.createDataSourceGraph.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('create_datasource_graph', {
+          dataSourceId: 7, name: 'g', lines: [{ dataPointName: 'alpha', type: 'area' }],
+        });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(7, { fields: 'dataPoints' });
+        expect(mockClient.createDataSourceGraph).toHaveBeenCalledWith(7, {
+          name: 'g',
+          title: 'g',
+          lines: [{ dataPointName: 'alpha', isVirtualDataPoint: false, type: 2, legend: 'alpha', colorName: 'blue' }],
+          dataPoints: [{ name: 'alpha', dataPointId: 11, consolidateFunc: 1 }],
+        });
+      });
+
+      it('creates a stacked-by-instance overview graph', async () => {
+        mockClient.createDataSourceOverviewGraph.mockResolvedValue({ id: 6 });
+
+        await handlers.handleToolCall('create_datasource_overview_graph', {
+          dataSourceId: 7, name: 'o', aggregated: false, lines: [{ dataPointName: 'beta', type: 'stack', legend: '##INSTANCE##' }],
+        });
+
+        expect(mockClient.createDataSourceOverviewGraph).toHaveBeenCalledWith(7, expect.objectContaining({
+          aggregated: false,
+          dataPoints: [{ dataPointName: 'beta', dataPointId: 12, aggregateMethod: 'sum', consolidateFunc: 1 }],
+        }));
+      });
+
+      it('rejects an unknown datapoint before calling the API', async () => {
+        await expect(handlers.handleToolCall('create_datasource_graph', {
+          dataSourceId: 7, name: 'g', lines: [{ dataPointName: 'nope' }],
+        })).rejects.toThrow(/not found/);
+        expect(mockClient.createDataSourceGraph).not.toHaveBeenCalled();
+      });
+
+      it('updates settings without touching the datasource or the existing lines', async () => {
+        mockClient.updateDataSourceGraph.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource_graph', { dataSourceId: 7, graphId: 5, title: 'New' });
+
+        expect(mockClient.getDataSource).not.toHaveBeenCalled();
+        expect(mockClient.getDataSourceGraph).not.toHaveBeenCalled();
+        expect(mockClient.updateDataSourceGraph).toHaveBeenCalledWith(7, 5, { title: 'New' });
+      });
+
+      it('keeps existing dataPoints when only the lines of a graph are updated', async () => {
+        mockClient.getDataSourceGraph.mockResolvedValue({ dataPoints: [{ name: 'beta', dataPointId: 12, consolidateFunc: 1 }] });
+        mockClient.updateDataSourceGraph.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource_graph', {
+          dataSourceId: 7, graphId: 5, lines: [{ dataPointName: 'alpha' }],
+        });
+
+        expect(mockClient.getDataSourceGraph).toHaveBeenCalledWith(7, 5, { fields: 'dataPoints' });
+        const body = mockClient.updateDataSourceGraph.mock.calls[0][2];
+        expect(body.dataPoints.map((d: any) => d.name)).toEqual(['alpha', 'beta']);
+      });
+
+      it('deletes graphs', async () => {
+        mockClient.deleteDataSourceGraph.mockResolvedValue({});
+        mockClient.deleteDataSourceOverviewGraph.mockResolvedValue({});
+
+        await handlers.handleToolCall('delete_datasource_graph', { dataSourceId: 7, graphId: 5 });
+        await handlers.handleToolCall('delete_datasource_overview_graph', { dataSourceId: 7, graphId: 6 });
+
+        expect(mockClient.deleteDataSourceGraph).toHaveBeenCalledWith(7, 5);
+        expect(mockClient.deleteDataSourceOverviewGraph).toHaveBeenCalledWith(7, 6);
       });
     });
 

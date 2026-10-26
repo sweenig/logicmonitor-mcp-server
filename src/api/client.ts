@@ -582,6 +582,30 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}/graphs/${graphId}`, undefined, params);
   }
 
+  async createDataSourceOverviewGraph(dataSourceId: number, graph: any) {
+    return this.request<LMResponse<any>>('POST', `/setting/datasources/${dataSourceId}/ographs`, graph);
+  }
+
+  async updateDataSourceOverviewGraph(dataSourceId: number, graphId: number, graph: any) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/datasources/${dataSourceId}/ographs/${graphId}`, graph);
+  }
+
+  async deleteDataSourceOverviewGraph(dataSourceId: number, graphId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/datasources/${dataSourceId}/ographs/${graphId}`);
+  }
+
+  async createDataSourceGraph(dataSourceId: number, graph: any) {
+    return this.request<LMResponse<any>>('POST', `/setting/datasources/${dataSourceId}/graphs`, graph);
+  }
+
+  async updateDataSourceGraph(dataSourceId: number, graphId: number, graph: any) {
+    return this.request<LMResponse<any>>('PATCH', `/setting/datasources/${dataSourceId}/graphs/${graphId}`, graph);
+  }
+
+  async deleteDataSourceGraph(dataSourceId: number, graphId: number) {
+    return this.request<LMResponse<any>>('DELETE', `/setting/datasources/${dataSourceId}/graphs/${graphId}`);
+  }
+
   async createDataSource(dataSource: any) {
     return this.request<LMResponse<any>>('POST', '/setting/datasources', dataSource);
   }
