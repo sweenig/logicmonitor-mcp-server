@@ -4,7 +4,13 @@ import { InvalidArgumentError } from '../core/error-handler.js';
 export interface ColumnChange {
   /** Existing column to change, for example "alert-static-threshold" or "alert-began". */
   columnKey?: string;
-  /** Custom column: a property name (auto.sdt.admin) or an alert token (##ALERTVALUEDISPLAYSTATUSNAME##). Added if not there yet. */
+  /**
+   * Custom column: a property or alert token, written as ##auto.sdt.admin## for an instance or resource
+   * property (instance properties carry the auto. prefix) or ##ALERTVALUEDISPLAYSTATUSNAME## for an alert
+   * token; a resource property also works as a bare name (system.hostname). Added if not there yet.
+   * LogicMonitor looks the value up by the column's label, so the label of a custom column is the token
+   * itself and cannot be renamed.
+   */
   token?: string;
   visible?: boolean;
   columnLabel?: string;
@@ -63,6 +69,11 @@ export function applyColumnChanges(columns: any[], changes: ColumnChange[]): any
     }
 
     const column = result[index];
+    if (column.isDynamic && change.columnLabel !== undefined && change.columnLabel !== column.columnLabel) {
+      throw new InvalidArgumentError(
+        `The label of a custom column is the token LogicMonitor looks up ("${column.columnLabel}"); renaming it to "${change.columnLabel}" would leave the column blank. Leave columnLabel out.`
+      );
+    }
     if (change.visible !== undefined) column.visible = toBoolean(change.visible);
     if (change.columnLabel !== undefined) column.columnLabel = change.columnLabel;
     if (change.columnSize !== undefined) column.columnSize = Number(change.columnSize);

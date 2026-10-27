@@ -26,8 +26,10 @@ Create a dashboard with `create_dashboard`, add widgets with `create_widget`, an
     "dataPath": ["customColumns", "##ALERTVALUEDISPLAYSTATUSNAME##"] }
   ```
 
-  The `columnKey` is the name with `#` written as `_23` and the first `.` as `_`. `##ALERTVALUEDISPLAYSTATUSNAME##` (the datapoint's status display name for the value) is confirmed working. Property columns appear in existing widgets both as `##property##` and as the bare property name; which one fills in for an instance property (`auto.sdt.admin`) was not verified, so check that the cells are not blank.
-- **Do not hand-edit the column list.** `update_widget` with `displaySettings` should be treated as replacing the whole object, so send all of it. Use `update_widget`'s `columns` instead: it reads the current list and applies changes such as `[{"columnKey":"alert-static-threshold","visible":false},{"token":"##auto.sdt.admin##","columnLabel":"Admin","columnSize":200}]`.
+  **The label is what LogicMonitor looks up**: the value comes back under the column's `columnLabel` and is resolved from it, so a custom column's label must be the token itself (`##auto.sdt.admin##`). Give it a friendly label and every cell is blank (tested). The `columnKey` and `dataPath` do not affect the result; the UI writes the key with `#` as `_23` and the first `.` as `_`.
+
+  What resolves (tested on alerts of a DataSource with instance properties): `##auto.report.owner.name##` (an instance property, with its `auto.` prefix) and `##INSTANCE##` fill in; `##system.hostname##` and bare `system.hostname` (resource property) fill in; `##report.owner.name##` (no `auto.` prefix) and `##INSTANCE.PROPERTY.auto...##` come back blank. `##ALERTVALUEDISPLAYSTATUSNAME##` is the status display name of the value.
+- **Do not hand-edit the column list.** `update_widget` with `displaySettings` should be treated as replacing the whole object, so send all of it. Use `update_widget`'s `columns` instead: it reads the current list and applies changes such as `[{"columnKey":"alert-static-threshold","visible":false},{"token":"##auto.sdt.admin##","columnSize":200}]`.
 - Other settings worth copying from a widget you like: `theme`, `fontsize`, `sort` (`-startEpoch` newest first), `playSound`.
 
 ## NOC widget (`type:"noc"`)

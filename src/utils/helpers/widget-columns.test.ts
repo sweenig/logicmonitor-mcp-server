@@ -30,13 +30,13 @@ describe('applyColumnChanges', () => {
   });
 
   it('adds a custom column after the last visible one, keeping order', () => {
-    const result = applyColumnChanges(base(), [{ token: '##auto.sdt.admin##', columnLabel: 'Admin', columnSize: 200 }]);
+    const result = applyColumnChanges(base(), [{ token: '##auto.sdt.admin##', columnSize: 200 }]);
     expect(result.map(c => c.columnKey)).toEqual([
       'alert-severity', 'alert-began', 'alert-value', 'alert-static-threshold',
       '_23_23auto_sdt.admin_23_23', 'alert-notes',
     ]);
     expect(result[4]).toMatchObject({
-      isDynamic: true, visible: true, componentName: 'AlertList', columnLabel: 'Admin', columnSize: 200,
+      isDynamic: true, visible: true, componentName: 'AlertList', columnLabel: '##auto.sdt.admin##', columnSize: 200,
       dataPath: ['customColumns', '##auto.sdt.admin##'],
     });
   });
@@ -56,6 +56,15 @@ describe('applyColumnChanges', () => {
     const twice = applyColumnChanges(once, [{ token: '##x##', visible: 'false' as any }]);
     expect(twice).toHaveLength(once.length);
     expect(twice.find(c => c.columnKey === '_23_23x_23_23')?.visible).toBe(false);
+  });
+
+  it('refuses to rename a custom column, since LogicMonitor resolves the value from the label', () => {
+    expect(() => applyColumnChanges(base(), [{ token: '##auto.sdt.admin##', columnLabel: 'Admin' }])).toThrow(/label of a custom column/);
+    const once = applyColumnChanges(base(), [{ token: '##x##' }]);
+    expect(() => applyColumnChanges(once, [{ columnKey: '_23_23x_23_23', columnLabel: 'X' }])).toThrow(/would leave the column blank/);
+    // restating the same label, or relabeling a standard column, is fine
+    expect(() => applyColumnChanges(once, [{ token: '##x##', columnLabel: '##x##' }])).not.toThrow();
+    expect(applyColumnChanges(once, [{ columnKey: 'alert-value', columnLabel: 'Value' }]).find(c => c.columnKey === 'alert-value')?.columnLabel).toBe('Value');
   });
 
   it('rejects an unknown columnKey (listing the real ones), a missing key and an unknown "after"', () => {
