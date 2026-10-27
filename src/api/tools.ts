@@ -2483,6 +2483,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Change theme/interval/timescale' +
       '\n- Update type-specific config (e.g., edit an "html" widget\'s script, change a graph widget\'s datapoints) via the "config" field' +
       '\n\n**Workflow:** Use "get\\_widget" first to see current values, then send only the fields you want changed. ' +
+      '\n\n**Careful:** "config" is sent as given, and a nested object such as "displaySettings" or "filters" should be treated as replacing the existing one (not verified to merge): send all of it, or use "columns" for alert list columns.' +
+      '\n\n**Alert list columns:** pass "columns", a list of changes, and the tool applies them to the current column list for you: {columnKey, visible, columnLabel, columnSize, after} changes an existing column (columnKey such as "alert-began", "alert-static-threshold", "alert-value"); {token, ...} adds (or changes) a custom column from a property name or alert token, placed after the last visible column unless "after" is given. Example: [{"columnKey":"alert-static-threshold","visible":false},{"token":"##auto.sdt.admin##","columnLabel":"Admin","columnSize":200}]. See MCP resource "lm://knowledge/dashboards-and-widgets".' +
       '\n\n**Related tools:** "get\\_widget" (see current definition), "list\\_widgets" (find widgetId), "delete\\_widget" (remove instead).',
     annotations: {
       title: 'Update widget',
@@ -2518,6 +2520,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         config: {
           type: 'object',
           description: 'Type-specific fields to change (e.g., updated HTML/script body for an "html" widget). Merged directly onto the widget alongside any other fields provided.',
+        },
+        columns: {
+          type: 'array',
+          description: 'Alert list widgets: column changes applied to the current column list, each {columnKey | token, visible?, columnLabel?, columnSize?, after?}. columnKey changes an existing column; token (a property name or alert token) adds a custom column.',
         },
       },
       additionalProperties: false,

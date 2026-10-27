@@ -35,17 +35,25 @@ autoDiscoveryConfig: { method: { groovyScript: "println 'id1##Name 1##desc####'"
 
 Set `useWildValueAsUUID: true` ("use wildvalue as unique identifier") when the wildvalue is a stable id, so instances with the same display name do not collide. It can be changed on an existing DataSource.
 
+### Grouping instances
+
+To group instances by a property of each one (for example the admin who created it), put the value in an instance property in the AD output and set `autoDiscoveryConfig.instanceAutoGroupMethod:"ilp"` with `instanceAutoGroupMethodParams` set to the property name (`auto.sdt.admin`). Properties from the AD line are `url-encoded name=value` pairs after the four `#`, joined with `&`.
+
 ## AppliesTo
 
 An expression that is just a property name means "the property is present". Prefer `prop.a && prop.b` over matching device names, so the DataSource follows the resources that carry the properties.
 
 ## Conventions
 
+Renaming: change `displayName` and the internal `name` together, and fix dashboard widgets that name the old display name (see `lm://knowledge/dashboards-and-widgets`).
+
 Do not set a DataSource `group` unless several related DataSources belong together.
 
 ## Alert thresholds
 
 `alertExpr` takes a single comparison, such as `= 0`, which yields **warning** severity. For several severities give the list `warn error critical`, for example `> 80 90 95`.
+
+For a datapoint that only has a few meaningful states, fill in `statusDisplayNames` so alerts and widgets show words instead of numbers; the alert token `##ALERTVALUEDISPLAYSTATUSNAME##` (also usable as an alert widget column) gives that word. Set `alertForNoData` when a missing value should alert. Custom alert text goes in `alertSubject` / `alertBody`.
 
 ## Small values are rounded to zero
 
@@ -61,7 +69,7 @@ Create them with `create_datasource_overview_graph` / `create_datasource_graph` 
 
 ## Testing
 
-`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. For a script you have not saved yet, use `execute_groovy_script` with `hostId`.
+`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. For a script you have not saved yet, use `execute_groovy_script` with `hostId`. That runs on Java 21 here, which cannot send HTTP `PATCH`; `GET`, `POST`, `PUT` and `DELETE` work.
 
 ## Asked to scrape a web page?
 

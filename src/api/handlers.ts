@@ -7,6 +7,7 @@
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
+import { applyColumnChanges, ColumnChange } from '../utils/helpers/widget-columns.js';
 import { buildNetscanCreate, buildNetscanUpdate, updateNeedsMethod } from '../utils/helpers/netscan-payload.js';
 import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
 import { websiteCheckpointRows } from '../utils/helpers/website-data.js';
@@ -52,7 +53,7 @@ const DEFAULT_DATASOURCE_FIELDS = [
 
 const DEFAULT_DASHBOARD_FIELDS = [
   'id', 'name', 'description', 'groupId', 'groupName',
-  'widgetsConfigVersion', 'widgetTokens',
+  'widgetsConfigVersion', 'widgetTokens', 'defaultDashboardFilters',
 ];
 
 const DEFAULT_WIDGET_FIELDS = [
@@ -1020,9 +1021,20 @@ export class LogicMonitorHandlers {
         }
 
         case 'update_widget': {
-          const { widgetId, config, ...widgetFields } = args;
+          const { widgetId, config, columns, ...widgetFields } = args;
           const widget: any = { ...widgetFields };
           if (config) Object.assign(widget, config);
+          if (columns !== undefined) {
+            // LogicMonitor replaces displaySettings as a whole, so send the current one with the new column list
+            const changes = parseJsonArray(columns);
+            if (!Array.isArray(changes)) throw new InvalidArgumentError('columns must be a list of column changes.');
+            const current: any = await this.client.getWidget(widgetId, { fields: 'displaySettings' });
+            const displaySettings = widget.displaySettings ?? current?.displaySettings;
+            if (!Array.isArray(displaySettings?.columns)) {
+              throw new InvalidArgumentError(`Widget ${widgetId} has no column list (columns only applies to alert list widgets).`);
+            }
+            widget.displaySettings = { ...displaySettings, columns: applyColumnChanges(displaySettings.columns, changes as ColumnChange[]) };
+          }
           return await this.client.updateWidget(widgetId, widget);
         }
 

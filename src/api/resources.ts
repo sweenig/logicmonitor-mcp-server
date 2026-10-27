@@ -79,6 +79,13 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/dashboards-and-widgets',
+    name: 'Dashboards and alert list widgets: folders, layout, filters, columns, property filters',
+    description: 'How to build a dashboard with "create_dashboard", "create_widget" and "update_widget": public vs private dashboards and folders, the 12-column layout, dashboard-level property filters, alert list widget filters (display name, severity words, "show all" open alerts), columns and custom columns, the NOC widget, and what to fix after renaming a DataSource. ' +
+      'Read this before building or changing a dashboard or an alert list widget.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/websites',
     name: 'Websites (synthetic checks): web vs ping, internal vs external, groups',
     description: 'How LogicMonitor website monitors work: the two types (webcheck = HTTP/HTTPS, pingcheck = ICMP) and the two locations ' +
@@ -104,6 +111,7 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
   'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
   'lm://knowledge/script-datasource': 'knowledge/script-datasource.md',
+  'lm://knowledge/dashboards-and-widgets': 'knowledge/dashboards-and-widgets.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',
 };

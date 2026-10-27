@@ -2079,6 +2079,41 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('update_widget columns', () => {
+      const displaySettings = {
+        isShowAll: true,
+        columns: [
+          { columnKey: 'alert-value', visible: true },
+          { columnKey: 'alert-static-threshold', visible: true },
+        ],
+      };
+
+      it('applies the changes to the current column list and sends the whole displaySettings', async () => {
+        mockClient.getWidget.mockResolvedValue({ displaySettings });
+        mockClient.updateWidget.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('update_widget', {
+          widgetId: 5,
+          columns: [{ columnKey: 'alert-static-threshold', visible: false }, { token: 'auto.sdt.admin' }],
+        });
+        const sent = mockClient.updateWidget.mock.calls[mockClient.updateWidget.mock.calls.length - 1];
+        expect(sent[0]).toBe(5);
+        expect(sent[1].displaySettings.isShowAll).toBe(true);
+        expect(sent[1].displaySettings.columns.map((c: any) => [c.columnKey, c.visible])).toEqual([
+          ['alert-value', true],
+          ['auto_sdt.admin', true],
+          ['alert-static-threshold', false],
+        ]);
+      });
+
+      it('accepts the list as a JSON string and rejects a widget without columns', async () => {
+        mockClient.getWidget.mockResolvedValue({ displaySettings });
+        mockClient.updateWidget.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('update_widget', { widgetId: 5, columns: '[{"columnKey":"alert-value","visible":false}]' });
+        mockClient.getWidget.mockResolvedValue({ displaySettings: {} });
+        await expect(handlers.handleToolCall('update_widget', { widgetId: 5, columns: [{ token: 'x' }] })).rejects.toThrow(/no column list/);
+      });
+    });
+
     describe('delete_widget', () => {
       it('should delete widget', async () => {
         mockClient.deleteWidget.mockResolvedValue({});
