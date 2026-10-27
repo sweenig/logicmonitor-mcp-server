@@ -159,3 +159,29 @@ describe('script datasource knowledge resource', () => {
     }
   });
 });
+
+describe('SNMP datasource from MIB knowledge resource', () => {
+  it('is listed and covers the recipe', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/snmp-datasource-from-mib');
+    expect(resource).toBeDefined();
+
+    const content = await readLMResource('lm://knowledge/snmp-datasource-from-mib');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['ad_snmp', 'descriptionOID', '##WILDVALUE##', 'statusDisplayNames', 'statusDisplayName', 'metricValue', 'alertExpr', '!snmpwalk', 'schedule_resource_discovery', 'wildalias', 'discoveryType', '`lookup`']) {
+      expect(text).toContain(term);
+    }
+  });
+});
+
+describe('property-driven discovery knowledge resource', () => {
+  it('is listed and covers the pattern', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/property-driven-discovery');
+    expect(resource).toBeDefined();
+
+    const content = await readLMResource('lm://knowledge/property-driven-discovery');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['includeRegEx', 'excludeRegEx', '##WILDALIAS##', 'RegexMatch', 'RegexNotMatch', 'appliesTo', 'update_resource_group_property', 'root resource group', 'a^']) {
+      expect(text).toContain(term);
+    }
+  });
+});

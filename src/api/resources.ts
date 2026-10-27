@@ -79,6 +79,21 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/snmp-datasource-from-mib',
+    name: 'Building an SNMP DataSource from a MIB table',
+    description: 'How to turn one table (or scalar group) of an SNMP MIB into a well-made DataSource with "create_datasource": reading the MIB and resolving OIDs, multi-instance ad_snmp discovery, choosing which columns become datapoints, datapoint descriptions and units, status display names for enumerations, suggested thresholds, discovery filters, the update_datasource datapoint-reset trap, and testing with debug commands. ' +
+      'Read this before creating or changing an SNMP DataSource, or when the "datasource_from_mib" prompt is used.',
+    mimeType: 'text/markdown',
+  },
+  {
+    uri: 'lm://knowledge/property-driven-discovery',
+    name: 'Property-driven discovery filters (include/exclude set by resource and group properties)',
+    description: 'A good practice for any multi-instance DataSource: reference properties such as <DataSourceName>.includeRegEx and .excludeRegEx in the discovery filters with ##property## tokens, and make appliesTo require them, so what is monitored is controlled by properties set on resources and resource groups (inherited down the tree, overridable per device) instead of being hard-coded. ' +
+      'Covers the pattern, filter attributes and operations, placeholder values, and setting the properties. ' +
+      'Read this when designing the discovery filters of any DataSource, especially when the instances that matter differ by customer, site or device.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/dashboards-and-widgets',
     name: 'Dashboards and alert list widgets: folders, layout, filters, columns, property filters',
     description: 'How to build a dashboard with "create_dashboard", "create_widget" and "update_widget": public vs private dashboards and folders, the 12-column layout, dashboard-level property filters, alert list widget filters (display name, severity words, "show all" open alerts), columns and custom columns, the NOC widget, and what to fix after renaming a DataSource. ' +
@@ -111,6 +126,8 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://docs/debug-commands': 'LOGICMONITOR-DEBUG-COMMANDS.md',
   'lm://knowledge/collector-script-cache': 'knowledge/collector-script-cache.md',
   'lm://knowledge/script-datasource': 'knowledge/script-datasource.md',
+  'lm://knowledge/snmp-datasource-from-mib': 'knowledge/snmp-datasource-from-mib.md',
+  'lm://knowledge/property-driven-discovery': 'knowledge/property-driven-discovery.md',
   'lm://knowledge/dashboards-and-widgets': 'knowledge/dashboards-and-widgets.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',

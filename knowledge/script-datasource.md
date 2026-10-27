@@ -33,6 +33,8 @@ enableAutoDiscovery: true   (hasMultiInstances then defaults to true; it cannot 
 autoDiscoveryConfig: { method: { groovyScript: "println 'id1##Name 1##desc####'" } }
 ```
 
+To let users control which instances are kept without editing the DataSource, make the discovery filters read properties (`<DataSourceName>.includeRegEx` / `.excludeRegEx`); see `lm://knowledge/property-driven-discovery`.
+
 Set `useWildValueAsUUID: true` ("use wildvalue as unique identifier") when the wildvalue is a stable id, so instances with the same display name do not collide. It can be changed on an existing DataSource.
 
 ### Grouping instances

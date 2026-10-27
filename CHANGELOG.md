@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `datasource_from_mib` prompt - guides building (or improving) an SNMP DataSource from one table of a MIB: the user names the table and pastes only its part of the MIB, the assistant proposes instances, datapoints with descriptions and units, status display names and suggested thresholds for review, creates the DataSource with `appliesTo` set to `false()`, and tests it on a device
+- `lm://knowledge/snmp-datasource-from-mib` resource - reading a MIB table and resolving OIDs, `ad_snmp` discovery types (`value`, `wildcard`, `lookup`) and what names the instance, which columns become datapoints or instance properties (ILP), `statusDisplayNames` shape, thresholds and no-data alerts, the `update_datasource` datapoint-reset trap, and testing with debug commands
+- `lm://knowledge/property-driven-discovery` resource - making any DataSource's discovery filters read properties (`<DataSourceName>.includeRegEx` / `.excludeRegEx`, `##property##` tokens, `appliesTo` requiring the properties, defaults on the root resource group)
 - `find_widgets_using_datasource` tool - finds the widgets whose settings (alert list filters, NOC items, graph settings) contain a DataSource name, with the dashboard and the matching setting; for fixing widgets after a DataSource is renamed
 - `update_widget` `columns`: change an alert list widget's columns by `columnKey` (hide/show, label, size, move) or add a custom column from a property name or alert token, without resending the whole column list. The `update_widget` description now warns that nested `config` objects (`displaySettings`, `filters`) should be sent whole
 - `lm://knowledge/dashboards-and-widgets` resource: public dashboards and folders, layout, dashboard property filters, alert list widget filters and columns (including `isShowAll` for all open alerts), the NOC widget, and renaming a DataSource

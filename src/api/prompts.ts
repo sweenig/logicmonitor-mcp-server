@@ -37,6 +37,36 @@ export const LM_PROMPTS: LMPrompt[] = [
       },
     ],
   },
+  {
+    name: 'datasource_from_mib',
+    description: 'Build (or improve) an SNMP DataSource from one table of a MIB. ' +
+      'You name the table; the assistant reads its definition, proposes the instances, datapoints (with descriptions and units), ' +
+      'status display names and suggested thresholds for your review, creates the DataSource, and tests it against a device. ' +
+      'Paste only the table\'s part of the MIB, not the whole file.',
+    arguments: [
+      {
+        name: 'table',
+        description: 'The MIB table (or scalar group) to monitor, by name or OID, e.g. "rPDUOutletStatusTable".',
+        required: true,
+      },
+      {
+        name: 'mibText',
+        description: 'The MIB text for that table: the Table, Entry and SEQUENCE definitions, each column\'s OBJECT-TYPE, and the OID chain above it. ' +
+          'Not the whole MIB (they can be megabytes). If omitted, the assistant asks for it.',
+        required: false,
+      },
+      {
+        name: 'existingDataSource',
+        description: 'Name of a DataSource already on the portal to improve instead of creating a new one.',
+        required: false,
+      },
+      {
+        name: 'testResource',
+        description: 'Name of a resource/device that has this table, to test discovery and collection against.',
+        required: false,
+      },
+    ],
+  },
 ];
 
 /**
@@ -107,6 +137,46 @@ export function generatePromptMessages(name: string, args?: Record<string, any>)
     return {
       description: `Resource check workflow for resource: ${resourceName}`,
       messages,
+    };
+  }
+
+  if (name === 'datasource_from_mib') {
+    const table = args?.table as string;
+
+    if (!table) {
+      throw new Error('Missing required argument: table');
+    }
+
+    const mibText = args?.mibText as string | undefined;
+    const existing = args?.existingDataSource as string | undefined;
+    const testResource = args?.testResource as string | undefined;
+
+    const text =
+      `I want to monitor the SNMP MIB table "${table}" with a LogicMonitor DataSource.\n\n` +
+      (existing
+        ? `Improve the existing DataSource "${existing}" (read it first with list_datasources and get_datasource) rather than creating a new one.\n\n`
+        : 'Create a new DataSource, after checking with list_datasources that a similar one does not already exist.\n\n') +
+      (testResource ? `Test it against the resource "${testResource}".\n\n` : '') +
+      'Start by reading the MCP resource "lm://knowledge/snmp-datasource-from-mib" and follow it. In short:\n' +
+      '1. Read the table definition below and resolve the OIDs. Do not invent anything the MIB text does not give; ask for any missing line.\n' +
+      '2. Propose the design as a short table for me to adjust before you build anything: the instance (what is walked and what names it), each column you will turn into a datapoint with its description and unit, which columns you skip and why, status display names for enumerations, and suggested thresholds with your reasoning. Ask me about anything the MIB does not settle (which state is bad, whether to filter instances (and whether the filters should be property-driven, see "lm://knowledge/property-driven-discovery"), what devices it applies to, scaling).\n' +
+      '3. After I agree, create the DataSource with appliesTo set to false(), read it back, then test it on a real device and report what you checked and what you could not.\n' +
+      '4. Only then set the real appliesTo.\n\n' +
+      (mibText
+        ? `Here is the MIB text for the table:\n\n${mibText}`
+        : 'I have not pasted the MIB text yet. Ask me for the table\'s part of the MIB (not the whole file) before you begin.');
+
+    return {
+      description: `Build an SNMP DataSource from the MIB table: ${table}`,
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text,
+          },
+        },
+      ],
     };
   }
 
