@@ -176,6 +176,31 @@ function privateInFolderError(): InvalidArgumentError {
   );
 }
 
+/**
+ * Dashboard-level property filters as LogicMonitor stores them:
+ * { defaultDashboardFilterDetails: [{ name, alias, type, label }] }. Accepts that object or just the
+ * list (each as an object or a JSON string); `type` is RESOURCE_PROPERTY or INSTANCE_PROPERTY.
+ */
+function toDashboardFilters(value: unknown): { defaultDashboardFilterDetails: any[] } {
+  const parsed: any = parseJsonObject(parseJsonArray(value));
+  const list = Array.isArray(parsed) ? parsed : parsed?.defaultDashboardFilterDetails;
+  if (!Array.isArray(list)) {
+    throw new InvalidArgumentError(
+      'defaultDashboardFilters must be a list of {name, type} (or {defaultDashboardFilterDetails:[...]}), with type RESOURCE_PROPERTY or INSTANCE_PROPERTY.'
+    );
+  }
+  return {
+    defaultDashboardFilterDetails: list.map((filter: any) => {
+      if (!filter?.name || !['RESOURCE_PROPERTY', 'INSTANCE_PROPERTY'].includes(filter.type)) {
+        throw new InvalidArgumentError(
+          `Each dashboard filter needs a name and a type of RESOURCE_PROPERTY or INSTANCE_PROPERTY (got ${JSON.stringify(filter)}).`
+        );
+      }
+      return { name: filter.name, alias: filter.alias ?? '', type: filter.type, label: filter.label ?? '' };
+    }),
+  };
+}
+
 export class LogicMonitorHandlers {
   constructor(private client: LogicMonitorClient) {}
 
@@ -933,6 +958,7 @@ export class LogicMonitorHandlers {
             dashboard.sharable = true;
           }
           if (args.widgetTokens) dashboard.widgetTokens = parseJsonArray(args.widgetTokens);
+          if (args.defaultDashboardFilters !== undefined) dashboard.defaultDashboardFilters = toDashboardFilters(args.defaultDashboardFilters);
           return await this.client.createDashboard(dashboard);
         }
 
@@ -940,6 +966,7 @@ export class LogicMonitorHandlers {
           const { dashboardId, ...dashboardData } = args;
           if (dashboardData.widgetTokens !== undefined) dashboardData.widgetTokens = parseJsonArray(dashboardData.widgetTokens);
           if (dashboardData.sharable !== undefined) dashboardData.sharable = isTrue(dashboardData.sharable);
+          if (dashboardData.defaultDashboardFilters !== undefined) dashboardData.defaultDashboardFilters = toDashboardFilters(dashboardData.defaultDashboardFilters);
           if (inFolder(dashboardData.groupId)) {
             if (dashboardData.sharable === false) throw privateInFolderError();
             if (dashboardData.sharable === undefined) {

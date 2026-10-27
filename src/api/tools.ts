@@ -2186,6 +2186,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'array',
           description: 'Dashboard variables: array of {name, value} objects (for example name "defaultResourceGroup")',
         },
+        defaultDashboardFilters: {
+          type: 'array',
+          description: 'Dashboard-level property filters shown above the widgets: array of {name, type} objects, type RESOURCE_PROPERTY (for example system.displayname) or INSTANCE_PROPERTY (for example auto.sdt.admin). Optional alias and label.',
+        },
         name: {
           type: 'string',
           description: 'Name of the dashboard',
@@ -2226,6 +2230,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- sharable: true (make public) or false (require login; a private dashboard sits in the root group)' +
       '\n- widgetsConfig: JSON widget configuration (advanced - usually modify in UI)' +
       '\n- widgetTokens: Update template variables' +
+      '\n- defaultDashboardFilters: Dashboard-level resource/instance property filters (list of {name, type})' +
       '\n\n**Common update scenarios:** ' +
       '\n\n**Rename dashboard:** ' +
       '{dashboardId: 123, name: "Production - Updated"}' +
@@ -2257,6 +2262,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         widgetTokens: {
           type: 'array',
           description: 'Dashboard variables: array of {name, value} objects',
+        },
+        defaultDashboardFilters: {
+          type: 'array',
+          description: 'Replaces the dashboard-level property filters: array of {name, type} objects, type RESOURCE_PROPERTY (for example system.displayname) or INSTANCE_PROPERTY (for example auto.sdt.admin). Optional alias and label. Send the full list you want, including filters already there ("get_dashboard" shows them).',
         },
         groupId: {
           type: 'number',

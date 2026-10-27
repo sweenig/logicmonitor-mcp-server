@@ -1852,6 +1852,42 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('dashboard property filters', () => {
+      const expected = {
+        defaultDashboardFilterDetails: [
+          { name: 'system.displayname', alias: '', type: 'RESOURCE_PROPERTY', label: '' },
+          { name: 'auto.sdt.admin', alias: '', type: 'INSTANCE_PROPERTY', label: '' },
+        ],
+      };
+      const list = [
+        { name: 'system.displayname', type: 'RESOURCE_PROPERTY' },
+        { name: 'auto.sdt.admin', type: 'INSTANCE_PROPERTY' },
+      ];
+
+      it('sends the list in the shape LogicMonitor stores, from a list, a JSON string or the stored object', async () => {
+        mockClient.updateDashboard.mockResolvedValue({ id: 1 });
+        for (const value of [list, JSON.stringify(list), expected]) {
+          await handlers.handleToolCall('update_dashboard', { dashboardId: 1, defaultDashboardFilters: value });
+          expect(mockClient.updateDashboard).toHaveBeenLastCalledWith(1, { defaultDashboardFilters: expected });
+        }
+      });
+
+      it('sends them on create too', async () => {
+        mockClient.createDashboard.mockResolvedValue({ id: 1 });
+        await handlers.handleToolCall('create_dashboard', { name: 'd', defaultDashboardFilters: list });
+        expect(mockClient.createDashboard).toHaveBeenLastCalledWith({ name: 'd', defaultDashboardFilters: expected });
+      });
+
+      it('rejects an entry without a valid type', async () => {
+        await expect(
+          handlers.handleToolCall('update_dashboard', { dashboardId: 1, defaultDashboardFilters: [{ name: 'x', type: 'DEVICE' }] })
+        ).rejects.toThrow(/RESOURCE_PROPERTY or INSTANCE_PROPERTY/);
+        await expect(
+          handlers.handleToolCall('update_dashboard', { dashboardId: 1, defaultDashboardFilters: 'nope' })
+        ).rejects.toThrow(/must be a list/);
+      });
+    });
+
     describe('update_dashboard', () => {
       it('should update dashboard', async () => {
         const mockDashboard = { id: 1, name: 'updated-dashboard' };
