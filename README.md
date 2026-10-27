@@ -518,7 +518,7 @@ npm run start:http
 
 ## Available Tools
 
-The server provides 157 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
+The server provides 158 tools for comprehensive LogicMonitor operations. Tools are categorized by functionality and marked as **read-only** (safe) or **write** (modifies data).
 
 ### Resource/Device Management
 
@@ -608,6 +608,7 @@ The server provides 157 tools for comprehensive LogicMonitor operations. Tools a
 - `delete_dashboard` - Delete dashboard
 - `create_widget` - Create a new widget on a dashboard
 - `update_widget` - Modify a widget
+- `find_widgets_using_datasource` - Find the widgets whose settings name a DataSource (e.g. after renaming it)
 - `delete_widget` - Delete a widget
 - `create_report_group` - Create report group
 - `update_report_group` - Modify report group

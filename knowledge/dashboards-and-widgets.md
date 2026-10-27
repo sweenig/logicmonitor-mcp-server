@@ -36,4 +36,4 @@ Status tiles per resource for one DataSource: `items:[{type:"device", deviceGrou
 
 ## After renaming a DataSource
 
-Search for widgets that still use the old display name: `list_widgets` (all, or one dashboard) and `get_widget` with `fields:"filters,items"`, then fix `filters.dataSource` / `items[].dataSourceDisplayName`, and any dashboard description that names it.
+Run `find_widgets_using_datasource` with the old display name (and the old internal name, for graph widgets), then fix `filters.dataSource` / `items[].dataSourceDisplayName`, and any dashboard description that names it.

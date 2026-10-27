@@ -2079,6 +2079,25 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('find_widgets_using_datasource', () => {
+      it('lists the widgets naming the text, searching every widget unless a dashboard is given', async () => {
+        mockClient.listWidgets.mockResolvedValue({ total: 2, items: [
+          { id: 1, name: 'A', type: 'alert', dashboardId: 9, filters: { dataSource: 'Old Name' } },
+          { id: 2, name: 'B', type: 'alert', dashboardId: 9, filters: { dataSource: 'Other' } },
+        ] });
+        const result: any = await handlers.handleToolCall('find_widgets_using_datasource', { name: 'old name' });
+        expect(mockClient.listWidgets).toHaveBeenLastCalledWith(expect.objectContaining({ dashboardId: undefined, autoPaginate: true }));
+        expect(result).toMatchObject({ searched: 'old name', widgetsChecked: 2, count: 1 });
+        expect(result.widgets[0]).toMatchObject({ widgetId: 1, dashboardId: 9, matchedIn: [{ path: 'filters.dataSource', value: 'Old Name' }] });
+        await handlers.handleToolCall('find_widgets_using_datasource', { name: 'x', dashboardId: 124 });
+        expect(mockClient.listWidgets).toHaveBeenLastCalledWith(expect.objectContaining({ dashboardId: 124 }));
+      });
+
+      it('requires a name', async () => {
+        await expect(handlers.handleToolCall('find_widgets_using_datasource', { name: ' ' })).rejects.toThrow(/Missing required argument.*name/);
+      });
+    });
+
     describe('update_widget columns', () => {
       const displaySettings = {
         isShowAll: true,

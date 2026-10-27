@@ -8,6 +8,7 @@ import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
 import { applyColumnChanges, ColumnChange } from '../utils/helpers/widget-columns.js';
+import { findWidgetReferences, WIDGET_REFERENCE_FIELDS } from '../utils/helpers/widget-references.js';
 import { buildNetscanCreate, buildNetscanUpdate, updateNeedsMethod } from '../utils/helpers/netscan-payload.js';
 import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
 import { websiteCheckpointRows } from '../utils/helpers/website-data.js';
@@ -1036,6 +1037,18 @@ export class LogicMonitorHandlers {
             widget.displaySettings = { ...displaySettings, columns: applyColumnChanges(displaySettings.columns, changes as ColumnChange[]) };
           }
           return await this.client.updateWidget(widgetId, widget);
+        }
+
+        case 'find_widgets_using_datasource': {
+          const text = typeof args.name === 'string' ? args.name.trim() : '';
+          if (!text) throw new InvalidArgumentError('name is required: the DataSource name to look for (display name or internal name).');
+          const result: any = await this.client.listWidgets({
+            dashboardId: args.dashboardId,
+            fields: WIDGET_REFERENCE_FIELDS,
+            autoPaginate: true,
+          });
+          const references = findWidgetReferences(result?.items ?? [], text);
+          return { searched: text, widgetsChecked: (result?.items ?? []).length, count: references.length, widgets: references };
         }
 
         case 'delete_widget':

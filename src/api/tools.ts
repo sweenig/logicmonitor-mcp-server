@@ -2475,6 +2475,26 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'find_widgets_using_datasource',
+    description: 'Find the dashboard widgets that name a DataSource (or any text) in their settings, with the dashboard id and the setting that matched. ' +
+      '\n\n**Why:** a widget stores a DataSource as plain text (alert list "filters.dataSource", NOC "items[].dataSourceDisplayName", graph settings), not as a link, so renaming a DataSource leaves widgets that silently show nothing. Search the OLD name after a rename, then fix each widget with "update\\_widget". ' +
+      '\n\n**Returns:** { searched, widgetsChecked, count, widgets: [{ widgetId, widgetName, widgetType, dashboardId, matchedIn: [{ path, value }] }] }. Matching is case-insensitive and finds the text anywhere in a settings value; the widget\'s own name is not searched. Read only: nothing is changed. ' +
+      '\n\n**Related tools:** "update\\_widget" (fix a widget), "list\\_dashboards" (resolve dashboardId), MCP resource "lm://knowledge/dashboards-and-widgets".',
+    annotations: {
+      title: 'Find widgets that use a DataSource',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'DataSource display name or internal name to look for (for example the old name after a rename)' },
+        dashboardId: { type: 'number', description: 'Only search the widgets of this dashboard. Omit to search every widget in the portal.' },
+      },
+      additionalProperties: false,
+      required: ['name'],
+    },
+  },
+  {
     name: 'update_widget',
     description: 'Modify an existing widget in LogicMonitor (LM) monitoring. ' +
       '\n\n**What this does:** Partially updates a widget - only the fields you provide are changed; everything else is left as-is. ' +
