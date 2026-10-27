@@ -565,6 +565,7 @@ The server provides 158 tools for comprehensive LogicMonitor operations. Tools a
 - `list_datasources` - List all available datasources
 - `get_datasource` - Get datasource details
 - `list_resource_datasources` - List datasources applied to device
+- `list_datasource_resources` - List devices a datasource is applied to (reverse of the above)
 - `get_resource_datasource` - Get device datasource details
 - `list_resource_instances` - List datasource instances (disks, interfaces, etc.)
 - `get_resource_instance_data` - Get time-series metrics data

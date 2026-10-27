@@ -1739,6 +1739,15 @@ export class LogicMonitorHandlers {
             autoPaginate: args.autoPaginate,
           });
 
+        case 'list_datasource_resources':
+          return await this.client.listDataSourceDevices(args.dataSourceId, {
+            size: args.size,
+            offset: args.offset,
+            filter: args.filter,
+            fields: args.fields,
+            autoPaginate: args.autoPaginate,
+          });
+
         case 'get_resource_datasource':
           return await this.client.getDeviceDataSource(args.deviceId, args.deviceDataSourceId, {
             fields: args.fields,

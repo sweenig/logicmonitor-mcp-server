@@ -4957,6 +4957,36 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'list_datasource_resources',
+    description: 'List the resources/devices a datasource is applied to in LogicMonitor (LM) monitoring - the reverse of "list\\_resource\\_datasources" and the same list as the portal\'s "Associated Devices" tab on a DataSource. ' +
+      '\n\n**Returns:** Array of resources/devices with: id (the resource/device ID, NOT a deviceDataSourceId), name, displayName, description, instance (array of {id, name, alias} - only the first 10 instances), hasMore (1 when the resource/device has more than the 10 instances shown), hasActiveInstance. ' +
+      '\n\n**When to use:**' +
+      '\n- Find which resources/devices have a given datasource applied (e.g., "which devices have IPSLA operations?")' +
+      '\n- See a sample of each resource/device\'s instances without a call per resource/device' +
+      '\n\n**Workflow:** get the datasource ID with "list\\_datasources", call this tool, then for any resource/device with hasMore, call "list\\_resource\\_datasources" (filter dataSourceId:<id>) to get its deviceDataSourceId and "list\\_resource\\_instances" for the full instance list. ' +
+      '\n\n**Filtering:** filter supports the returned fields, e.g. displayName~*prod* or id:123. ' +
+      '\n\n**Important:** LogicMonitor may return a negative "total" value due to a known upstream API limitation - this does not mean the request failed. Never use "total" to count or check for results; check the length of the "items" array instead, and use pagination (size/offset) or autoPaginate: true to retrieve all items across pages. ' +
+      '\n\n**Related tools:** "list\\_datasources" (find the datasource ID), "list\\_resource\\_datasources" (the other direction: datasources on one resource/device), "list\\_resource\\_instances" (full instance list on a resource/device).',
+    annotations: {
+      title: 'List datasource resources/devices',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dataSourceId: {
+          type: 'number',
+          description: 'The datasource ID',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        ...fieldsSchema,
+      },
+      additionalProperties: false,
+      required: ['dataSourceId'],
+    },
+  },
+  {
     name: 'get_resource_datasource',
     description: 'Get detailed information about a specific datasource applied to a resource/device in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** Complete resource/device datasource details: dataSourceName, status, alert status, number of instances, monitoring configuration, stop monitoring flag, custom properties, graphs. ' +

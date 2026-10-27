@@ -126,6 +126,7 @@ describe('LogicMonitorHandlers', () => {
       updateAccessGroup: jest.fn(),
       deleteAccessGroup: jest.fn(),
       listDeviceDataSources: jest.fn(),
+      listDataSourceDevices: jest.fn(),
       getDeviceDataSource: jest.fn(),
       updateDeviceDataSource: jest.fn(),
       listEventSources: jest.fn(),
@@ -3404,6 +3405,24 @@ describe('LogicMonitorHandlers', () => {
         size: undefined,
         offset: undefined,
         filter: undefined,
+        fields: undefined,
+        autoPaginate: undefined,
+      });
+    });
+
+    it('should handle list_datasource_resources', async () => {
+      const mockResponse = { items: [], total: 0 };
+      mockClient.listDataSourceDevices.mockResolvedValue(mockResponse);
+
+      await handlers.handleToolCall('list_datasource_resources', {
+        dataSourceId: 160,
+        filter: 'displayName~*server*',
+      });
+
+      expect(mockClient.listDataSourceDevices).toHaveBeenCalledWith(160, {
+        size: undefined,
+        offset: undefined,
+        filter: 'displayName~*server*',
         fields: undefined,
         autoPaginate: undefined,
       });

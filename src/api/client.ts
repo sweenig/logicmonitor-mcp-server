@@ -565,6 +565,23 @@ export class LogicMonitorClient {
     return this.request<LMResponse<any>>('GET', `/setting/datasources/${dataSourceId}`, undefined, params);
   }
 
+  // The DataSource-side view of device datasources: every resource the DataSource is applied to (the portal's "Associated Devices" list)
+  async listDataSourceDevices(dataSourceId: number, params?: {
+    size?: number;
+    offset?: number;
+    filter?: string;
+    fields?: string;
+    autoPaginate?: boolean;
+  }) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+
+    if (autoPaginate) {
+      return this.paginateAll<any>(`/setting/datasources/${dataSourceId}/devices`, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', `/setting/datasources/${dataSourceId}/devices`, undefined, cleanedParams);
+  }
+
   // DataSource graphs: overview graphs (ographs) show on the DataSource's overview page, instance graphs on each instance
   async listDataSourceOverviewGraphs(dataSourceId: number, params?: { size?: number; offset?: number; filter?: string; fields?: string }) {
     return this.request<LMListResponse<any>>('GET', `/setting/datasources/${dataSourceId}/ographs`, undefined, this.cleanParams(params || {}));
