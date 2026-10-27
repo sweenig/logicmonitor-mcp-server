@@ -21,4 +21,8 @@ docker build -t logicmonitor-mcp-server:latest /home/sweenig/lm-mcp
 /home/sweenig/lm-mcp/portal-manager/start-portal.sh --name <portal>   # e.g. amsobservability
 ```
 
-Only the portal you name is recreated; the others keep running the old image until restarted. Only restart the portal the user asks for.
+Only the portal you name is recreated; the others keep running the old image until restarted. Only restart the portal the user asks for. The exception is the `/deploy` skill (`.claude/skills/deploy/SKILL.md`): invoking it means test, rebuild and restart every running portal (or the ones named); stopped portals stay stopped. It pauses for a VS Code restart, then runs live checks.
+
+## Commit and push
+
+Only after the change is deployed and verified live. When the user says "commit and push": first add a line under `## [Unreleased]` in `CHANGELOG.md` (matching the surrounding style) and update `context_data/mcp_server_todo.md` (mark the item DONE in the table and move it under "Done", or add a new entry), then commit straight to main, staging files by name, and push.
