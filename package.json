@@ -31,6 +31,7 @@
         "start:stdio": "node build/servers/index.js --transport stdio",
         "start:sse": "node build/servers/index.js --transport sse",
         "start:http": "node build/servers/index.js --transport streamable-http",
+        "pretest": "npm run build",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
         "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",

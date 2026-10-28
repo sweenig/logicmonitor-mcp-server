@@ -10,7 +10,7 @@ docker run --rm -v /home/sweenig/lm-mcp:/src:ro node:22 sh -c \
    && cd /work && npm ci --ignore-scripts >/dev/null 2>&1 && npx tsc --noEmit && npm test"
 ```
 
-`src/servers/auth.e2e.test.ts` needs a `build/` directory, so it fails in that copy; that is expected.
+`src/servers/auth.e2e.test.ts` spawns `build/servers/index.js` on ports 13000-13003, so it needs a `build/` directory. `npm test` runs a `pretest` script (`npm run build`) that creates it, so the whole suite should pass in that copy; any failure, including this suite, is real. (`test:watch` and `test:coverage` skip `pretest`; run `npm run build` first for those.)
 
 ## Rebuild and restart a portal container
 
