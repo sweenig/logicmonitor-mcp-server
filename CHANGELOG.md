@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ten legacy `*_service` and `*_service_group` tools (`list_services`, `get_service`, `create_service`, `update_service`, `delete_service`, `list_service_groups`, `get_service_group`, `create_service_group`, `update_service_group`, `delete_service_group`). They called the pre-v3 `/service/*` endpoints, which reject `X-Version: 3` (HTTP 415) and return website monitors rather than business services; use the website tools instead
 
 ### Changed
+- Progress update for October 26-28, 2026 added to `release-notes/`
 - `npm test` now builds first (`pretest` runs `npm run build`), so `src/servers/auth.e2e.test.ts`, which spawns `build/servers/index.js`, passes in the container test recipe instead of always failing; `test:watch` and `test:coverage` still need a prior `npm run build`
 - Report tool descriptions: report groups are a flat, single level of folders; each report carries its group as `groupId` (filter `list_reports` with `groupId:<id>`); `reportsCount` on groups is not reliable
 - Alert rules: `create_alert_rule` / `update_alert_rule` now apply `deviceGroups`, `datasource`, `datapoint` and `severity` (all, warn, error, critical), and send the datasource filter as the API field `datasource` (before, `datasources` was sent and ignored)
