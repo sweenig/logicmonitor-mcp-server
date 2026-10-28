@@ -7,7 +7,7 @@ The example this is modelled on is a set of process and service DataSources (`Wi
 ## The pattern
 
 1. **Name two properties after the DataSource**: `<DataSourceName>.includeRegEx` and `<DataSourceName>.excludeRegEx`. The DataSource name prefix keeps them unique and obvious. The values are regular expressions.
-2. **Reference them in the discovery filters with `##property##` tokens.** The filter's attribute is what is tested, and its value is the token:
+2. **Reference them in the discovery filters with `##property##` tokens.** The filter's attribute is what is tested, and its value is the token. The attribute below is the WMI/script form; for SNMP it is a column OID (see "What can be tested"):
 
 ```
 filters: [
@@ -34,9 +34,11 @@ Because `appliesTo` requires the properties, a DataSource that has been created 
 
 With only those, every matching resource gets everything, exactly as a DataSource with no filters would. Narrowing is then opt-in: set different values on a group or a resource and the inherited default is overridden there. Offer to create them (`update_resource_group_property`, once per property), and say that the DataSource will apply nowhere until they exist. If the user wants the DataSource to stay dormant until someone opts in, leave the root properties out and say so, since that is the opposite behaviour.
 
+An undefined property is **not** skipped. Tested on SNMP discovery, with the name column's OID as the attribute: with `excludeRegEx` undefined the DataSource discovered **no instances at all**, whether `includeRegEx` was defined or not; with `excludeRegEx` defined and `includeRegEx` undefined it filtered correctly; with both defined (`.*` and `a^`) it discovered everything. Do not rely on any one of them being optional: define both.
+
 ## Setting the properties
 
-Set them on the resource group that holds the right devices (for example a "Linux Servers" folder), on the root group for everything, or on a single resource. Children inherit; a property on a resource **overrides** the value inherited from its group, so a group can keep the default include `.*` while one device overrides the exclude. Use `update_resource_group_property` and `update_resource_property` (they create the property if it does not exist; `delete_resource_property` and `delete_resource_group_property` remove one). Datasources that do not use a property ignore it.
+Set them on the resource group that holds the right devices (for example a "Linux Servers" folder), on the root group for everything, or on a single resource. Children inherit; a property on a resource **overrides** the value inherited from its group, so a group can keep the default include `.*` while one device overrides the exclude. LogicMonitor stores property names in lowercase (`MyDS.includeRegEx` becomes `myds.includeregex`). The `##MyDS.includeRegEx##` token still resolves, but `delete_resource_property` needs the lowercase name. Use `update_resource_group_property` and `update_resource_property` (they create the property if it does not exist; `delete_resource_property` and `delete_resource_group_property` remove one). Datasources that do not use a property ignore it.
 
 ## Values and placeholders
 
@@ -46,9 +48,11 @@ Set them on the resource group that holds the right devices (for example a "Linu
 
 ## What can be tested
 
-- `##WILDALIAS##`: the instance's name. This is the common choice for include/exclude patterns. It only works well when the name is meaningful, so with SNMP use `value` discovery on a name column, not `wildcard`, whose alias is the bare index (see `lm://knowledge/snmp-datasource-from-mib`).
-- An **instance property** (`auto.<something>`), such as one set by an ILP or a discovery script: for example filter out services whose `auto.WinServiceStartMode` is `Manual` or `Disabled`.
-- For SNMP, an OID (see the filters section in the SNMP knowledge doc).
+What goes in the filter's `attribute` depends on the discovery method. The **value** is where the `##property##` token goes, and that works the same everywhere.
+
+- **SNMP discovery (`ad_snmp`): the OID of the column to test**, for example `.1.3.6.1.2.1.2.2.1.2` for `ifDescr`. Do **not** use `##WILDALIAS##` (or `WILDALIAS`): the API accepts it but the filter then matches nothing and every instance gets through, a silent failure. With `value` discovery the name is the walked column, so filter on that column's OID. The SNMP DataSources that ship with LogicMonitor all filter this way (for example CiscoFan- tests `.1.3.6.1.4.1.9.9.13.1.4.1.3`). See the filters section in `lm://knowledge/snmp-datasource-from-mib`.
+- **WMI discovery (`ad_wmi`)**: `##WILDALIAS##` (the instance's name) works, as does a WMI property name such as `DriveType`. `WinVolumeUsage-` uses `##WILDALIAS##` with `##WinVolumeUsage-.includeRegEx##` and `.excludeRegEx`.
+- **Script discovery**: `##WILDALIAS##`, or an **instance property** (`auto.<something>`) set by the discovery script, for example to filter out services whose `auto.WinServiceStartMode` is `Manual` or `Disabled`. Not verified here.
 
 Operations seen: `Equal`, `NotEqual`, `GreaterThan`, `RegexMatch`, `RegexNotMatch`. Take others from an existing DataSource.
 
@@ -58,4 +62,6 @@ Use property-driven filters whenever "which instances matter" differs by custome
 
 ## Verified
 
-Checked on a real portal: `create_datasource` accepted and stored the token filters and the property-based `appliesTo` shown above (a throwaway DataSource, since deleted). The pattern itself comes from the example DataSources linked above. Not verified here: how a given pattern behaves at discovery on a live device.
+Checked on a real portal: `create_datasource` accepted and stored the token filters and the property-based `appliesTo` shown above. The pattern itself comes from the example DataSources linked above, and `WinVolumeUsage-` (WMI) uses it as shown.
+
+Checked at discovery on a live switch with an SNMP DataSource (`value` discovery on `ifDescr`, 14 instances unfiltered), each case on a fresh DataSource: `##WILDALIAS##` and `WILDALIAS` as the attribute filtered nothing, even with a literal pattern; the column OID as the attribute filtered correctly, with a literal pattern and with a property token; and the behaviour of undefined properties is as described under "Defaults on the root group". Regular expressions are matched against the whole value, so write `.*Port: 3 .*` to exclude a fragment. Not verified: the `wildcard` and `lookup` discovery types, and script discovery.

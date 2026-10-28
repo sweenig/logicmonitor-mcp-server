@@ -160,8 +160,8 @@ export function generatePromptMessages(name: string, args?: Record<string, any>)
       'Start by reading the MCP resource "lm://knowledge/snmp-datasource-from-mib" and follow it. In short:\n' +
       '1. Read the table definition below and resolve the OIDs. Do not invent anything the MIB text does not give; ask for any missing line.\n' +
       '2. Propose the design as a short table for me to adjust before you build anything: the instance (what is walked and what names it), each column you will turn into a datapoint with its description and unit, which columns you skip and why, status display names for enumerations, and suggested thresholds with your reasoning. Ask me about anything the MIB does not settle (which state is bad, whether to filter instances (and whether the filters should be property-driven, see "lm://knowledge/property-driven-discovery"), what devices it applies to, scaling).\n' +
-      '3. After I agree, create the DataSource with appliesTo set to false(), read it back, then test it on a real device and report what you checked and what you could not.\n' +
-      '4. Only then set the real appliesTo.\n\n' +
+      '3. After I agree, create the DataSource with appliesTo set to false() followed by a /* comment */ holding the full appliesTo expression you intend to use (appliesTo supports /* ... */ comments), so the final intent is visible while it applies to nothing. Break long expressions and comments over several lines: each clause and each parenthetical group on its own line, and about 140 characters at most, because the UI box scrolls sideways on long lines. Read it back, then test it on a real device and report what you checked and what you could not.\n' +
+      '4. Only then set the real appliesTo (the expression from the comment).\n\n' +
       (mibText
         ? `Here is the MIB text for the table:\n\n${mibText}`
         : 'I have not pasted the MIB text yet. Ask me for the table\'s part of the MIB (not the whole file) before you begin.');

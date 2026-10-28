@@ -45,6 +45,8 @@ To group instances by a property of each one (for example the admin who created 
 
 An expression that is just a property name means "the property is present". Prefer `prop.a && prop.b` over matching device names, so the DataSource follows the resources that carry the properties.
 
+Break long expressions over several lines: one `&&` / `||` clause per line and each parenthetical group on its own line, which helps readability as well as width, and keep lines to about 140 characters or fewer (a rule of thumb; property names and compared values can be long). The UI's `appliesTo` box scrolls sideways when a line is wider than it, which makes the expression hard to read and review. Line breaks do not change the meaning. `/* ... */` comments are allowed, for example to hold a held-back expression after `false()`; break those lines too.
+
 ## Conventions
 
 Renaming: change `displayName` and the internal `name` together, and fix dashboard widgets that name the old display name (see `lm://knowledge/dashboards-and-widgets`).

@@ -101,6 +101,8 @@ describe('LogicMonitor Prompts', () => {
       expect(text).toContain('lm://knowledge/snmp-datasource-from-mib');
       expect(text).toContain('not the whole file');
       expect(text).toContain('false()');
+      expect(text).toContain('/* comment */');
+      expect(text).toContain('Break long expressions');
     });
 
     it('includes the pasted MIB text, the existing DataSource and the test resource', () => {

@@ -8,7 +8,7 @@ Status: the DataSource shapes below were created and read back on a real portal 
 
 1. **Scope.** Which table (or scalar group) do they want, which device model, and is there an existing DataSource to improve? A MIB can be megabytes: never ask for the whole file. Ask for the text of the table: its `...Table`, `...Entry` and `SEQUENCE` definitions and every column's `OBJECT-TYPE`, plus the OID chain above it (see "Getting OIDs") and any `TEXTUAL-CONVENTION` types the columns use.
 2. **Read the table**, then propose the design (instances, datapoints, thresholds) in a short table and wait for the user to adjust it.
-3. **Create the DataSource** with a placeholder `appliesTo` (`false()`), so nothing is affected until it is tested.
+3. **Create the DataSource** with `appliesTo` set to `false()` plus a comment holding the intended expression (see "Naming and applying"), so nothing is affected until it is tested.
 4. **Test it** on a real device, then set the real `appliesTo`.
 
 Do not invent MIB content you were not given. If a column's type, enumeration or parent OID is not in the text you have, say so and ask.
@@ -111,19 +111,37 @@ statusDisplayNames: [
 
 ## Discovery filters
 
-`autoDiscoveryConfig.filters` hides instances that fail a test, each `{attribute, operation, value, comment}`; for SNMP the attribute can be a column OID (operations seen include `Equal`, `GreaterThan`, `NotEqual`), the instance name (`##WILDALIAS##`) or an instance property. Filters are useful, but they change what the user sees: for example, filtering outlets to "state is on" means an outlet that is switched off never appears at all, so it can never alert. Ask rather than assume, and put the reason in each filter's `comment`.
+`autoDiscoveryConfig.filters` hides instances that fail a test, each `{attribute, operation, value, comment}`; for SNMP the attribute is the **OID of a column**, and the filter tests that column's value for each row (operations seen include `Equal`, `NotEqual`, `GreaterThan`, `RegexMatch`, `RegexNotMatch`). To filter by instance name with `value` discovery, use the OID of the name column you walk for discovery. Do **not** use `##WILDALIAS##` or `WILDALIAS` as the attribute for SNMP: the API accepts it, but it matches nothing, so the filter silently does not filter (it is the right attribute for WMI discovery, not SNMP). Filters are useful, but they change what the user sees: for example, filtering outlets to "state is on" means an outlet that is switched off never appears at all, so it can never alert. Ask rather than assume, and put the reason in each filter's `comment`.
 
 There are two kinds of filter, and the choice matters:
 
 - **Fixed filters** state a rule that is always true for this table, such as "only discover fans that are present" (`NotEqual 5` on a presence column) or "skip rows with no value". Hard-code these, and say why in the `comment`.
-- **Property-driven filters** put "which instances do we want?" in properties that the user sets on resources or resource groups, such as `<DataSourceName>.includeRegEx` and `.excludeRegEx` matched against the instance name. Prefer these whenever the answer differs by customer, site or device (interfaces, sensors, processes, anything people want to narrow). With `value` discovery the instance name is the name column, so a name pattern is meaningful. The full pattern (the `##property##` tokens, the `appliesTo` that requires the properties, placeholder values, inheritance and overrides) is in `lm://knowledge/property-driven-discovery`; read it and propose the property names to the user.
+- **Property-driven filters** put "which instances do we want?" in properties that the user sets on resources or resource groups, such as `<DataSourceName>.includeRegEx` and `.excludeRegEx` matched against the instance name. Prefer these whenever the answer differs by customer, site or device (interfaces, sensors, processes, anything people want to narrow). With `value` discovery the instance name is the name column, so a name pattern is meaningful. In the filter, the attribute is the name column's OID and the value is the token, for example `{attribute: ".1.3.6.1.4.1.318.1.1.12.3.5.1.1.2", operation: "RegexNotMatch", value: "##MyDS.excludeRegEx##"}`. Both properties must be defined, or nothing is discovered. The full pattern (the `##property##` tokens, the `appliesTo` that requires the properties, placeholder values, inheritance and overrides) is in `lm://knowledge/property-driven-discovery`; read it and propose the property names to the user.
 
 Ask which kind they want, and do not add a state-based filter (such as "only outlets that are on") without saying what it hides.
 
 ## Naming and applying
 
 - `name`: no spaces, vendor and table (`APC_RackPDU_OutletStatus`); `displayName` readable; `tags` comma separated; `group` if the portal uses them.
-- `appliesTo` decides which devices get it. Ask what identifies them (a device category such as `hasCategory("APCRackPDU")`, or a property). Create with `false()`, test, then `update_datasource` the real expression.
+- `appliesTo` decides which devices get it. Ask what identifies them (a device category such as `hasCategory("APCRackPDU")`, or a property). Create with `false()`, test, then `update_datasource` the real expression. `appliesTo` supports `/* ... */` comments, so while the DataSource is held back, write the **complete intended expression** in a comment after `false()` so anyone opening it sees what it will apply to:
+
+  ```text
+  false()
+  /* Intended: hasCategory("APCRackPDU") && MyDS.includeRegEx && MyDS.excludeRegEx */
+  ```
+
+  **Break long lines.** The `appliesTo` editor in the UI scrolls sideways when a line is wider than the box, which makes a long expression or comment hard to read and review. Put each clause (`&&` / `||` term) and each parenthetical group on its own line, for readability as well as width, and each sentence of a comment on its own line. Keep lines to roughly 140 characters at most (a rule of thumb, not a measured limit; property names and compared values can be long). Whitespace and line breaks do not change what the expression matches. This applies to every `appliesTo`, not only held-back ones:
+
+  ```text
+  false()
+  /* Intended:
+     hasCategory("APCRackPDU")
+     && MyDS.includeRegEx
+     && MyDS.excludeRegEx
+  */
+  ```
+
+  If the expression is not settled, say what is missing in the comment (for example "device category to be confirmed"). Switching on is then a matter of deleting `false()` and the comment markers.
 - Check the portal for a similar DataSource first (`list_datasources` with a name filter) so you improve or reuse it rather than duplicate it.
 
 ## Create, update, and the datapoint trap
