@@ -100,21 +100,27 @@ export function fillDatapointsFromSaved(sent: unknown[], saved: unknown[]): unkn
 }
 
 /**
- * The saved datapoints that an update's datapoint list would delete. LogicMonitor replaces the whole
- * list, so a saved datapoint whose id is not in the list is deleted, and its collected history with it,
- * permanently. A datapoint sent without an id is created as a new one, so it does not keep a saved
- * datapoint of the same name either.
+ * The saved items (datapoints, config checks) that an update's list would delete. LogicMonitor replaces
+ * the whole list, so a saved item whose id is not in the list is deleted. For datapoints that also
+ * removes the collected history, permanently. An item sent without an id is created as a new one, so it
+ * does not keep a saved item of the same name either.
  */
-export function findDroppedDatapoints(sent: unknown[], saved: unknown[]): Array<{ id: unknown; name: unknown }> {
+export function findDroppedById(sent: unknown[], saved: unknown[]): Array<{ id: unknown; name: unknown }> {
   const kept = new Set<string>();
-  for (const dp of sent) {
-    if (dp && typeof dp === 'object' && (dp as any).id !== undefined && (dp as any).id !== null) kept.add(String((dp as any).id));
+  for (const item of sent) {
+    if (item && typeof item === 'object' && (item as any).id !== undefined && (item as any).id !== null) kept.add(String((item as any).id));
   }
   const dropped: Array<{ id: unknown; name: unknown }> = [];
-  for (const dp of saved) {
-    if (dp && typeof dp === 'object' && (dp as any).id !== undefined && !kept.has(String((dp as any).id))) {
-      dropped.push({ id: (dp as any).id, name: (dp as any).name });
+  for (const item of saved) {
+    if (item && typeof item === 'object' && (item as any).id !== undefined && !kept.has(String((item as any).id))) {
+      dropped.push({ id: (item as any).id, name: (item as any).name });
     }
   }
   return dropped;
 }
+
+/** The saved datapoints that an update's datapoint list would delete (see findDroppedById). */
+export const findDroppedDatapoints = findDroppedById;
+
+/** The saved config checks that an update's configChecks array would delete (see findDroppedById). */
+export const findDroppedConfigChecks = findDroppedById;

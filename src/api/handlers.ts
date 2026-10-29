@@ -17,7 +17,7 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints } from '../utils/helpers/datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from '../utils/helpers/datasource-payload.js';
 import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
@@ -290,6 +290,52 @@ export class LogicMonitorHandlers {
     }
 
     updates.dataPoints = fillDatapointsFromSaved(dataPoints, saved);
+  }
+
+  /**
+   * LogicMonitor replaces the whole configChecks array on a ConfigSource update, so a saved check that is
+   * left out is deleted (re-adding it creates a new one with a new id). Before an update that carries
+   * configChecks, read the saved checks and refuse the update if it would drop any, unless the caller
+   * passed allowConfigCheckRemoval (for when the user has explicitly asked to delete checks). If the saved
+   * checks cannot be read the update is refused as well, because nothing can then be checked.
+   */
+  private async checkConfigChecksKept(configSourceId: number, updates: Record<string, any>, allowRemoval: boolean): Promise<void> {
+    if (updates.configChecks === undefined) return;
+    const configChecks = parseJsonArray(updates.configChecks);
+    if (!Array.isArray(configChecks)) {
+      throw new InvalidArgumentError('configChecks must be an array of config checks (send every check of the ConfigSource, each existing one with its "id")');
+    }
+    updates.configChecks = configChecks;
+
+    let saved: unknown[];
+    try {
+      const current: any = await this.client.getConfigSource(configSourceId, { fields: 'configChecks' });
+      saved = current?.configChecks ?? [];
+    } catch (error) {
+      if (allowRemoval) return;
+      throw new MCPError(
+        `Could not read the saved config checks of ConfigSource ${configSourceId} to check that this update keeps them: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCodes.INVALID_PARAMETERS,
+        { configSourceId },
+        ['Retry; the update is refused rather than risk deleting config checks'],
+      );
+    }
+
+    const dropped = findDroppedConfigChecks(configChecks, saved);
+    if (dropped.length > 0 && !allowRemoval) {
+      const list = dropped.map(check => `${check.name} (id ${check.id})`).join(', ');
+      throw new MCPError(
+        `This update would delete ${dropped.length} saved config check(s) of ConfigSource ${configSourceId}: ${list}. `
+          + 'LogicMonitor replaces the whole configChecks array, and a deleted check cannot be restored (adding it again creates a new check with a new id). Nothing was changed.',
+        ErrorCodes.INVALID_PARAMETERS,
+        { configSourceId, dropped },
+        [
+          `Send every check, each existing one with its "id" (get them from get_configsource): ${list}`,
+          'A check sent without an "id" is created as a new one and does not keep a saved check of the same name',
+          'Pass allowConfigCheckRemoval:true only when the user has explicitly asked for these checks to be deleted',
+        ],
+      );
+    }
   }
 
   /** The id and name of each datapoint on a DataSource, for resolving graph lines written by name. */
@@ -1567,7 +1613,7 @@ export class LogicMonitorHandlers {
             tags: args.tags,
             collectMethod: args.collectMethod,
             collectInterval: args.collectInterval,
-            collectorAttribute: args.collectorAttribute,
+            collectorAttribute: normalizeCollectorAttribute(args.collectorAttribute, args.collectMethod, true),
             hasMultiInstances: args.hasMultiInstances,
             enableAutoDiscovery: args.enableAutoDiscovery,
             autoDiscoveryConfig: args.autoDiscoveryConfig,
@@ -1585,7 +1631,11 @@ export class LogicMonitorHandlers {
         }
 
         case 'update_configsource': {
-          const { configSourceId, ...updates } = args;
+          const { configSourceId, allowConfigCheckRemoval, ...updates } = args;
+          if (updates.collectorAttribute !== undefined) {
+            updates.collectorAttribute = normalizeCollectorAttribute(updates.collectorAttribute, updates.collectMethod, false);
+          }
+          await this.checkConfigChecksKept(configSourceId, updates, isTrue(allowConfigCheckRemoval));
           return await this.client.updateConfigSource(configSourceId, updates);
         }
 

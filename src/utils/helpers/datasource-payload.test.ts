@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints } from './datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from './datasource-payload.js';
 
 describe('normalizeCollectorAttribute', () => {
   it('defaults name from collectMethod and the unused script fields to "" on create', () => {
@@ -98,5 +98,13 @@ describe('findDroppedDatapoints', () => {
 
   it('is empty when nothing is saved', () => {
     expect(findDroppedDatapoints([{ name: 'new' }], [])).toEqual([]);
+  });
+});
+
+describe('findDroppedConfigChecks', () => {
+  it('lists the saved config checks whose id is not in the sent array, like datapoints', () => {
+    const saved = [{ id: 1, name: 'cantRetrieve' }, { id: 2, name: 'anyChange' }];
+    expect(findDroppedConfigChecks([{ id: 2 }, { name: 'new' }], saved)).toEqual([{ id: 1, name: 'cantRetrieve' }]);
+    expect(findDroppedConfigChecks([{ id: 1 }, { id: 2 }], saved)).toEqual([]);
   });
 });

@@ -765,7 +765,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_alerts',
     description: 'List active alerts in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of alerts with: id (alertId), severity (critical/error/warning), resource name, datasource, datapoint, alert message, start time (startEpoch), acknowledgement status (acked), alert rule. ' +
+      '\n\n**Returns:** Array of alerts with: id (alertId), severity (a number: 2 = warning, 3 = error, 4 = critical), resource name, datasource, datapoint, alert message, start time (startEpoch), acknowledgement status (acked), alert rule. ' +
       '\n\n**When to use:** ' +
       '\n- Get all critical production alerts' +
       '\n- Find unacknowledged alerts needing attention' +
@@ -774,15 +774,15 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Generate alert reports' +
       '\n\n**Two search modes:** ' +
       '\n- **Simple search:** Use query parameter with free text (e.g., query:"prod-web-01") - searches by resource/device name (monitorObjectName field)' +
-      '\n- **Advanced filtering:** Use filter parameter with LM filter syntax (e.g., filter:"severity:critical,acked:false") for precise control' +
+      '\n- **Advanced filtering:** Use filter parameter with LM filter syntax (e.g., filter:"severity:4,acked:false") for precise control' +
       '\n\n**Common filter patterns:** ' +
-      '\n- Critical alerts: filter:"severity:critical"' +
+      '\n- By severity: filter:"severity:4" (critical). Severity filters take the NUMBER: 2 = warning, 3 = error, 4 = critical (the "severity" field of each alert is the same number). The words (severity:critical, severity:error, severity:warn) match nothing and silently return an empty list' +
       '\n- Unacknowledged: filter:"acked:false"' +
       '\n- Specific device: filter:"monitorObjectName\\~\\*prod-web-01\\*"' +
       '\n- CPU alerts: filter:"resourceTemplateName\\~\\*CPU\\*"' +
       '\n- A DataSource\'s alerts: filter:"resourceTemplateName\\~\\*Group Standard\\*" - an alert carries the DataSource\'s DISPLAY name in resourceTemplateName, not its internal name, so filtering on the internal name finds nothing' +
       '\n- Recent alerts: filter:"startEpoch>1730851200" (epoch seconds)' +
-      '\n- Combined: filter:"severity:critical,acked:false" (AND logic)' +
+      '\n- Combined: filter:"severity:4,acked:false" (AND logic)' +
       '\n\n**Query vs Filter:** ' +
       '\n- query: Simple text search by resource/device name only (e.g., query:"production", query:"k8s-cluster")' +
       '\n- filter: Precise LM filter syntax with any alert field. Use for severity, acked status, etc.' +
@@ -800,7 +800,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         query: {
           type: 'string',
-          description: 'Simple search query. Free text (e.g., "prod-web-01", "k8s-cluster") searches by resource/device name (monitorObjectName). Can also use filter syntax (e.g., "severity:critical") which gets formatted automatically.',
+          description: 'Simple search query. Free text (e.g., "prod-web-01", "k8s-cluster") searches by resource/device name (monitorObjectName). Can also use filter syntax (e.g., "severity:4", where 2 = warning, 3 = error, 4 = critical) which gets formatted automatically.',
         },
         ...paginationSchema,
         ...filterSchema,
@@ -4078,7 +4078,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**When to use:** ' +
       '\n- Define a new configuration-tracking template programmatically (e.g. to track a config file, or a settings blob pulled from an API, for drift/change management) ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
-      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based ConfigSource sets collectMethod:"batchscript" and collectorAttribute.groovyScript; autoDiscoveryConfig.method.name:"ad_script" with its own groovyScript that emits "wildvalue##wildalias" lines). This tool passes them through as-is; consult an existing similar ConfigSource (via "get\\_configsource") for the exact shape to replicate. ' +
+      '\n\n**Note on collectorAttribute/autoDiscoveryConfig shape:** these are polymorphic - their exact fields depend on "collectMethod"/the discovery method name (e.g. a script-based ConfigSource sets collectMethod:"batchscript" and collectorAttribute.groovyScript; autoDiscoveryConfig.method.name:"ad_script" with its own groovyScript that emits "wildvalue##wildalias" lines). For collectorAttribute this tool fills in what LogicMonitor requires: "name" defaults to collectMethod (without it LogicMonitor answers "Invalid type") and, on create, the unused linuxCmdline/linuxScript/windowsCmdline/windowsScript default to "". autoDiscoveryConfig is passed through as-is; consult an existing similar ConfigSource (via "get\\_configsource") for the exact shape to replicate. ' +
       '\n\n**Related tools:** "get\\_configsource" (see the shape of an existing ConfigSource to model a new one on), "list\\_configsources".',
     annotations: {
       title: 'Create ConfigSource',
@@ -4141,7 +4141,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         fileFormat: {
           type: 'string',
-          description: 'Format of the collected config content for diffing, e.g. "text"|"xml"|"java-properties"|"ini"',
+          description: 'File format of the collected config content, which decides how a change is detected. One of: "arbitrary" (the default; no implicit rules, so fields and values in checks must be written as regular expressions), "unix" (lines starting with # are comments; for an Any Change check, changes to comments and extra blank lines and spaces are ignored; fields and values still need regular expressions), "java-properties" (a .properties file: lines starting with # or ! are comments, key = value pairs; for an Any Change check, comments, blank lines and spaces and the order of properties are ignored, and keys and values are recognized automatically). Other values (such as "text", "xml", "ini") are rejected by LogicMonitor with "Unsupported file format".',
         },
         timestampFormat: {
           type: 'string',
@@ -4191,7 +4191,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Add, change, or remove config checks (e.g. add an "Any Change" check)' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**configChecks semantics (verified):** "configChecks" is a full REPLACEMENT of the array, not a merge. Any existing check omitted from the array is DELETED, and re-adding it later gives it a new id. First fetch the current checks via "get\\_configsource", then send back the complete desired list: keep each existing check\'s "id" (and "originId") so it is updated in place, and leave "id" off new checks. Omit "configChecks" entirely to leave checks untouched. ' +
-      '\n\n**Check shape:** {name, description, alertLevel, ackClearAlert, alertEffectiveIval, alertTransitionInterval, type, script}. alertLevel: 1 = no alert (rejected by the API for checks that must alert), 2 = warn, 3 = error, 4 = critical. type "fetch" (alerts when collection fails) uses script {fetch_check:{}, format}; "ignore" (the "Any Change"/diff check) uses script {format, diff_check:{...}}; "value" uses script {value_check:{variable, must:[{range:{...}}]}}. ' +
+      '\n\n**Safeguard:** before an update that carries "configChecks" this tool reads the saved checks and REFUSES the update if its array would drop any of them (it names them and changes nothing), and also when it cannot read them. A check sent without an "id" counts as dropping a saved check of the same name. Set "allowConfigCheckRemoval":true only when the user has explicitly asked for those checks to be deleted; never to get past the error. ' +
+      '\n\n**Check shape:** {name, description, alertLevel, ackClearAlert, alertEffectiveIval, alertTransitionInterval, type, script}. alertLevel: 1 = no alert (rejected by the API for checks that must alert), 2 = warn, 3 = error, 4 = critical. type "fetch" (alerts when collection fails) uses script {fetch_check:{}, format}; "ignore" (the "Any Change"/diff check) uses script {format, diff_check:{...}}; "value" uses script {value_check:{variable, must:[{range:{...}}]}}.  In a check\'s script, "format" takes the same values as the ConfigSource\'s "fileFormat" (arbitrary, unix or java-properties); use the ConfigSource\'s own.' +
       '\n\n**Excluding content from the diff:** put the exclusions in the "ignore" check\'s script.diff_check (the same place built-in ConfigSources use): ignore_line_with_regex (array of regexes matched against whole lines, e.g. ["^\\\\s*\\"cache_id\\"\\\\s*:.*"]), ignore_line_start_with (array of line prefixes), ignore_space (boolean), ignore_blank_lines (boolean). Note the API stores unknown keys in "script" without validating them, so a misspelled key is silently ignored - read the check back to confirm. ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction, as with DataSources), so it is not accepted here. If it is wrong, the ConfigSource must be deleted and recreated via "create\\_configsource". ' +
       '\n\n**Workflow:** Use "get\\_configsource" (omit "fields") or "get\\_configsource\\_scripts" first to see the current definition, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
@@ -4225,11 +4226,15 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           type: 'object',
           description: 'Auto-discovery configuration. See "get_configsource" for the current shape before modifying.',
         },
-        fileFormat: { type: 'string', description: 'Format of the collected config content for diffing, e.g. "text"|"xml"|"java-properties"|"ini"|"arbitrary"' },
+        fileFormat: { type: 'string', description: 'File format of the collected config content, which decides how a change is detected. One of: "arbitrary" (the default; no implicit rules, so fields and values in checks must be written as regular expressions), "unix" (lines starting with # are comments; for an Any Change check, changes to comments and extra blank lines and spaces are ignored; fields and values still need regular expressions), "java-properties" (a .properties file: lines starting with # or ! are comments, key = value pairs; for an Any Change check, comments, blank lines and spaces and the order of properties are ignored, and keys and values are recognized automatically). Other values (such as "text", "xml", "ini") are rejected by LogicMonitor with "Unsupported file format".' },
         timestampFormat: { type: 'string', description: 'Format string for extracting a timestamp from the raw config content' },
         configChecks: {
           type: 'array',
-          description: 'Full desired set of config checks - REPLACES the existing array; omitted existing checks are deleted. Include existing checks with their "id"; omit this field to leave checks unchanged. See the tool description for the check shape and diff_check ignore keys.',
+          description: 'Full desired set of config checks - REPLACES the existing array; omitted existing checks are deleted, so the update is refused if it would drop any (see allowConfigCheckRemoval). Include existing checks with their "id"; omit this field to leave checks unchanged. See the tool description for the check shape and diff_check ignore keys.',
+        },
+        allowConfigCheckRemoval: {
+          type: 'boolean',
+          description: 'Set to true ONLY when the user has explicitly asked for saved config checks to be deleted: it lets an update whose "configChecks" array leaves out saved checks go through. Never set it to get past the refusal; send the missing checks instead.',
         },
       },
       additionalProperties: false,

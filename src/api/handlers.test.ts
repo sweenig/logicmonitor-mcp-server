@@ -3014,9 +3014,30 @@ describe('LogicMonitorHandlers', () => {
         name: 'MyConfig',
         collectMethod: 'batchscript',
         collectInterval: 3600,
-        collectorAttribute: { name: 'batchscript', groovyScript: 'return 0' },
+        collectorAttribute: {
+          name: 'batchscript', groovyScript: 'return 0',
+          linuxCmdline: '', linuxScript: '', windowsCmdline: '', windowsScript: '',
+        },
       }));
       expect(result).toEqual(mockCreated);
+    });
+
+    it('defaults collectorAttribute.name from collectMethod on create, keeping what is given', async () => {
+      mockClient.createConfigSource.mockResolvedValue({ id: 5 });
+
+      await handlers.handleToolCall('create_configsource', {
+        name: 'MyConfig',
+        collectMethod: 'script',
+        collectInterval: 3600,
+        collectorAttribute: { scriptType: 'embed', groovyScript: 'println 1', windowsScript: 'x' },
+      });
+
+      expect(mockClient.createConfigSource).toHaveBeenCalledWith(expect.objectContaining({
+        collectorAttribute: {
+          name: 'script', scriptType: 'embed', groovyScript: 'println 1', windowsScript: 'x',
+          linuxCmdline: '', linuxScript: '', windowsCmdline: '',
+        },
+      }));
     });
 
     describe('get_configsource_scripts', () => {
@@ -3076,7 +3097,8 @@ describe('LogicMonitorHandlers', () => {
         expect(result).toEqual(mockUpdated);
       });
 
-      it('should pass configChecks through unchanged', async () => {
+      it('should pass configChecks through when it keeps every saved check', async () => {
+        mockClient.getConfigSource.mockResolvedValue({ configChecks: [{ id: 1, name: 'cantRetrieve' }] });
         mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
         const configChecks = [
           { id: 1, name: 'cantRetrieve', type: 'fetch' },
@@ -3085,7 +3107,79 @@ describe('LogicMonitorHandlers', () => {
 
         await handlers.handleToolCall('update_configsource', { configSourceId: 5, configChecks });
 
+        expect(mockClient.getConfigSource).toHaveBeenCalledWith(5, { fields: 'configChecks' });
         expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, { configChecks });
+      });
+
+      it('refuses an update that would delete saved config checks, naming them and changing nothing', async () => {
+        mockClient.getConfigSource.mockResolvedValue({ configChecks: [
+          { id: 1, name: 'cantRetrieve' }, { id: 2, name: 'anyChange' }, { id: 3, name: 'valueCheck' },
+        ] });
+        mockClient.updateConfigSource.mockReset();
+
+        await expect(handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, configChecks: [{ id: 2, name: 'anyChange' }],
+        })).rejects.toThrow(/would delete 2 saved config check\(s\).*cantRetrieve \(id 1\), valueCheck \(id 3\)/);
+        expect(mockClient.updateConfigSource).not.toHaveBeenCalled();
+      });
+
+      it('counts a check sent without an id as dropping the saved check of the same name, and refuses an empty array', async () => {
+        mockClient.getConfigSource.mockResolvedValue({ configChecks: [{ id: 1, name: 'cantRetrieve' }] });
+        mockClient.updateConfigSource.mockReset();
+
+        await expect(handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, configChecks: [{ name: 'cantRetrieve', type: 'fetch' }],
+        })).rejects.toThrow(/would delete 1 saved config check/);
+        await expect(handlers.handleToolCall('update_configsource', { configSourceId: 5, configChecks: [] }))
+          .rejects.toThrow(/would delete 1 saved config check/);
+        expect(mockClient.updateConfigSource).not.toHaveBeenCalled();
+      });
+
+      it('goes ahead with allowConfigCheckRemoval and does not send that flag to LogicMonitor', async () => {
+        mockClient.getConfigSource.mockResolvedValue({ configChecks: [{ id: 1, name: 'a' }, { id: 2, name: 'b' }] });
+        mockClient.updateConfigSource.mockReset();
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, allowConfigCheckRemoval: 'true', configChecks: '[{"id":2,"name":"b"}]',
+        });
+
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, { configChecks: [{ id: 2, name: 'b' }] });
+      });
+
+      it('refuses when the saved checks cannot be read, unless removal is allowed', async () => {
+        mockClient.getConfigSource.mockRejectedValue(new Error('boom'));
+        mockClient.updateConfigSource.mockReset();
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+
+        await expect(handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, configChecks: [{ id: 1, name: 'a' }],
+        })).rejects.toThrow(/Could not read the saved config checks.*boom/);
+        expect(mockClient.updateConfigSource).not.toHaveBeenCalled();
+
+        await handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, allowConfigCheckRemoval: true, configChecks: [{ id: 1, name: 'a' }],
+        });
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, { configChecks: [{ id: 1, name: 'a' }] });
+      });
+
+      it('does not look anything up when configChecks is not part of the update', async () => {
+        mockClient.getConfigSource.mockReset();
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('update_configsource', { configSourceId: 5, description: 'd' });
+        expect(mockClient.getConfigSource).not.toHaveBeenCalled();
+      });
+
+      it('defaults collectorAttribute.name from collectMethod on update without blanking saved scripts', async () => {
+        mockClient.updateConfigSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_configsource', {
+          configSourceId: 5, collectMethod: 'script', collectorAttribute: { groovyScript: 'println 2' },
+        });
+
+        expect(mockClient.updateConfigSource).toHaveBeenCalledWith(5, {
+          collectMethod: 'script', collectorAttribute: { name: 'script', groovyScript: 'println 2' },
+        });
       });
 
       it('should propagate API errors', async () => {

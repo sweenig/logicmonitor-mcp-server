@@ -193,7 +193,7 @@ export const FILTER_EXAMPLES = {
     'name~"test"', // Contains
   ],
   alerts: [
-    'severity:"critical"',
+    'severity:"4"', // 2 = warning, 3 = error, 4 = critical; the words match nothing
     'resourceTemplateName~"*cpu*"',
     'acked:"false"',
     'startEpoch>:"1640000000000"',
