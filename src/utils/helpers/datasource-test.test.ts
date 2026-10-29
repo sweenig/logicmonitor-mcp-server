@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { stripReturnHeader, parseDiscoveryOutput, evaluateDatapoints } from './datasource-test.js';
+import { stripReturnHeader, parseDiscoveryOutput, evaluateDatapoints, datapointWarnings } from './datasource-test.js';
 
 describe('stripReturnHeader', () => {
   it('removes the "returns N" line only', () => {
@@ -38,5 +38,26 @@ describe('evaluateDatapoints', () => {
     expect(evaluateDatapoints([{ name: 'a', postProcessorMethod: 'namevalue', postProcessorParam: 'a' }], 'a=up')).toEqual([{ name: 'a', value: 'up' }]);
     expect(evaluateDatapoints([{ name: 'n', postProcessorMethod: 'none' }], 'returns 0\n7\n')).toEqual([{ name: 'n', value: 7 }]);
     expect(evaluateDatapoints([{ name: 'r', postProcessorMethod: 'regex' }], 'x')[0].note).toContain('not simulated');
+  });
+});
+
+describe('datapointWarnings', () => {
+  it('warns about datapoints saved without a rawDataFieldName, but not expression datapoints', () => {
+    const warnings = datapointWarnings([
+      { name: 'ok', postProcessorMethod: 'namevalue', rawDataFieldName: 'output' },
+      { name: 'empty', postProcessorMethod: 'namevalue', rawDataFieldName: '' },
+      { name: 'absent', postProcessorMethod: 'namevalue' },
+      { name: 'calc', postProcessorMethod: 'expression', rawDataFieldName: '' },
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('2 datapoint(s) have no rawDataFieldName (empty, absent)');
+    expect(warnings[0]).toContain('unknown raw datapoint');
+  });
+
+  it('is empty when every datapoint has the field, and shortens a long list', () => {
+    expect(datapointWarnings([{ name: 'a', rawDataFieldName: 'output' }])).toEqual([]);
+    expect(datapointWarnings(undefined as any)).toEqual([]);
+    const many = Array.from({ length: 12 }, (_, i) => ({ name: `d${i}`, postProcessorMethod: 'namevalue', rawDataFieldName: '' }));
+    expect(datapointWarnings(many)[0]).toContain('d0, d1, d2, d3, d4, d5, d6, d7, d8, d9 and 2 more');
   });
 });

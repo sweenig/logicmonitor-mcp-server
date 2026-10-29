@@ -780,6 +780,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Unacknowledged: filter:"acked:false"' +
       '\n- Specific device: filter:"monitorObjectName\\~\\*prod-web-01\\*"' +
       '\n- CPU alerts: filter:"resourceTemplateName\\~\\*CPU\\*"' +
+      '\n- A DataSource\'s alerts: filter:"resourceTemplateName\\~\\*Group Standard\\*" - an alert carries the DataSource\'s DISPLAY name in resourceTemplateName, not its internal name, so filtering on the internal name finds nothing' +
       '\n- Recent alerts: filter:"startEpoch>1730851200" (epoch seconds)' +
       '\n- Combined: filter:"severity:critical,acked:false" (AND logic)' +
       '\n\n**Query vs Filter:** ' +
@@ -1292,7 +1293,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     description: 'Run a SAVED script-based DataSource against a resource, the way the collector would, and show the resulting values per instance. Runs the DataSource\'s Active Discovery script (if it has one) and its collection script on a collector with the resource\'s properties bound (hostId), then applies each datapoint\'s post-processor to the output. ' +
       '\n\n**Why:** "execute\\_groovy\\_script" with hostId tests a script you paste in; this tests the DataSource as saved, so the build/test/fix loop ("update\\_datasource", then this tool) needs no hand-copied scripts. ' +
       '\n\n**Collector:** uses collectorId if given, else the resource\'s preferredCollectorId; fails clearly if that collector is down. ' +
-      '\n\n**Returns:** { collectorId, discovery: {output, instances}, collection: {output}, results: [{instance, datapoints: [{name, value | note}]}] }. A datapoint with a note had no matching output line, or uses a post-processor that is not simulated (only namevalue and "none" are). If a stage is still running the result has pending: true and a sessionId for "get\\_debug\\_command\\_result". ' +
+      '\n\n**Returns:** { collectorId, discovery: {output, instances}, collection: {output}, results: [{instance, datapoints: [{name, value | note}]}] }. A datapoint with a note had no matching output line, or uses a post-processor that is not simulated (only namevalue and "none" are). "warnings" lists datapoints saved without a rawDataFieldName: this test still shows their values, but on the collector they are reported as "uses an unknown raw datapoint" and collect nothing. If a stage is still running the result has pending: true and a sessionId for "get\\_debug\\_command\\_result". ' +
       '\n\n**Supports:** collectMethod "script" (single instance) and "batchscript" with an embedded Groovy script. Other methods are rejected with an explanation. ' +
       '\n\n**⚠️ Safety warning:** runs the DataSource\'s script on the collector with its privileges (same as "execute\\_groovy\\_script"). Nothing is saved to LogicMonitor. ' +
       '\n\n**Related tools:** "get\\_datasource\\_scripts", "update\\_datasource", "execute\\_groovy\\_script". Building a DataSource: MCP resource "lm://knowledge/script-datasource".',
@@ -1796,7 +1797,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         technology: {
           type: 'string',
-          description: 'Free-text notes on the monitored technology/setup requirements',
+          description: 'Free-text notes on the monitored technology/setup requirements (at most 4,096 characters; a longer text is rejected)',
         },
         tags: {
           type: 'string',
@@ -1855,6 +1856,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
       '\n\n**Graphs:** Datapoints you send without their "id" are recreated, and graphs that used them silently lose them (see "list\\_datasource\\_graphs" / "list\\_datasource\\_overview\\_graphs"). Keep each existing datapoint\'s id when editing the list; the response carries a "warning" when any datapoint was sent without one. ' +
+      '\n\n**Datapoint fields you leave out:** LogicMonitor resets every field of a datapoint that an update does not send (for a script DataSource an empty "rawDataFieldName" means "uses an unknown raw datapoint" and no data is collected). For each datapoint sent with an "id" this tool therefore fills in the fields you leave out from the saved datapoint, so you can send just the ones you change; what you send wins, and "" clears a field. A datapoint sent without an "id" is new and is taken as sent, so give it "rawDataFieldName":"output" if it belongs to a script DataSource. ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
@@ -1874,7 +1876,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         description: { type: 'string', description: 'Description of what this DataSource monitors' },
         appliesTo: { type: 'string', description: 'AppliesTo expression' },
         group: { type: 'string', description: 'DataSource group/category name' },
-        technology: { type: 'string', description: 'Free-text notes on the monitored technology/setup requirements' },
+        technology: { type: 'string', description: 'Free-text notes on the monitored technology/setup requirements (at most 4,096 characters; a longer text is rejected)' },
         tags: { type: 'string', description: 'Comma-separated tags' },
         collectMethod: { type: 'string', description: 'Collection method: snmp|ping|wmi|cim|datadump|dns|ipmi|jdbc|script|batchscript|sdkscript|udp|tcp|xen|esx (etc)' },
         collectInterval: { type: 'number', description: 'Collection interval in seconds' },

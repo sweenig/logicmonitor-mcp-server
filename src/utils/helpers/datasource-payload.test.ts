@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig } from './datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved } from './datasource-payload.js';
 
 describe('normalizeCollectorAttribute', () => {
   it('defaults name from collectMethod and the unused script fields to "" on create', () => {
@@ -51,5 +51,34 @@ describe('normalizeAutoDiscoveryConfig', () => {
     expect(() => normalizeAutoDiscoveryConfig('nope', true)).toThrow('autoDiscoveryConfig must be an object');
     expect(() => normalizeAutoDiscoveryConfig({ instanceAutoGroupMethodParams: 5 }, true)).toThrow('must be a string');
     expect(() => normalizeAutoDiscoveryConfig({ method: 'x' }, true)).toThrow('autoDiscoveryConfig.method must be an object');
+  });
+});
+
+describe('fillDatapointsFromSaved', () => {
+  const saved = [
+    {
+      id: 1, dataSourceId: 9, name: 'a', rawDataFieldName: 'output', alertExpr: '> 0', alertBody: 'saved body', originId: 'origin-a',
+      statusDisplayNames: [{ id: 7, datapointId: 1, statusDisplayName: 'OK', operator: 'EQ', metricValue: '0' }],
+    },
+    { id: 2, name: 'b', rawDataFieldName: 'output', originId: '' },
+  ];
+
+  it('fills in every field a datapoint with an id leaves out, without dataSourceId or status display name ids', () => {
+    expect(fillDatapointsFromSaved([{ id: 1, name: 'a' }], saved)).toEqual([{
+      id: 1, name: 'a', rawDataFieldName: 'output', alertExpr: '> 0', alertBody: 'saved body', originId: 'origin-a',
+      statusDisplayNames: [{ statusDisplayName: 'OK', operator: 'EQ', metricValue: '0' }],
+    }]);
+  });
+
+  it('lets what is sent win, including "" and an empty list to clear a field', () => {
+    expect(fillDatapointsFromSaved([{ id: 1, name: 'a', alertExpr: '', statusDisplayNames: [], originId: 'mine' }], saved)).toEqual([{
+      id: 1, name: 'a', alertExpr: '', statusDisplayNames: [], originId: 'mine', rawDataFieldName: 'output', alertBody: 'saved body',
+    }]);
+  });
+
+  it('does not copy an empty originId, and leaves new and unknown datapoints and non-objects alone', () => {
+    expect(fillDatapointsFromSaved([{ id: 2, name: 'b' }], saved)).toEqual([{ id: 2, name: 'b', rawDataFieldName: 'output' }]);
+    const untouched = [{ name: 'new' }, { id: 99, name: 'gone' }, 'x', null];
+    expect(fillDatapointsFromSaved(untouched, saved)).toEqual(untouched);
   });
 });

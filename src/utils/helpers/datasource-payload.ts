@@ -65,3 +65,35 @@ export function normalizeAutoDiscoveryConfig(config: unknown, forCreate: boolean
   if (result.filters === undefined && forCreate) result.filters = [];
   return result;
 }
+
+/**
+ * LogicMonitor replaces a datapoint with exactly what an update sends, so every field left out is
+ * reset: an empty rawDataFieldName, for one, leaves a script datapoint with "uses an unknown raw
+ * datapoint" and no data, and a missing originId breaks the datapoint's link to its graphs. Callers
+ * copy datapoints from get_datasource, which does not show everything, or send only what they mean to
+ * change. For each datapoint sent with an id, fill in every field it leaves out from the saved
+ * datapoint with that id; what the caller does send wins (send "" to clear a field). Datapoints
+ * without an id are new and are left alone. The saved datapoint's dataSourceId is not carried over,
+ * an empty originId is not (that would blank the identity), and saved status display names are copied
+ * without their ids.
+ */
+export function fillDatapointsFromSaved(sent: unknown[], saved: unknown[]): unknown[] {
+  const savedById = new Map<string, Record<string, any>>();
+  for (const dp of saved) {
+    if (dp && typeof dp === 'object' && (dp as any).id !== undefined) savedById.set(String((dp as any).id), dp as Record<string, any>);
+  }
+  return sent.map(dp => {
+    if (!dp || typeof dp !== 'object' || (dp as any).id === undefined) return dp;
+    const current = savedById.get(String((dp as any).id));
+    if (!current) return dp;
+    const filled: Record<string, any> = { ...(dp as Record<string, any>) };
+    for (const [key, value] of Object.entries(current)) {
+      if (key === 'dataSourceId' || filled[key] !== undefined || value === undefined || value === null) continue;
+      if (key === 'originId' && value === '') continue;
+      filled[key] = key === 'statusDisplayNames' && Array.isArray(value)
+        ? value.map((s: any) => ({ statusDisplayName: s.statusDisplayName, operator: s.operator, metricValue: s.metricValue }))
+        : value;
+    }
+    return filled;
+  });
+}

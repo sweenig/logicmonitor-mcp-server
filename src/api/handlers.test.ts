@@ -1321,6 +1321,23 @@ describe('LogicMonitorHandlers', () => {
         ] });
       });
 
+      it('keeps the fields a datapoint sent with an id leaves out, such as rawDataFieldName', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [
+          { id: 1, dataSourceId: 5, name: 'a', rawDataFieldName: 'output', alertExpr: '> 0', originId: 'origin-a' },
+        ] });
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5,
+          dataPoints: [{ id: 1, name: 'a', alertBody: 'new text' }, { name: 'new', rawDataFieldName: 'output' }],
+        });
+
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [
+          { id: 1, name: 'a', alertBody: 'new text', rawDataFieldName: 'output', alertExpr: '> 0', originId: 'origin-a' },
+          { name: 'new', rawDataFieldName: 'output' },
+        ] });
+      });
+
       it('does not look anything up when no datapoint needs it, and still updates if the lookup fails', async () => {
         mockClient.getDataSource.mockReset();
         mockClient.updateDataSource.mockResolvedValue({ id: 5 });
@@ -1421,6 +1438,19 @@ describe('LogicMonitorHandlers', () => {
           { instance: 'a', datapoints: [{ name: 'load', value: 1 }] },
           { instance: 'b', datapoints: [{ name: 'load', value: 2 }] },
         ]);
+      });
+
+      it('warns about datapoints saved without a rawDataFieldName', async () => {
+        mockClient.getDataSource.mockResolvedValue(batchDs);
+        const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+        expect(result.warnings).toHaveLength(1);
+        expect(result.warnings[0]).toContain('no rawDataFieldName (load)');
+
+        mockClient.getDataSource.mockResolvedValue({
+          ...batchDs, dataPoints: [{ ...batchDs.dataPoints[0], rawDataFieldName: 'output' }],
+        });
+        const clean: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+        expect(clean.warnings).toBeUndefined();
       });
 
       it('evaluates a single-instance script', async () => {

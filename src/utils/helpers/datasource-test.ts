@@ -87,3 +87,21 @@ export function evaluateDatapoints(dataPoints: any[], output: string, wildvalue?
     return { name, note: `post-processor "${method}" is not simulated; check this datapoint on a real resource` };
   });
 }
+
+/**
+ * Warnings about the saved datapoints that this test cannot see in its own results. A script or
+ * batchscript datapoint reads the collection output through rawDataFieldName ("output"); when it is
+ * empty LogicMonitor reports 'The datapoint X ... uses an unknown raw datapoint' and collects no data,
+ * yet evaluateDatapoints still shows values because it reads the output directly. Expression
+ * datapoints compute from other datapoints and do not use the field.
+ */
+export function datapointWarnings(dataPoints: any[]): string[] {
+  const missing = (dataPoints ?? [])
+    .filter((dp: any) => dp && dp.postProcessorMethod !== 'expression' && (dp.rawDataFieldName === undefined || dp.rawDataFieldName === null || dp.rawDataFieldName === ''))
+    .map((dp: any) => String(dp.name));
+  if (missing.length === 0) return [];
+  const shown = missing.length > 10 ? `${missing.slice(0, 10).join(', ')} and ${missing.length - 10} more` : missing.join(', ');
+  return [
+    `${missing.length} datapoint(s) have no rawDataFieldName (${shown}). A script DataSource needs rawDataFieldName "output" on each datapoint, or LogicMonitor reports "uses an unknown raw datapoint" and collects no data, even though the values below look right. Fix it with update_datasource (send each datapoint's id and rawDataFieldName:"output").`,
+  ];
+}

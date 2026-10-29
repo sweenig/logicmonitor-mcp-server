@@ -17,8 +17,8 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig } from '../utils/helpers/datasource-payload.js';
-import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader } from '../utils/helpers/datasource-test.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved } from '../utils/helpers/datasource-payload.js';
+import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
@@ -242,26 +242,19 @@ export class LogicMonitorHandlers {
   }
 
   /**
-   * LogicMonitor replaces the datapoint list on update and blanks the originId (its cross-version
-   * identity for a datapoint) of any existing datapoint sent without one. Callers copy datapoints from
-   * get_datasource, which does not show originId, so fill it in from the current definition for
-   * datapoints that carry an id. Best effort: if the lookup fails the update goes ahead unchanged.
+   * LogicMonitor replaces each datapoint with exactly what an update sends, resetting every field left
+   * out (an empty rawDataFieldName leaves a script datapoint with no data; a blank originId breaks its
+   * graphs). For datapoints sent with an id, fill in the fields they leave out from the saved
+   * definition; see fillDatapointsFromSaved. Best effort: if the lookup fails the update goes ahead
+   * unchanged.
    */
-  private async keepDatapointOriginIds(dataSourceId: number, updates: Record<string, any>): Promise<void> {
+  private async fillDatapointsFromSavedDefinition(dataSourceId: number, updates: Record<string, any>): Promise<void> {
     const dataPoints = updates.dataPoints;
     if (!Array.isArray(dataPoints)) return;
-    const needsOrigin = (dp: any) => dp && typeof dp === 'object' && dp.id !== undefined && dp.originId === undefined;
-    if (!dataPoints.some(needsOrigin)) return;
+    if (!dataPoints.some((dp: any) => dp && typeof dp === 'object' && dp.id !== undefined)) return;
     try {
       const current: any = await this.client.getDataSource(dataSourceId, { fields: 'dataPoints' });
-      const originById = new Map<string, string>();
-      for (const dp of current?.dataPoints ?? []) {
-        if (dp?.id !== undefined && typeof dp.originId === 'string' && dp.originId !== '') {
-          originById.set(String(dp.id), dp.originId);
-        }
-      }
-      updates.dataPoints = dataPoints.map((dp: any) =>
-        needsOrigin(dp) && originById.has(String(dp.id)) ? { ...dp, originId: originById.get(String(dp.id)) } : dp);
+      updates.dataPoints = fillDatapointsFromSaved(dataPoints, current?.dataPoints ?? []);
     } catch {
       // Keep the caller's datapoints as they are.
     }
@@ -315,6 +308,8 @@ export class LogicMonitorHandlers {
       collectorId,
       collectorUsed: collector?.description,
     };
+    const warnings = datapointWarnings(ds.dataPoints);
+    if (warnings.length > 0) result.warnings = warnings;
 
     let instances: Array<{ wildvalue: string; wildalias?: string; description?: string; properties?: Record<string, string> }> = [];
     const adScript = ds.autoDiscoveryConfig?.method?.groovyScript;
@@ -876,7 +871,7 @@ export class LogicMonitorHandlers {
           if (updates.autoDiscoveryConfig !== undefined) {
             updates.autoDiscoveryConfig = normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false);
           }
-          await this.keepDatapointOriginIds(dataSourceId, updates);
+          await this.fillDatapointsFromSavedDefinition(dataSourceId, updates);
           const updated = await this.client.updateDataSource(dataSourceId, updates);
           const withoutId = Array.isArray(updates.dataPoints)
             ? updates.dataPoints.filter((dp: any) => dp && typeof dp === 'object' && dp.id === undefined).length

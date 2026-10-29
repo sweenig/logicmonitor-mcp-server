@@ -39,7 +39,21 @@ Set `useWildValueAsUUID: true` ("use wildvalue as unique identifier") when the w
 
 ### Grouping instances
 
-To group instances by a property of each one (for example the admin who created it), put the value in an instance property in the AD output and set `autoDiscoveryConfig.instanceAutoGroupMethod:"ilp"` with `instanceAutoGroupMethodParams` set to the property name (`auto.sdt.admin`). Properties from the AD line are `url-encoded name=value` pairs after the four `#`, joined with `&`.
+To group instances by a property of each one (for example the admin who created it), put the value in an instance property in the AD output and set `autoDiscoveryConfig.instanceAutoGroupMethod:"ilp"` with `instanceAutoGroupMethodParams` set to the property name (`auto.sdt.admin`). Properties from the AD line are `url-encoded name=value` pairs after the four `#`, joined with `&`. The values are url-decoded, so a `+` arrives as a space (`+5 more` shows as ` 5 more`; write `(5 more)`), and an unencoded `&`, `=` or `#` in a value breaks the line, so strip or encode them.
+
+## Patterns for a DataSource that audits something
+
+These came from a DataSource that checks the group structure of each customer in a LogicMonitor portal, but apply to any audit or compliance DataSource.
+
+**Count in the datapoint, say where in an instance property.** A count tells you something is wrong; a property naming the offenders tells you where to fix it. Write one instance property per check (for example `auto.<ds>.<datapoint name in lower case>`) holding the offending items and the problem in each, cap the list (about 25 items and 2,000 characters, with "(N more)" after it), and point at the property in `alertBody` ("listed in the instance property auto.x.y, Info tab of this instance"). Show the properties as alert widget columns (see `lm://knowledge/dashboards-and-widgets`). Write empty properties too, so a cleared check clears its property on the next discovery. Properties update when discovery runs (`schedule_resource_discovery` to refresh now).
+
+**Split checks until each alert has one action.** One datapoint that counts several kinds of problem sends the reader to the debug console. Give each distinct fix its own datapoint: for example "client clause missing from AppliesTo" apart from "other AppliesTo problem", and "collector group points at a deleted collector" apart from "group name differs from collector name". Keep a `total` and a `compliant` (1 or 0) datapoint without thresholds for dashboards, and give every alerting datapoint `statusDisplayNames` (`= 0` the good state, `> 0` the problem) so widgets read in words.
+
+**Make "nothing to check" visible.** If discovery would find no instances because the thing is missing altogether (a portal with no `1. Clients` group), emit one instance for the problem itself (a fixed wildvalue such as `0`, a name like "No 1. Clients group", the existing top-level names in an instance property) with a datapoint that is 1 for that instance and 0 elsewhere, so it alerts instead of staying silent. The instance disappears once the structure exists and the real instances take over. Tell a real fetch failure (non-2xx: return a non-zero exit code) from an empty result (HTTP 200, no items: that is the finding).
+
+**Turn it on per resource with a property.** Apply the DataSource with `<token property> && <ds>.enabled == "true"`, so enabling a resource is setting one property, and a resource that must be excluded simply does not get it. Roll out one resource first and compare `test_datasource` results across resources before enabling the rest.
+
+**Calling the LogicMonitor REST API from the collector script.** Read the credential from a resource property (a bearer token such as `lmaccess.bearer.key`) and the host from `system.hostname`, send `Authorization: Bearer <token>` and `X-Version: 3`, and use `https://<host>/santaba/rest`. Filters are written as `parentId:1,name:"1. Clients"` (exact) or `fullPath~"1. Clients/"` (contains), url-encoded in the query. A list endpoint returns at most 1,000 items per call, so page with `size` and `offset` until a page comes back short. Request only the `fields` you need.
 
 ## AppliesTo
 
@@ -53,11 +67,13 @@ Renaming: change `displayName` and the internal `name` together, and fix dashboa
 
 Do not set a DataSource `group` unless several related DataSources belong together.
 
+The `technology` field (free-text setup notes) is limited to 4,096 characters; a longer text is rejected.
+
 ## Alert thresholds
 
 `alertExpr` takes a single comparison, such as `= 0`, which yields **warning** severity. For several severities give the list `warn error critical`, for example `> 80 90 95`.
 
-For a datapoint that only has a few meaningful states, fill in `statusDisplayNames` so alerts and widgets show words instead of numbers; the alert token `##ALERTVALUEDISPLAYSTATUSNAME##` (also usable as an alert widget column) gives that word. Set `alertForNoData` when a missing value should alert. Custom alert text goes in `alertSubject` / `alertBody`.
+For a datapoint that only has a few meaningful states, fill in `statusDisplayNames` so alerts and widgets show words instead of numbers; the alert token `##ALERTVALUEDISPLAYSTATUSNAME##` (also usable as an alert widget column) gives that word. Set `alertForNoData` when a missing value should alert. Custom alert text goes in `alertSubject` / `alertBody`. An alert keeps the text and the property values it was raised with: after changing alert text or adding instance properties, alerts that are already open show the old ones until they clear and reopen.
 
 ## Small values are rounded to zero
 
@@ -67,13 +83,15 @@ LogicMonitor can round very small values to zero. Scale in the script (multiply,
 
 Graphs refer to datapoints by id. When changing datapoints through `update_datasource`, pass each existing datapoint's `id`; datapoints without one are recreated and graphs silently lose them (the response then carries a `warning`). `get_datasource` with `datapointsOnly:true` returns a trimmed datapoint list with the ids. After recreating datapoints, re-save graph lines with `update_datasource_graph` / `update_datasource_overview_graph`.
 
+LogicMonitor also resets every field of a datapoint that an update leaves out. The one that bites is `rawDataFieldName`: a script or batchscript datapoint needs `"output"`, and without it LogicMonitor reports "The datapoint X of Y uses an unknown raw datapoint" and collects nothing, while `test_datasource` still shows the right values. `update_datasource` therefore fills in the fields you leave out of a datapoint sent with an `id` from the saved datapoint (what you send wins; send `""` to clear one), and `test_datasource` returns `warnings` for datapoints saved without `rawDataFieldName`. A new datapoint (no `id`) is taken as sent, so give it `rawDataFieldName:"output"` yourself.
+
 ## Graphs
 
 Create them with `create_datasource_overview_graph` / `create_datasource_graph` (datapoints by name, `verticalLabel` required). Line type `stack` is type 3; updating lines recreates the line ids. Check the rendered graph when relying on `rigid:true` with only one bound set.
 
 ## Testing
 
-`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. For a script you have not saved yet, use `execute_groovy_script` with `hostId`. That runs on Java 21 here, which cannot send HTTP `PATCH`; `GET`, `POST`, `PUT` and `DELETE` work.
+`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. It also returns `warnings` when saved datapoints lack `rawDataFieldName` (see Updating without breaking graphs). For a script you have not saved yet, use `execute_groovy_script` with `hostId`. That runs on Java 21 here, which cannot send HTTP `PATCH`; `GET`, `POST`, `PUT` and `DELETE` work.
 
 ## Asked to scrape a web page?
 
