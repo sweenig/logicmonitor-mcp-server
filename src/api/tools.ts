@@ -1850,13 +1850,14 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   },
   {
     name: 'update_datasource',
-    description: 'Update an existing DataSource LogicModule in LogicMonitor (LM) monitoring. Partial update - only include fields you want to change. ' +
+    description: 'Update an existing DataSource LogicModule in LogicMonitor (LM) monitoring. Partial update for the top-level fields (name, appliesTo, scripts, intervals, ...): only include what you want to change. The exception is "dataPoints", which replaces the whole datapoint list - see "Datapoints" below. ' +
       '\n\n**Returns:** The updated DataSource object. ' +
       '\n\n**When to use:** ' +
       '\n- Modify an existing DataSource\'s script, appliesTo logic, datapoints, or metadata ' +
       '\n\n**Limitation:** "hasMultiInstances" cannot be set or changed after creation (LogicMonitor restriction). If it is wrong, the DataSource must be deleted and recreated via "create\\_datasource". ' +
-      '\n\n**Graphs:** Datapoints you send without their "id" are recreated, and graphs that used them silently lose them (see "list\\_datasource\\_graphs" / "list\\_datasource\\_overview\\_graphs"). Keep each existing datapoint\'s id when editing the list; the response carries a "warning" when any datapoint was sent without one. ' +
-      '\n\n**Datapoint fields you leave out:** LogicMonitor resets every field of a datapoint that an update does not send (for a script DataSource an empty "rawDataFieldName" means "uses an unknown raw datapoint" and no data is collected). For each datapoint sent with an "id" this tool therefore fills in the fields you leave out from the saved datapoint, so you can send just the ones you change; what you send wins, and "" clears a field. A datapoint sent without an "id" is new and is taken as sent, so give it "rawDataFieldName":"output" if it belongs to a script DataSource. ' +
+      '\n\n**⚠️ Datapoints - always send ALL of them:** "dataPoints" REPLACES the whole list. LogicMonitor deletes every saved datapoint that is not in it, and a deleted datapoint loses ALL of its collected history permanently (there is no recovery). So never send only the datapoints you want to change: send every datapoint of the DataSource, each with its "id" (an id alone keeps a datapoint exactly as it is; get them from "get\\_datasource" with datapointsOnly:true). To change one, send its id plus the fields you change. ' +
+      '\n\n**Safeguard:** this tool reads the saved datapoints first and REFUSES an update whose list would drop any of them (it names them and changes nothing), and also when it cannot read them. Set "allowDatapointRemoval":true only when the user has explicitly asked for those datapoints to be deleted; never to get past the error. ' +
+      '\n\n**Fields you leave out of a datapoint:** LogicMonitor resets every field of a datapoint that an update does not send (for a script DataSource an empty "rawDataFieldName" means "uses an unknown raw datapoint" and no data is collected). For each datapoint sent with an "id" this tool fills in the fields you leave out from the saved datapoint; what you send wins, and "" clears a field. A datapoint sent without an "id" is created as a new one, so it does not keep a saved datapoint of the same name (that one counts as dropped), and its graph lines are lost: give it "rawDataFieldName":"output" if it belongs to a script DataSource. The response carries a "warning" when any datapoint was sent without an "id". ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
@@ -1886,7 +1887,11 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         dataPoints: {
           type: 'array',
-          description: 'Array of datapoint definitions. See "get_datasource" (datapointsOnly:true) for the current shape before modifying. Include each existing datapoint\'s "id", or it is recreated and graphs silently lose it.',
+          description: 'The COMPLETE list of datapoints: every datapoint the DataSource should have, each existing one with its "id" (an id alone keeps it unchanged). This replaces the list: a saved datapoint that is left out is deleted together with all of its history, so the update is refused if it would drop any (see allowDatapointRemoval). See "get_datasource" (datapointsOnly:true) for the ids and shape. A datapoint without an "id" is created as new.',
+        },
+        allowDatapointRemoval: {
+          type: 'boolean',
+          description: 'Set to true ONLY when the user has explicitly asked for saved datapoints to be deleted: it lets an update whose "dataPoints" list leaves out saved datapoints go through, and the deleted datapoints lose all collected history permanently. Never set it to get past the refusal; send the missing datapoints instead.',
         },
         useWildValueAsUUID: {
           type: 'boolean',

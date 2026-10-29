@@ -17,7 +17,7 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved } from '../utils/helpers/datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints } from '../utils/helpers/datasource-payload.js';
 import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
@@ -242,22 +242,54 @@ export class LogicMonitorHandlers {
   }
 
   /**
-   * LogicMonitor replaces each datapoint with exactly what an update sends, resetting every field left
-   * out (an empty rawDataFieldName leaves a script datapoint with no data; a blank originId breaks its
-   * graphs). For datapoints sent with an id, fill in the fields they leave out from the saved
-   * definition; see fillDatapointsFromSaved. Best effort: if the lookup fails the update goes ahead
-   * unchanged.
+   * LogicMonitor replaces the whole datapoint list on update. A saved datapoint that is not in the list
+   * is deleted, and its collected history is lost permanently; a datapoint that is in it is replaced by
+   * exactly what is sent (an omitted rawDataFieldName leaves a script datapoint with no data, a blank
+   * originId breaks its graphs). So, before an update that carries dataPoints: read the saved
+   * datapoints, refuse the update if it would drop any (unless the caller passed allowDatapointRemoval,
+   * which is for when the user has explicitly asked to delete datapoints), and fill in the fields that
+   * datapoints sent with an id leave out (see fillDatapointsFromSaved). If the saved datapoints cannot
+   * be read the update is refused as well, because nothing can then be checked.
    */
-  private async fillDatapointsFromSavedDefinition(dataSourceId: number, updates: Record<string, any>): Promise<void> {
-    const dataPoints = updates.dataPoints;
-    if (!Array.isArray(dataPoints)) return;
-    if (!dataPoints.some((dp: any) => dp && typeof dp === 'object' && dp.id !== undefined)) return;
+  private async prepareDatapointUpdate(dataSourceId: number, updates: Record<string, any>, allowRemoval: boolean): Promise<void> {
+    if (updates.dataPoints === undefined) return;
+    const dataPoints = parseJsonArray(updates.dataPoints);
+    if (!Array.isArray(dataPoints)) {
+      throw new InvalidArgumentError('dataPoints must be an array of datapoint definitions (send every datapoint of the DataSource, each with its "id")');
+    }
+    updates.dataPoints = dataPoints;
+
+    let saved: unknown[];
     try {
       const current: any = await this.client.getDataSource(dataSourceId, { fields: 'dataPoints' });
-      updates.dataPoints = fillDatapointsFromSaved(dataPoints, current?.dataPoints ?? []);
-    } catch {
-      // Keep the caller's datapoints as they are.
+      saved = current?.dataPoints ?? [];
+    } catch (error) {
+      if (allowRemoval) return;
+      throw new MCPError(
+        `Could not read the saved datapoints of DataSource ${dataSourceId} to check that this update keeps them: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCodes.INVALID_PARAMETERS,
+        { dataSourceId },
+        ['Retry; the update is refused rather than risk deleting datapoints and their history'],
+      );
     }
+
+    const dropped = findDroppedDatapoints(dataPoints, saved);
+    if (dropped.length > 0 && !allowRemoval) {
+      const list = dropped.map(dp => `${dp.name} (id ${dp.id})`).join(', ');
+      throw new MCPError(
+        `This update would delete ${dropped.length} saved datapoint(s) of DataSource ${dataSourceId}: ${list}. `
+          + 'LogicMonitor replaces the whole datapoint list, and a deleted datapoint loses all of its collected history permanently. Nothing was changed.',
+        ErrorCodes.INVALID_PARAMETERS,
+        { dataSourceId, dropped },
+        [
+          `Send every datapoint, each with its "id" (an id alone keeps a datapoint as it is): ${list}`,
+          'A datapoint sent without an "id" is created as a new one and does not keep a saved datapoint of the same name',
+          'Pass allowDatapointRemoval:true only when the user has explicitly asked for these datapoints to be deleted',
+        ],
+      );
+    }
+
+    updates.dataPoints = fillDatapointsFromSaved(dataPoints, saved);
   }
 
   /** The id and name of each datapoint on a DataSource, for resolving graph lines written by name. */
@@ -863,7 +895,7 @@ export class LogicMonitorHandlers {
           });
 
         case 'update_datasource': {
-          const { dataSourceId, ...updates } = args;
+          const { dataSourceId, allowDatapointRemoval, ...updates } = args;
           if (updates.useWildValueAsUUID !== undefined) updates.useWildValueAsUUID = isTrue(updates.useWildValueAsUUID);
           if (updates.collectorAttribute !== undefined) {
             updates.collectorAttribute = normalizeCollectorAttribute(updates.collectorAttribute, updates.collectMethod, false);
@@ -871,7 +903,7 @@ export class LogicMonitorHandlers {
           if (updates.autoDiscoveryConfig !== undefined) {
             updates.autoDiscoveryConfig = normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false);
           }
-          await this.fillDatapointsFromSavedDefinition(dataSourceId, updates);
+          await this.prepareDatapointUpdate(dataSourceId, updates, isTrue(allowDatapointRemoval));
           const updated = await this.client.updateDataSource(dataSourceId, updates);
           const withoutId = Array.isArray(updates.dataPoints)
             ? updates.dataPoints.filter((dp: any) => dp && typeof dp === 'object' && dp.id === undefined).length

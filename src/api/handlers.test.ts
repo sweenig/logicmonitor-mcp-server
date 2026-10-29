@@ -1299,7 +1299,7 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
-    describe('update_datasource keeps datapoint originIds', () => {
+    describe('update_datasource datapoint list', () => {
       it('fills in originId for datapoints sent with an id but without one', async () => {
         mockClient.getDataSource.mockResolvedValue({ dataPoints: [
           { id: 1, name: 'a', originId: 'origin-a' },
@@ -1338,17 +1338,93 @@ describe('LogicMonitorHandlers', () => {
         ] });
       });
 
-      it('does not look anything up when no datapoint needs it, and still updates if the lookup fails', async () => {
+      it('does not look anything up when dataPoints is not part of the update', async () => {
         mockClient.getDataSource.mockReset();
         mockClient.updateDataSource.mockResolvedValue({ id: 5 });
 
         await handlers.handleToolCall('update_datasource', { dataSourceId: 5, description: 'd' });
-        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [{ name: 'new' }] });
-        expect(mockClient.getDataSource).not.toHaveBeenCalled();
 
+        expect(mockClient.getDataSource).not.toHaveBeenCalled();
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { description: 'd' });
+      });
+
+      it('refuses an update that would drop saved datapoints, naming them and changing nothing', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [
+          { id: 1, name: 'a' }, { id: 2, name: 'b' }, { id: 3, name: 'c' },
+        ] });
+        mockClient.updateDataSource.mockReset();
+
+        await expect(handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 2, alertExpr: '> 0 0' }],
+        })).rejects.toThrow(/would delete 2 saved datapoint\(s\).*a \(id 1\), c \(id 3\).*history/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+      });
+
+      it('counts a datapoint sent without an id as dropping the saved one of the same name', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a' }] });
+        mockClient.updateDataSource.mockReset();
+
+        await expect(handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ name: 'a', rawDataFieldName: 'output' }],
+        })).rejects.toThrow(/would delete 1 saved datapoint\(s\).*a \(id 1\)/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+      });
+
+      it('refuses an empty list while datapoints exist, and parses a JSON string list', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a', rawDataFieldName: 'output' }] });
+        mockClient.updateDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await expect(handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [] })).rejects.toThrow(/would delete 1/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: '[{"id":1,"alertExpr":"> 0"}]' });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [
+          { id: 1, alertExpr: '> 0', name: 'a', rawDataFieldName: 'output' },
+        ] });
+      });
+
+      it('lets new datapoints be added next to all the saved ones', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a', rawDataFieldName: 'output' }] });
+        mockClient.updateDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 1 }, { name: 'extra', rawDataFieldName: 'output' }],
+        });
+
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [
+          { id: 1, name: 'a', rawDataFieldName: 'output' },
+          { name: 'extra', rawDataFieldName: 'output' },
+        ] });
+      });
+
+      it('goes ahead with allowDatapointRemoval and does not send that flag to LogicMonitor', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a' }, { id: 2, name: 'b', rawDataFieldName: 'output' }] });
+        mockClient.updateDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, allowDatapointRemoval: 'true', dataPoints: [{ id: 2 }],
+        });
+
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [{ id: 2, name: 'b', rawDataFieldName: 'output' }] });
+      });
+
+      it('refuses when the saved datapoints cannot be read, unless removal is allowed', async () => {
         mockClient.getDataSource.mockRejectedValue(new Error('boom'));
-        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, dataPoints: [{ id: 1, name: 'a' }] });
-        expect(mockClient.updateDataSource).toHaveBeenLastCalledWith(5, { dataPoints: [{ id: 1, name: 'a' }] });
+        mockClient.updateDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await expect(handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 1, name: 'a' }],
+        })).rejects.toThrow(/Could not read the saved datapoints.*boom/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, allowDatapointRemoval: true, dataPoints: [{ id: 1, name: 'a' }],
+        });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [{ id: 1, name: 'a' }] });
       });
     });
 

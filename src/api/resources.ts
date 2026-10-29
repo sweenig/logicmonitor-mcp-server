@@ -74,7 +74,7 @@ export const LM_RESOURCES: LMResource[] = [
   {
     uri: 'lm://knowledge/script-datasource',
     name: 'Building a script DataSource (single-instance and batchscript with Active Discovery)',
-    description: 'How to build a script-based DataSource with "create_datasource": output formats for the collection and Active Discovery scripts, datapoint post-processors, appliesTo, alert thresholds, graphs, scaling small values, updating without breaking datapoints and graphs (fields an update leaves out, rawDataFieldName), testing with "test_datasource", patterns for an auditing DataSource (counts in datapoints with detail in instance properties, an instance that surfaces a missing structure, enabling per resource with a property, calling the LogicMonitor REST API from a collector script), and what to do when asked to scrape a web page. ' +
+    description: 'How to build a script-based DataSource with "create_datasource": output formats for the collection and Active Discovery scripts, datapoint post-processors, appliesTo, alert thresholds, graphs, scaling small values, updating datapoints without losing data (send every datapoint, the removal guard, fields an update leaves out, rawDataFieldName), testing with "test_datasource", patterns for an auditing DataSource (counts in datapoints with detail in instance properties, an instance that surfaces a missing structure, enabling per resource with a property, calling the LogicMonitor REST API from a collector script), and what to do when asked to scrape a web page. ' +
       'Read this before creating or substantially changing a script or batchscript DataSource.',
     mimeType: 'text/markdown',
   },

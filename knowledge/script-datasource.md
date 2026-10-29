@@ -79,11 +79,15 @@ For a datapoint that only has a few meaningful states, fill in `statusDisplayNam
 
 LogicMonitor can round very small values to zero. Scale in the script (multiply, for example by 10^6 for millionths), say the unit in the datapoint description and in the graph's `verticalLabel`, and keep the full-precision value for any derived metric.
 
-## Updating without breaking graphs
+## Updating datapoints without losing data
 
-Graphs refer to datapoints by id. When changing datapoints through `update_datasource`, pass each existing datapoint's `id`; datapoints without one are recreated and graphs silently lose them (the response then carries a `warning`). `get_datasource` with `datapointsOnly:true` returns a trimmed datapoint list with the ids. After recreating datapoints, re-save graph lines with `update_datasource_graph` / `update_datasource_overview_graph`.
+**`dataPoints` replaces the whole list, so always send every datapoint.** LogicMonitor deletes each saved datapoint that is not in the list, and a deleted datapoint loses all of its collected history permanently, with no way to recover it. Never send only the datapoints you want to change. Get the list with `get_datasource` (`datapointsOnly:true` gives the ids), then send every datapoint with its `id`: an id alone keeps a datapoint exactly as it is, and an id plus the fields you change updates just those. `update_datasource` enforces this: it reads the saved datapoints first and refuses an update that would drop any of them (naming them, changing nothing), and also when it cannot read them. `allowDatapointRemoval:true` overrides the refusal; set it only when the user has explicitly asked for those datapoints to be deleted, never to get past the error.
 
-LogicMonitor also resets every field of a datapoint that an update leaves out. The one that bites is `rawDataFieldName`: a script or batchscript datapoint needs `"output"`, and without it LogicMonitor reports "The datapoint X of Y uses an unknown raw datapoint" and collects nothing, while `test_datasource` still shows the right values. `update_datasource` therefore fills in the fields you leave out of a datapoint sent with an `id` from the saved datapoint (what you send wins; send `""` to clear one), and `test_datasource` returns `warnings` for datapoints saved without `rawDataFieldName`. A new datapoint (no `id`) is taken as sent, so give it `rawDataFieldName:"output"` yourself.
+A datapoint sent without an `id` is created as a new one. It does not keep a saved datapoint of the same name (that one counts as dropped), and graphs that used the old one lose it (the response then carries a `warning`; re-save graph lines with `update_datasource_graph` / `update_datasource_overview_graph`).
+
+LogicMonitor also resets every field of a datapoint that an update leaves out. The one that bites is `rawDataFieldName`: a script or batchscript datapoint needs `"output"`, and without it LogicMonitor reports "The datapoint X of Y uses an unknown raw datapoint" and collects nothing, while `test_datasource` still shows the right values. For a datapoint sent with an `id`, `update_datasource` fills in the fields you leave out from the saved datapoint (what you send wins; send `""` to clear one), and `test_datasource` returns `warnings` for datapoints saved without `rawDataFieldName`. A new datapoint (no `id`) is taken as sent, so give it `rawDataFieldName:"output"` yourself.
+
+Changing a threshold (`alertExpr`) only affects alerts raised afterwards: an open alert keeps the threshold and severity it was raised with until it clears and reopens.
 
 ## Graphs
 
@@ -91,7 +95,7 @@ Create them with `create_datasource_overview_graph` / `create_datasource_graph` 
 
 ## Testing
 
-`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. It also returns `warnings` when saved datapoints lack `rawDataFieldName` (see Updating without breaking graphs). For a script you have not saved yet, use `execute_groovy_script` with `hostId`. That runs on Java 21 here, which cannot send HTTP `PATCH`; `GET`, `POST`, `PUT` and `DELETE` work.
+`test_datasource` with the DataSource id and a resource id runs the AD script (if any) and the collection script on the resource's preferred collector (it refuses a collector that is down), then applies each datapoint's post-processor and lists the values per instance. It also returns `warnings` when saved datapoints lack `rawDataFieldName` (see Updating datapoints without losing data). For a script you have not saved yet, use `execute_groovy_script` with `hostId`. That runs on Java 21 here, which cannot send HTTP `PATCH`; `GET`, `POST`, `PUT` and `DELETE` work.
 
 ## Asked to scrape a web page?
 

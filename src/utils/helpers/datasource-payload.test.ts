@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved } from './datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints } from './datasource-payload.js';
 
 describe('normalizeCollectorAttribute', () => {
   it('defaults name from collectMethod and the unused script fields to "" on create', () => {
@@ -80,5 +80,23 @@ describe('fillDatapointsFromSaved', () => {
     expect(fillDatapointsFromSaved([{ id: 2, name: 'b' }], saved)).toEqual([{ id: 2, name: 'b', rawDataFieldName: 'output' }]);
     const untouched = [{ name: 'new' }, { id: 99, name: 'gone' }, 'x', null];
     expect(fillDatapointsFromSaved(untouched, saved)).toEqual(untouched);
+  });
+});
+
+describe('findDroppedDatapoints', () => {
+  const saved = [{ id: 1, name: 'a' }, { id: 2, name: 'b' }, { id: 3, name: 'c' }];
+
+  it('lists the saved datapoints whose id is not in the sent list', () => {
+    expect(findDroppedDatapoints([{ id: 2 }], saved)).toEqual([{ id: 1, name: 'a' }, { id: 3, name: 'c' }]);
+    expect(findDroppedDatapoints([], saved)).toHaveLength(3);
+  });
+
+  it('matches ids as strings and ignores new datapoints, so a new one with a saved name does not keep it', () => {
+    expect(findDroppedDatapoints([{ id: '1' }, { id: 2 }, { id: 3 }, { name: 'new' }], saved)).toEqual([]);
+    expect(findDroppedDatapoints([{ id: 1 }, { id: 2 }, { name: 'c' }], saved)).toEqual([{ id: 3, name: 'c' }]);
+  });
+
+  it('is empty when nothing is saved', () => {
+    expect(findDroppedDatapoints([{ name: 'new' }], [])).toEqual([]);
   });
 });

@@ -148,7 +148,7 @@ Ask which kind they want, and do not add a state-based filter (such as "only out
 
 - `create_datasource` sends the shape above through unchanged for SNMP.
 - `hasMultiInstances` is set at creation only; getting it wrong means delete and recreate.
-- **`update_datasource` replaces each datapoint you send.** Fields you leave out are reset: a datapoint resent with only its id and a change lost its `description` and went back to the default `alertTransitionInterval`. Send the **whole** datapoint (all fields you want to keep, its `id` and its `originId`) every time, getting them first from `get_datasource` with `fields:"dataPoints"`. See `lm://knowledge/script-datasource` for the graph note about ids.
+- **`update_datasource` replaces the whole datapoint list.** A saved datapoint left out of `dataPoints` is deleted with all of its history (the tool refuses such an update unless `allowDatapointRemoval:true`, which is only for when the user has asked for deletion), so send every datapoint, each with its `id`, getting them first from `get_datasource` with `fields:"dataPoints"`. Fields you leave out of a datapoint sent with an `id` are filled in from the saved one, so an id alone keeps it unchanged; without the fill-in, a datapoint resent with only its id lost its `description` and went back to the default `alertTransitionInterval`. See `lm://knowledge/script-datasource` (Updating datapoints without losing data).
 
 ## Test it
 

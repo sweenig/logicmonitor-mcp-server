@@ -70,9 +70,10 @@ export function normalizeAutoDiscoveryConfig(config: unknown, forCreate: boolean
  * LogicMonitor replaces a datapoint with exactly what an update sends, so every field left out is
  * reset: an empty rawDataFieldName, for one, leaves a script datapoint with "uses an unknown raw
  * datapoint" and no data, and a missing originId breaks the datapoint's link to its graphs. Callers
- * copy datapoints from get_datasource, which does not show everything, or send only what they mean to
- * change. For each datapoint sent with an id, fill in every field it leaves out from the saved
- * datapoint with that id; what the caller does send wins (send "" to clear a field). Datapoints
+ * copy datapoints from get_datasource, which does not show everything, or send little more than the
+ * id. For each datapoint sent with an id, fill in every field it leaves out from the saved
+ * datapoint with that id (this only completes the datapoints that are sent; see findDroppedDatapoints
+ * for the ones that are not); what the caller does send wins (send "" to clear a field). Datapoints
  * without an id are new and are left alone. The saved datapoint's dataSourceId is not carried over,
  * an empty originId is not (that would blank the identity), and saved status display names are copied
  * without their ids.
@@ -96,4 +97,24 @@ export function fillDatapointsFromSaved(sent: unknown[], saved: unknown[]): unkn
     }
     return filled;
   });
+}
+
+/**
+ * The saved datapoints that an update's datapoint list would delete. LogicMonitor replaces the whole
+ * list, so a saved datapoint whose id is not in the list is deleted, and its collected history with it,
+ * permanently. A datapoint sent without an id is created as a new one, so it does not keep a saved
+ * datapoint of the same name either.
+ */
+export function findDroppedDatapoints(sent: unknown[], saved: unknown[]): Array<{ id: unknown; name: unknown }> {
+  const kept = new Set<string>();
+  for (const dp of sent) {
+    if (dp && typeof dp === 'object' && (dp as any).id !== undefined && (dp as any).id !== null) kept.add(String((dp as any).id));
+  }
+  const dropped: Array<{ id: unknown; name: unknown }> = [];
+  for (const dp of saved) {
+    if (dp && typeof dp === 'object' && (dp as any).id !== undefined && !kept.has(String((dp as any).id))) {
+      dropped.push({ id: (dp as any).id, name: (dp as any).name });
+    }
+  }
+  return dropped;
 }
