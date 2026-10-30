@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from './datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, mergeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from './datasource-payload.js';
 
 describe('normalizeCollectorAttribute', () => {
   it('defaults name from collectMethod and the unused script fields to "" on create', () => {
@@ -51,6 +51,37 @@ describe('normalizeAutoDiscoveryConfig', () => {
     expect(() => normalizeAutoDiscoveryConfig('nope', true)).toThrow('autoDiscoveryConfig must be an object');
     expect(() => normalizeAutoDiscoveryConfig({ instanceAutoGroupMethodParams: 5 }, true)).toThrow('must be a string');
     expect(() => normalizeAutoDiscoveryConfig({ method: 'x' }, true)).toThrow('autoDiscoveryConfig.method must be an object');
+  });
+});
+
+describe('mergeAutoDiscoveryConfig', () => {
+  const saved = {
+    scheduleInterval: 60, deleteInactiveInstance: true, instanceAutoGroupMethodParams: '', filters: [{ attribute: 'old' }],
+    method: { name: 'ad_script', type: 'embeded', groovyScript: 'println 1', winScript: null },
+  };
+
+  it('keeps the saved script and settings when only filters are sent', () => {
+    const filters = [{ attribute: '##WILDALIAS##', operation: 'NotEqual', value: 'x' }];
+    expect(mergeAutoDiscoveryConfig({ filters }, saved)).toEqual({ ...saved, filters });
+  });
+
+  it('merges the method field by field and lets what is sent win', () => {
+    expect(mergeAutoDiscoveryConfig({ scheduleInterval: 15, method: { groovyScript: 'println 2' } }, saved)).toEqual({
+      ...saved, scheduleInterval: 15, method: { ...saved.method, groovyScript: 'println 2' },
+    });
+  });
+
+  it('replaces filters, so [] clears them', () => {
+    expect(mergeAutoDiscoveryConfig({ filters: [] }, saved).filters).toEqual([]);
+  });
+
+  it('does not merge a method of a different name', () => {
+    const method = { name: 'wmi', foo: 1 };
+    expect(mergeAutoDiscoveryConfig({ method }, saved).method).toEqual(method);
+  });
+
+  it('returns what was sent when nothing is saved', () => {
+    expect(mergeAutoDiscoveryConfig({ filters: [] }, null)).toEqual({ filters: [] });
   });
 });
 

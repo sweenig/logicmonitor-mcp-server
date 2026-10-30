@@ -1299,6 +1299,30 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('update_datasource autoDiscoveryConfig', () => {
+      const saved = { scheduleInterval: 60, filters: [], method: { name: 'ad_script', type: 'embeded', groovyScript: 'println 1' } };
+
+      it('completes a filters-only config from the saved one', async () => {
+        mockClient.getDataSource.mockResolvedValue({ autoDiscoveryConfig: saved });
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+        const filters = [{ attribute: '##WILDALIAS##', operation: 'NotEqual', value: 'x' }];
+
+        await handlers.handleToolCall('update_datasource', { dataSourceId: 5, autoDiscoveryConfig: { filters } });
+
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(5, { fields: 'autoDiscoveryConfig' });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { autoDiscoveryConfig: { ...saved, filters } });
+      });
+
+      it('refuses when the saved config cannot be read', async () => {
+        mockClient.getDataSource.mockRejectedValue(new Error('boom'));
+        mockClient.updateDataSource.mockClear();
+
+        await expect(handlers.handleToolCall('update_datasource', { dataSourceId: 5, autoDiscoveryConfig: { filters: [] } }))
+          .rejects.toThrow(/Could not read the saved autoDiscoveryConfig/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+      });
+    });
+
     describe('update_datasource datapoint list', () => {
       it('fills in originId for datapoints sent with an id but without one', async () => {
         mockClient.getDataSource.mockResolvedValue({ dataPoints: [

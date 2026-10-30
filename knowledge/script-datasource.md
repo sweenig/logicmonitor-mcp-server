@@ -4,6 +4,8 @@ Two shapes: a **single-instance** script (`collectMethod:"script"`) and a **mult
 
 `create_datasource` fills in what LogicMonitor requires for script DataSources: `collectorAttribute.name` (= collectMethod), empty `linuxCmdline/linuxScript/windowsCmdline/windowsScript`, and in `autoDiscoveryConfig` an empty-string `instanceAutoGroupMethodParams`, `method.name:"ad_script"`, `method.type:"embeded"` (LogicMonitor really spells it that way) and `filters:[]`.
 
+On `update_datasource`, `autoDiscoveryConfig` can be partial: send only what changes (`{"filters":[...]}`, `{"scheduleInterval":30}`, or `{"method":{"groovyScript":"..."}}`) and the tool fills the rest from the saved config. LogicMonitor itself replaces the whole block and answers 400 when the discovery method is missing, so without this a one-line filter change would mean resending the entire AD script. `filters` is a list and replaces the saved one (send `[]` to clear it). An instance-name filter looks like `{"attribute":"##WILDALIAS##","operation":"NotEqual","value":"1. Client Template","comment":"why"}`.
+
 ## Single instance
 
 The script prints `metric=value` lines.

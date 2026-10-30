@@ -17,7 +17,7 @@ import { autoFormatFilter, escapeFilterValue, SEARCH_FIELDS } from '../utils/hel
 import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/helpers/logicmodule-scripts.js';
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
-import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from '../utils/helpers/datasource-payload.js';
+import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, mergeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from '../utils/helpers/datasource-payload.js';
 import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
@@ -239,6 +239,26 @@ export class LogicMonitorHandlers {
     if (args.testLocation !== undefined) fields.testLocation = parseJsonObject(args.testLocation);
     if (args.properties !== undefined) fields.properties = parseJsonArray(args.properties);
     return fields;
+  }
+
+  /**
+   * LogicMonitor replaces the whole autoDiscoveryConfig on update and rejects one without the discovery
+   * method, so a partial config (just filters, say) is completed from the saved one (see
+   * mergeAutoDiscoveryConfig). If the saved config cannot be read the update is refused: sending the
+   * partial config would only fail with an unexplained 400.
+   */
+  private async completeAutoDiscoveryUpdate(dataSourceId: number, config: Record<string, any>): Promise<Record<string, any>> {
+    try {
+      const current: any = await this.client.getDataSource(dataSourceId, { fields: 'autoDiscoveryConfig' });
+      return mergeAutoDiscoveryConfig(config, current?.autoDiscoveryConfig);
+    } catch (error) {
+      throw new MCPError(
+        `Could not read the saved autoDiscoveryConfig of DataSource ${dataSourceId} to complete this update: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCodes.INVALID_PARAMETERS,
+        { dataSourceId },
+        ['Retry; LogicMonitor replaces the whole autoDiscoveryConfig, so a partial one cannot be sent as it is'],
+      );
+    }
   }
 
   /**
@@ -947,7 +967,10 @@ export class LogicMonitorHandlers {
             updates.collectorAttribute = normalizeCollectorAttribute(updates.collectorAttribute, updates.collectMethod, false);
           }
           if (updates.autoDiscoveryConfig !== undefined) {
-            updates.autoDiscoveryConfig = normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false);
+            updates.autoDiscoveryConfig = await this.completeAutoDiscoveryUpdate(
+              dataSourceId,
+              normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false) as Record<string, any>,
+            );
           }
           await this.prepareDatapointUpdate(dataSourceId, updates, isTrue(allowDatapointRemoval));
           const updated = await this.client.updateDataSource(dataSourceId, updates);

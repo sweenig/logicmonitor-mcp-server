@@ -1904,7 +1904,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         enableAutoDiscovery: { type: 'boolean', description: 'Whether this DataSource uses Active Discovery' },
         autoDiscoveryConfig: {
           type: 'object',
-          description: 'Auto-discovery configuration. See "get_datasource" for the current shape before modifying.',
+          description: 'Auto-discovery configuration. You may send only the parts you change (for example {filters:[...]} or {scheduleInterval:30}): every top-level field you leave out, and every field of method you leave out, is filled in from the saved config, so the saved script is kept. "filters" is a list and replaces the saved one (send [] to remove all). See "get_datasource" for the shape.',
         },
         enableEriDiscovery: { type: 'boolean', description: 'Whether this DataSource uses ERI discovery' },
         eriDiscoveryConfig: {

@@ -67,6 +67,28 @@ export function normalizeAutoDiscoveryConfig(config: unknown, forCreate: boolean
 }
 
 /**
+ * LogicMonitor replaces the whole autoDiscoveryConfig on update, and answers 400 when it lacks the
+ * discovery method (the script) or the schedule settings, so changing one setting (adding a filter,
+ * changing the interval) used to mean resending the entire script. Complete a partial config from the
+ * saved one: every top-level field the caller leaves out is copied from the saved config, and the
+ * discovery method is merged field by field (so a config with only filters keeps the saved script).
+ * What the caller does send wins, including "filters" (the list is replaced, send [] to clear it). A
+ * method with a different name than the saved one is a different discovery method and is not merged.
+ */
+export function mergeAutoDiscoveryConfig(sent: Record<string, any>, saved: unknown): Record<string, any> {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return sent;
+  const current = saved as Record<string, any>;
+  const merged: Record<string, any> = { ...current, ...sent };
+  const sentMethod = sent.method;
+  const savedMethod = current.method;
+  if (sentMethod && typeof sentMethod === 'object' && savedMethod && typeof savedMethod === 'object'
+      && (sentMethod.name === undefined || sentMethod.name === savedMethod.name)) {
+    merged.method = { ...savedMethod, ...sentMethod };
+  }
+  return merged;
+}
+
+/**
  * LogicMonitor replaces a datapoint with exactly what an update sends, so every field left out is
  * reset: an empty rawDataFieldName, for one, leaves a script datapoint with "uses an unknown raw
  * datapoint" and no data, and a missing originId breaks the datapoint's link to its graphs. Callers
