@@ -120,6 +120,16 @@ describe('LogicMonitor Resources', () => {
 });
 
 
+describe('dashboards-and-widgets knowledge resource', () => {
+  it('explains the dynamic table topX limit, shape and row identity', async () => {
+    const content = await readLMResource('lm://knowledge/dashboards-and-widgets');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['dynamicTable', 'topX', '-1', 'invalid top', 'device-name-1', 'dataSourceFullName', 'deviceDisplayName', 'hostName', 'sortOrder']) {
+      expect(text).toContain(term);
+    }
+  });
+});
+
 describe('website knowledge resource', () => {
   it('is listed and explains types, locations and groups', async () => {
     const resource = listLMResources().find(r => r.uri === 'lm://knowledge/websites');

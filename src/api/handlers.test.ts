@@ -2193,6 +2193,43 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('dynamicTable topX', () => {
+      it('creates a dynamic table with topX -1 or up to 25', async () => {
+        mockClient.createWidget.mockResolvedValue({ id: 1 });
+        for (const topX of [-1, 1, 25, '-1']) {
+          await handlers.handleToolCall('create_widget', { dashboardId: 5, name: 't', type: 'dynamicTable', config: { topX } });
+        }
+        expect(mockClient.createWidget).toHaveBeenCalledTimes(4);
+      });
+
+      it('refuses other topX values for a dynamic table, pointing at -1', async () => {
+        mockClient.createWidget.mockClear();
+        for (const topX of [26, 50, 1000, 0, -2, '100']) {
+          await expect(handlers.handleToolCall('create_widget', { dashboardId: 5, name: 't', type: 'dynamicTable', config: { topX } }))
+            .rejects.toThrow(/Use -1 to list all rows/);
+        }
+        expect(mockClient.createWidget).not.toHaveBeenCalled();
+      });
+
+      it('does not limit topX on other widget types', async () => {
+        mockClient.createWidget.mockResolvedValue({ id: 1 });
+        await handlers.handleToolCall('create_widget', { dashboardId: 5, name: 't', type: 'noc', config: { topX: 50 } });
+        expect(mockClient.createWidget).toHaveBeenCalled();
+      });
+
+      it('on update, looks up the widget type and refuses a bad topX only for a dynamic table', async () => {
+        mockClient.updateWidget.mockClear();
+        mockClient.getWidget.mockResolvedValue({ type: 'dynamicTable' });
+        await expect(handlers.handleToolCall('update_widget', { widgetId: 7, config: { topX: 50 } })).rejects.toThrow(/Use -1 to list all rows/);
+        expect(mockClient.updateWidget).not.toHaveBeenCalled();
+        mockClient.updateWidget.mockResolvedValue({ id: 7 });
+        await handlers.handleToolCall('update_widget', { widgetId: 7, config: { topX: -1 } });
+        mockClient.getWidget.mockResolvedValue({ type: 'noc' });
+        await handlers.handleToolCall('update_widget', { widgetId: 7, config: { topX: 50 } });
+        expect(mockClient.updateWidget).toHaveBeenCalledTimes(2);
+      });
+    });
+
     describe('update_widget', () => {
       it('should update widget', async () => {
         const mockWidget = { id: 1, name: 'updated-widget' };

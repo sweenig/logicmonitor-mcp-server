@@ -96,7 +96,7 @@ export const LM_RESOURCES: LMResource[] = [
   {
     uri: 'lm://knowledge/dashboards-and-widgets',
     name: 'Dashboards and alert list widgets: folders, layout, filters, columns, property filters',
-    description: 'How to build a dashboard with "create_dashboard", "create_widget" and "update_widget": public vs private dashboards and folders, the 12-column layout, dashboard-level property filters, alert list widget filters (display name, severity words, "show all" open alerts), columns and custom columns (including which columns are worth showing), the NOC widget (including limiting it to a resource group), checking a widget with get_widget_data, and what to fix after renaming a DataSource. ' +
+    description: 'How to build a dashboard with "create_dashboard", "create_widget" and "update_widget": public vs private dashboards and folders, the 12-column layout, dashboard-level property filters, alert list widget filters (display name, severity words, "show all" open alerts), columns and custom columns (including which columns are worth showing), the NOC widget (including limiting it to a resource group), the dynamic table widget (including topX -1 for all rows), checking a widget with get_widget_data, and what to fix after renaming a DataSource. ' +
       'Read this before building or changing a dashboard or an alert list widget.',
     mimeType: 'text/markdown',
   },

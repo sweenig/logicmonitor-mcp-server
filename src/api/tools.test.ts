@@ -923,3 +923,19 @@ describe('removed service tools', () => {
     expect(removed).toEqual([]);
   });
 });
+
+describe('dynamic table widget guidance', () => {
+  const tool = (name: string) => getLogicMonitorTools(false).find(t => t.name === name)!;
+
+  it('tells create_widget and update_widget that topX is 1-25 or -1', () => {
+    for (const name of ['create_widget', 'update_widget']) {
+      expect(tool(name).description).toContain('topX');
+      expect(tool(name).description).toContain('-1');
+    }
+  });
+
+  it('warns that get_widget_data output can be very large and suggests jq', () => {
+    expect(tool('get_widget_data').description).toMatch(/very large/);
+    expect(tool('get_widget_data').description).toContain('jq');
+  });
+});

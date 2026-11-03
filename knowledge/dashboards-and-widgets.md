@@ -47,6 +47,14 @@ Create a dashboard with `create_dashboard`, add widgets with `create_widget`, an
 
 Status tiles per resource for one DataSource: `items:[{type:"device", deviceGroupFullPath:"*", deviceDisplayName:"*", dataSourceDisplayName:"<display name>", instanceName:"*", dataPointName:"*", groupBy:"device", name:"##RESOURCENAME##"}]`. As with alert widgets, `dataSourceDisplayName` is plain text and is not updated when the DataSource is renamed. To show only some resources, give `deviceGroupFullPath` a resource group's full path (`2. Technology/SaaS/LogicMonitor`) instead of `"*"`; only members of that group appear. Find the path with `list_resource_groups` (`fullPath`).
 
+## Dynamic table widget (`type:"dynamicTable"`)
+
+One row per instance of a DataSource, one column per datapoint. Shape that works: `dataSourceId`, `dataSourceFullName` (`"<display name> (<internal name>)"`), `columns:[{columnName, dataPointId, dataPointName, unitLabel, enableForecast, roundingDecimal, rpn, displayType:"raw", colorThresholds:[]}]`, `displaySettings.columns:[{visible, columnLabel, columnSize, columnKey}]` (the first column is keyed `"device-name-1"` and shows the row name; the datapoint columns are keyed `"0"`, `"1"`, ... in order), `rows:[{label:"##INSTANCE##", groupFullPath:"*", deviceDisplayName:"*", instanceName:"*"}]`, `topX`, `sortOrder`.
+
+- **`topX` is the row limit.** A positive number up to 25 is accepted and `-1` means all rows (the UI's "all (no limit)"). Anything else, such as 26, 50 or 100, is rejected with HTTP 400 "invalid top", so use `-1` and let `displaySettings.pageSize` (for example `"50"`) paginate. `create_widget` and `update_widget` refuse other values before calling LogicMonitor.
+- Rows are ordered by the first datapoint column, descending when `sortOrder` is `"descending"`.
+- For a multi-instance DataSource, `get_widget_data` identifies a row by `deviceDisplayName` (which holds the instance name) and `hostName` (the resource); the row `label` stays null.
+
 ## After renaming a DataSource
 
 Run `find_widgets_using_datasource` with the old display name (and the old internal name, for graph widgets), then fix `filters.dataSource` / `items[].dataSourceDisplayName`, and any dashboard description that names it.

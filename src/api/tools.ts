@@ -2430,6 +2430,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       'is where the HTML/script body goes; for a "bigNumber" widget this is where the datapoint/graphInfo ' +
       'goes). LogicMonitor\'s widget schema is polymorphic per type - build this the same shape LM\'s UI/API ' +
       'would produce for that type, or clone it from an existing widget via "get\\_widget". ' +
+      '\n\n**Dynamic table (type:"dynamicTable"):** config.topX is the row limit: a number from 1 to 25, or -1 for all rows (any other value, such as 50 or 100, is rejected with "invalid top"). Row order, column shape and row identity are in MCP resource "lm://knowledge/dashboards-and-widgets". ' +
       '\n\n**Workflow:** Use "get\\_widget" on a similar existing widget to see the exact shape expected for that type, then adapt it here. ' +
       '\n\n**Related tools:** "get\\_widget" (see an example of the target type), "update\\_widget" (modify after creation), "list\\_dashboards" (find dashboardId).',
     annotations: {
@@ -2509,6 +2510,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Rename a widget or change its description' +
       '\n- Change theme/interval/timescale' +
       '\n- Update type-specific config (e.g., edit an "html" widget\'s script, change a graph widget\'s datapoints) via the "config" field' +
+      '\n- Dynamic table row limit: config.topX of 1-25, or -1 for all rows (other values are refused)' +
       '\n\n**Workflow:** Use "get\\_widget" first to see current values, then send only the fields you want changed. ' +
       '\n\n**Careful:** "config" is sent as given, and a nested object such as "displaySettings" or "filters" should be treated as replacing the existing one (not verified to merge): send all of it, or use "columns" for alert list columns.' +
       '\n\n**Alert list columns:** pass "columns", a list of changes, and the tool applies them to the current column list for you: {columnKey, visible, columnLabel, columnSize, after} changes an existing column (columnKey such as "alert-began", "alert-static-threshold", "alert-value"); {token, ...} adds (or changes) a custom column from a property or alert token, placed after the last visible column unless "after" is given. A custom column\'s label is the token itself (LogicMonitor looks the value up by label), so it cannot be renamed; instance properties need the auto. prefix, as in ##auto.sdt.admin##. Example: [{"columnKey":"alert-static-threshold","visible":false},{"token":"##auto.sdt.admin##","columnSize":200}]. See MCP resource "lm://knowledge/dashboards-and-widgets".' +
@@ -2589,6 +2591,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- widgetId: from "list\\_widgets"' +
       '\n- start/end: optional time range (epoch seconds). If both are omitted, uses the widget\'s own default timescale. If only start is given, end defaults to now. An end without a start is rejected (LogicMonitor would ignore it)' +
       '\n- format: optional response format' +
+      '\n\n**Large output:** a big table or NOC widget can return a very large result (a NOC widget for 254 instances returned about 157,000 characters). When the result is saved to a file, summarize it with jq on that file instead of reading it whole. ' +
       '\n\n**Related tools:** "get\\_widget" (configuration/definition instead of data), "list\\_widgets" (find widgetId).',
     annotations: {
       title: 'Get widget data',

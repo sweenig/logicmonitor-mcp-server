@@ -8,6 +8,7 @@ import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
 import { applyColumnChanges, ColumnChange } from '../utils/helpers/widget-columns.js';
+import { isAcceptedTopX, topXErrorMessage } from '../utils/helpers/widget-top-x.js';
 import { findWidgetReferences, WIDGET_REFERENCE_FIELDS } from '../utils/helpers/widget-references.js';
 import { buildNetscanCreate, buildNetscanUpdate, updateNeedsMethod } from '../utils/helpers/netscan-payload.js';
 import { buildWebsiteCreate, buildWebsiteUpdate } from '../utils/helpers/website-payload.js';
@@ -1114,6 +1115,7 @@ export class LogicMonitorHandlers {
           const { config, ...widgetFields } = args;
           const widget: any = { ...widgetFields };
           if (config) Object.assign(widget, config);
+          if (widget.type === 'dynamicTable' && !isAcceptedTopX(widget.topX)) throw new InvalidArgumentError(topXErrorMessage(widget.topX));
           return await this.client.createWidget(widget);
         }
 
@@ -1131,6 +1133,11 @@ export class LogicMonitorHandlers {
               throw new InvalidArgumentError(`Widget ${widgetId} has no column list (columns only applies to alert list widgets).`);
             }
             widget.displaySettings = { ...displaySettings, columns: applyColumnChanges(displaySettings.columns, changes as ColumnChange[]) };
+          }
+          if (!isAcceptedTopX(widget.topX)) {
+            // an update usually omits the type, so look it up only when the limit would be refused for a dynamic table
+            const type = widget.type ?? ((await this.client.getWidget(widgetId, { fields: 'type' })) as any)?.type;
+            if (type === 'dynamicTable') throw new InvalidArgumentError(topXErrorMessage(widget.topX));
           }
           return await this.client.updateWidget(widgetId, widget);
         }
