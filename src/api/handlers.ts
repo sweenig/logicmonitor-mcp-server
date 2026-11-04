@@ -81,6 +81,8 @@ const DEFAULT_ROLE_FIELDS = [
 const DEFAULT_SDT_FIELDS = [
   'id', 'type', 'admin', 'comment', 'startDateTime', 'endDateTime',
   'duration', 'isEffective', 'deviceId', 'deviceDisplayName',
+  'dataSourceId', 'dataSourceName', 'deviceDataSourceId', 'dataSourceInstanceId',
+  'dataSourceInstanceName',
 ];
 
 const DEFAULT_DEVICE_GROUP_FIELDS = [
@@ -1598,6 +1600,44 @@ export class LogicMonitorHandlers {
             startDateTime: toEpochMillis(args.startDateTime),
             endDateTime: toEpochMillis(args.endDateTime),
           };
+          const hasDsId = args.deviceDataSourceId !== undefined && args.deviceDataSourceId !== null;
+          const hasInstanceId = args.instanceId !== undefined && args.instanceId !== null;
+          if (args.type === 'DeviceDataSourceSDT') {
+            if (!hasDsId) {
+              throw new InvalidArgumentError('type "DeviceDataSourceSDT" needs deviceDataSourceId (the "id" from list_resource_datasources); refusing so it never becomes a device-wide SDT');
+            }
+            if (hasInstanceId) {
+              throw new InvalidArgumentError('instanceId was given with type "DeviceDataSourceSDT"; use type "DeviceDataSourceInstanceSDT" to silence one instance');
+            }
+            sdt.sdtType = 'oneTime';
+            sdt.deviceDataSourceId = args.deviceDataSourceId;
+          } else if (args.type === 'DeviceDataSourceInstanceSDT') {
+            if (!hasInstanceId || !hasDsId) {
+              throw new InvalidArgumentError('type "DeviceDataSourceInstanceSDT" needs both deviceDataSourceId (the "id" from list_resource_datasources) and instanceId (the "id" from list_resource_instances); refusing so it never becomes a device-wide SDT');
+            }
+            // LogicMonitor also wants the datasource and instance names, so look them up.
+            const instances = await this.client.listDeviceDataSourceInstances(
+              args.deviceId,
+              args.deviceDataSourceId,
+              { filter: `id:${args.instanceId}`, fields: 'id,name,displayName,dataSourceName' },
+            );
+            const instance = instances?.items?.find((i: any) => Number(i.id) === Number(args.instanceId));
+            if (!instance) {
+              throw new InvalidArgumentError(`No instance ${args.instanceId} found under deviceDataSourceId ${args.deviceDataSourceId} on device ${args.deviceId}; get both ids from list_resource_datasources and list_resource_instances`);
+            }
+            const deviceDs = await this.client.getDeviceDataSource(
+              args.deviceId,
+              args.deviceDataSourceId,
+              { fields: 'id,dataSourceName' },
+            );
+            sdt.sdtType = 'oneTime';
+            sdt.deviceDataSourceId = args.deviceDataSourceId;
+            sdt.deviceDataSourceInstanceId = args.instanceId;
+            sdt.dataSourceName = instance.dataSourceName ?? deviceDs?.dataSourceName;
+            sdt.dataSourceInstanceName = instance.name;
+          } else if (hasDsId || hasInstanceId) {
+            throw new InvalidArgumentError('deviceDataSourceId / instanceId only apply to type "DeviceDataSourceSDT" / "DeviceDataSourceInstanceSDT"; refusing so the SDT is not silently widened to the whole device');
+          }
           if (args.comment) sdt.comment = args.comment;
           return await this.client.createDeviceSDT(sdt);
         }

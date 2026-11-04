@@ -3028,6 +3028,72 @@ describe('LogicMonitorHandlers', () => {
       }));
     });
 
+    it('should create a DeviceDataSourceSDT with deviceDataSourceId', async () => {
+      mockClient.createDeviceSDT.mockResolvedValue({ id: 1 });
+
+      await handlers.handleToolCall('create_resource_sdt', {
+        deviceId: 123,
+        type: 'DeviceDataSourceSDT',
+        deviceDataSourceId: 456,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
+      });
+
+      expect(mockClient.createDeviceSDT).toHaveBeenCalledWith({
+        sdtType: 'oneTime',
+        deviceId: 123,
+        type: 'DeviceDataSourceSDT',
+        deviceDataSourceId: 456,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
+      });
+    });
+
+    it('should create a DeviceDataSourceInstanceSDT with instanceId', async () => {
+      mockClient.createDeviceSDT.mockResolvedValue({ id: 1 });
+      mockClient.listDeviceDataSourceInstances.mockResolvedValue({
+        total: 1,
+        items: [{ id: 789, name: 'DS-eth0 [ID:2]', dataSourceName: 'DS' }],
+      });
+      mockClient.getDeviceDataSource.mockResolvedValue({ id: 456, dataSourceName: 'DS' });
+
+      await handlers.handleToolCall('create_resource_sdt', {
+        deviceId: 123,
+        type: 'DeviceDataSourceInstanceSDT',
+        deviceDataSourceId: 456,
+        instanceId: 789,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
+      });
+
+      expect(mockClient.createDeviceSDT).toHaveBeenCalledWith(expect.objectContaining({
+        sdtType: 'oneTime',
+        type: 'DeviceDataSourceInstanceSDT',
+        deviceDataSourceId: 456,
+        deviceDataSourceInstanceId: 789,
+        dataSourceName: 'DS',
+        dataSourceInstanceName: 'DS-eth0 [ID:2]',
+      }));
+    });
+
+    it.each([
+      ['DeviceDataSourceSDT', {}],
+      ['DeviceDataSourceInstanceSDT', {}],
+      ['DeviceDataSourceInstanceSDT', { instanceId: 789 }],
+      ['DeviceDataSourceSDT', { instanceId: 789 }],
+      ['DeviceSDT', { instanceId: 789 }],
+      ['DeviceSDT', { deviceDataSourceId: 456 }],
+    ])('should refuse %s with ids %j rather than create a device-wide SDT', async (type, ids) => {
+      await expect(handlers.handleToolCall('create_resource_sdt', {
+        deviceId: 123,
+        type,
+        ...ids,
+        startDateTime: 1791494000000,
+        endDateTime: 1791497600000,
+      })).rejects.toThrow();
+      expect(mockClient.createDeviceSDT).not.toHaveBeenCalled();
+    });
+
     it('should delete SDT', async () => {
       mockClient.deleteSDT.mockResolvedValue({});
 

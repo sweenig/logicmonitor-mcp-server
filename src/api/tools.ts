@@ -3905,7 +3905,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Database maintenance' +
       '\n\n**Required parameters:** ' +
       '\n- deviceId: Device to schedule maintenance for (from "list\\_resources")' +
-      '\n- type: "DeviceSDT" (entire device) or "DeviceDataSourceSDT" (specific datasource)' +
+      '\n- type: "DeviceSDT" (entire device), "DeviceDataSourceSDT" (one datasource on the device) or "DeviceDataSourceInstanceSDT" (one instance of a datasource)' +
+      '\n- deviceDataSourceId: required for "DeviceDataSourceSDT" - the "id" from "list\\_resource\\_datasources" for this device' +
+      '\n- instanceId: required for "DeviceDataSourceInstanceSDT" (together with deviceDataSourceId) - the "id" from "list\\_resource\\_instances" for that device datasource' +
       '\n- startDateTime: Start time in epoch MILLISECONDS (e.g., Date.now() + 3600000 for 1 hour from now)' +
       '\n- endDateTime: End time in epoch MILLISECONDS' +
       '\n- comment: Reason for maintenance (REQUIRED for audit trail)' +
@@ -3914,7 +3916,9 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- 4 hours maintenance: endDateTime: startDateTime + (4 * 3600000)' +
       '\n\n**SDT types:** ' +
       '\n- "DeviceSDT" - Suppresses ALL alerts on resource/device (most common)' +
-      '\n- "DeviceDataSourceSDT" - Suppresses alerts from specific datasource only' +
+      '\n- "DeviceDataSourceSDT" - Suppresses alerts from specific datasource only (needs deviceDataSourceId)' +
+      '\n- "DeviceDataSourceInstanceSDT" - Suppresses alerts from a single instance only, e.g. one tenant or one disk (needs deviceDataSourceId and instanceId)' +
+      '\n\n**Never widened:** a datasource or instance type without its id is refused, and ids with type "DeviceSDT" are refused, so an SDT is never silently turned into a device-wide one. ' +
       '\n\n**Best practices:** ' +
       '\n- Add detailed comment (e.g., "Patching Windows updates - Change ticket CHG12345")' +
       '\n- Use appropriate time buffer (start 15 min early, end 15 min late)' +
@@ -3933,7 +3937,15 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         type: {
           type: 'string',
-          description: 'SDT type: "DeviceSDT", "DeviceGroupSDT", "DeviceDataSourceSDT", etc.',
+          description: 'SDT type: "DeviceSDT", "DeviceDataSourceSDT" (needs deviceDataSourceId) or "DeviceDataSourceInstanceSDT" (needs instanceId)',
+        },
+        deviceDataSourceId: {
+          type: 'number',
+          description: 'Device datasource ID (the "id" from list_resource_datasources); required for types "DeviceDataSourceSDT" and "DeviceDataSourceInstanceSDT"',
+        },
+        instanceId: {
+          type: 'number',
+          description: 'Instance ID (the "id" from list_resource_instances); required for type "DeviceDataSourceInstanceSDT"',
         },
         startDateTime: {
           type: 'number',
