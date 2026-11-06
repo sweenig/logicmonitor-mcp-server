@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Portal rate limit is now configurable (`MCP_RATE_LIMIT_MAX`, `MCP_RATE_LIMIT_WINDOW_SECONDS`, `MCP_AUTH_RATE_LIMIT_MAX`) and visible: `/health` reports the limit and the busiest client's usage and reset time, the 429 body says it is the MCP server's limit (not LogicMonitor's) with limit, window and retry time, and `/health`/`/healthz` no longer count against it. Portal Manager: `edit-portal.sh --rate-limit-max/--rate-limit-window` and a Rate limit column in the web UI.
+
 ## [v0.1.0] - 2025-12-04
 
 ### 📦 Other Changes

@@ -698,5 +698,51 @@ describe('Authentication E2E Tests', () => {
       expect(result.result).toEqual({});
     });
   });
+
+  describe('Scenario 5: Configurable portal rate limit', () => {
+    let server: ServerProcess;
+
+    beforeAll(async () => {
+      server = await startServer({
+        LM_COMPANY: 'test-company',
+        LM_BEARER_TOKEN: 'test-lm-token',
+        MCP_RATE_LIMIT_MAX: '3',
+        MCP_RATE_LIMIT_WINDOW_SECONDS: '60',
+      }, 13004);
+    });
+
+    afterAll(async () => {
+      await server.cleanup();
+    });
+
+    it('should report the configured limit and usage in /health, without health checks using the budget', async () => {
+      for (let i = 0; i < 5; i++) {
+        expect((await makeRequest(server.port, '/healthz')).status).toBe(200);
+      }
+      const health = JSON.parse((await makeRequest(server.port, '/health')).body);
+      expect(health.rateLimit.limit).toBe(3);
+      expect(health.rateLimit.windowSeconds).toBe(60);
+      expect(health.rateLimit.busiestClientUsed).toBe(0);
+    });
+
+    it('should return a 429 that says it is the portal limit once the limit is exceeded', async () => {
+      for (let i = 0; i < 3; i++) {
+        expect((await makeRequest(server.port, '/status')).status).toBe(200);
+      }
+      const blocked = await makeRequest(server.port, '/status');
+      expect(blocked.status).toBe(429);
+      const body = JSON.parse(blocked.body);
+      expect(body.source).toBe('mcp-server');
+      expect(body.limit).toBe(3);
+      expect(body.windowSeconds).toBe(60);
+      expect(body.retryAfterSeconds).toBeGreaterThan(0);
+      expect(body.message).toContain('not LogicMonitor');
+
+      const health = JSON.parse((await makeRequest(server.port, '/health')).body);
+      expect(health.rateLimit.busiestClientUsed).toBeGreaterThanOrEqual(3);
+      expect(health.rateLimit.busiestClientRemaining).toBe(0);
+      expect(health.rateLimit.resetTime).not.toBeNull();
+    });
+  });
 });
 

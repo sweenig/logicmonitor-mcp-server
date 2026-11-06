@@ -309,6 +309,17 @@ npm start -- --lm-company mycompany --lm-bearer-token "your-token"
 
 **Note:** This is for authenticating **to** the MCP server, not for LogicMonitor API access.
 
+### MCP Server Rate Limit (HTTP/SSE transports)
+
+The server limits requests per client IP. This is the MCP server's own limit, separate from LogicMonitor's API rate limits. `/health` and `/healthz` are not counted. When exceeded, the server returns HTTP 429 with a JSON body giving the limit, window and retry time. `/health` reports the limit and the busiest client's usage (`rateLimit.busiestClientUsed`, `busiestClientRemaining`, `resetTime`).
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `MCP_RATE_LIMIT_MAX` | `500` | Requests allowed per client IP per window |
+| `MCP_RATE_LIMIT_WINDOW_SECONDS` | `900` | Window length in seconds (also used by the auth limiter) |
+| `MCP_AUTH_RATE_LIMIT_MAX` | `100` | Requests per window for the authenticated MCP endpoints |
+
+
 **Authentication Modes:**
 - **No Authentication** (default): If neither `MCP_BEARER_TOKEN` nor OAuth is configured (`OAUTH_PROVIDER=none`), unauthenticated access is allowed. Suitable for development/testing only.
 - **Bearer Token**: Simple static token authentication - set `MCP_BEARER_TOKEN`

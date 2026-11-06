@@ -16,6 +16,20 @@ const ICON_EDIT =
 const ICON_TRASH =
   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 
+function rateLimitCell(portal) {
+  const rl = portal.rateLimit;
+  if (!rl) {
+    return portal.rateLimitMax
+      ? `<span class="muted">${portal.rateLimitMax} / ${Math.round(portal.rateLimitWindowSeconds / 60)} min</span>`
+      : '<span class="muted">-</span>';
+  }
+  const pct = rl.limit ? rl.busiestClientUsed / rl.limit : 0;
+  const cls = pct >= 1 ? "danger" : pct >= 0.8 ? "stale" : "";
+  const resets = rl.resetTime ? `, resets ${new Date(rl.resetTime).toLocaleTimeString()}` : "";
+  const title = `Busiest client: ${rl.busiestClientUsed} of ${rl.limit} requests used in the current ${Math.round(rl.windowSeconds / 60)} min window${resets}. This is the portal's own limit, not LogicMonitor's.`;
+  return `<span class="badge ${cls}" title="${title}">${rl.busiestClientUsed} / ${rl.limit}</span> <span class="muted">per ${Math.round(rl.windowSeconds / 60)} min</span>`;
+}
+
 function renderRow(portal) {
   const tr = document.createElement("tr");
   const running = portal.status.startsWith("running");
@@ -34,6 +48,7 @@ function renderRow(portal) {
     <td>${portal.port}</td>
     <td>${modeBadge}</td>
     <td>${portal.status}${imageBadge}</td>
+    <td>${rateLimitCell(portal)}</td>
     <td>
       <div class="conn-cell">
         <button class="${running ? "stop" : "start"} toggle-btn">${running ? "Stop" : "Start"}</button>
@@ -58,7 +73,7 @@ function renderRow(portal) {
 function fillBody(body, portals, emptyText) {
   body.innerHTML = "";
   if (portals.length === 0) {
-    body.innerHTML = `<tr><td colspan="6" class="muted">${emptyText}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="muted">${emptyText}</td></tr>`;
     return;
   }
   portals.forEach((p) => body.appendChild(renderRow(p)));
@@ -67,10 +82,11 @@ function fillBody(body, portals, emptyText) {
 async function refreshPortals() {
   try {
     const portals = await fetchJSON("/api/portals");
+    lastPortals = portals;
     fillBody(runningBody, portals.filter((p) => p.status.startsWith("running")), "No running portals.");
     fillBody(stoppedBody, portals.filter((p) => !p.status.startsWith("running")), "No stopped portals.");
   } catch (err) {
-    const row = `<tr><td colspan="6" class="error">${err.message}</td></tr>`;
+    const row = `<tr><td colspan="7" class="error">${err.message}</td></tr>`;
     runningBody.innerHTML = row;
     stoppedBody.innerHTML = "";
   }
@@ -105,6 +121,7 @@ document.getElementById("add-form").addEventListener("submit", async (e) => {
 });
 
 let editingName = null;
+let lastPortals = [];
 
 function openEditModal(portal) {
   editingName = portal.name;
@@ -112,6 +129,8 @@ function openEditModal(portal) {
   const form = document.getElementById("edit-form");
   form.reset();
   form.readonly.checked = portal.readOnly;
+  form.rateLimitMax.value = portal.rateLimitMax || "";
+  form.rateLimitWindowSeconds.value = portal.rateLimitWindowSeconds || "";
   document.getElementById("edit-error").textContent = "";
   document.getElementById("edit-new-token").textContent = "";
   editModal.showModal();
@@ -128,6 +147,13 @@ document.getElementById("edit-form").addEventListener("submit", async (e) => {
   errorEl.textContent = "";
 
   const body = { readonly: form.readonly.checked };
+  const editing = lastPortals.find((p) => p.name === editingName);
+  if (form.rateLimitMax.value && Number(form.rateLimitMax.value) !== editing?.rateLimitMax) {
+    body.rateLimitMax = Number(form.rateLimitMax.value);
+  }
+  if (form.rateLimitWindowSeconds.value && Number(form.rateLimitWindowSeconds.value) !== editing?.rateLimitWindowSeconds) {
+    body.rateLimitWindowSeconds = Number(form.rateLimitWindowSeconds.value);
+  }
   if (document.getElementById("rotate-token-check").checked) {
     body.rotateTokenValue = form.rotateTokenValue.value;
   }

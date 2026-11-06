@@ -31,13 +31,18 @@ for dir in "$PORTALS_DIR"/*/; do
     # Permission denied is reported loudly (check_env_readable already wrote
     # to stderr) and flagged in its own row - NOT silently shown as
     # read-write/no-auth, which would be actively misleading.
-    rows+=("$name|$port|ERROR|ERROR|permission denied reading secrets|false")
+    rows+=("$name|$port|ERROR|ERROR|permission denied reading secrets|false|0|0")
     continue
   fi
 
   readonly_val="$(get_encrypted_env_var "$name" "MCP_READ_ONLY")"
   has_bearer="false"
   [[ -n "$(get_encrypted_env_var "$name" "MCP_BEARER_TOKEN")" ]] && has_bearer="true"
+
+  rate_max="$(get_encrypted_env_var "$name" "MCP_RATE_LIMIT_MAX")"
+  rate_window="$(get_encrypted_env_var "$name" "MCP_RATE_LIMIT_WINDOW_SECONDS")"
+  rate_max="${rate_max:-500}"
+  rate_window="${rate_window:-900}"
 
   status="stopped"
   image_outdated="false"
@@ -55,7 +60,7 @@ for dir in "$PORTALS_DIR"/*/; do
     fi
   fi
 
-  rows+=("$name|$port|$readonly_val|$has_bearer|$status|$image_outdated")
+  rows+=("$name|$port|$readonly_val|$has_bearer|$status|$image_outdated|$rate_max|$rate_window")
 done
 
 if [[ "$JSON" == "true" ]]; then
@@ -63,14 +68,14 @@ if [[ "$JSON" == "true" ]]; then
   first="true"
   for row in "${rows[@]:-}"; do
     [[ -z "$row" ]] && continue
-    IFS='|' read -r name port readonly_val has_bearer status image_outdated <<< "$row"
+    IFS='|' read -r name port readonly_val has_bearer status image_outdated rate_max rate_window <<< "$row"
     [[ "$first" == "false" ]] && echo ","
     first="false"
     if [[ "$readonly_val" == "ERROR" ]]; then
       printf '  {"name": "%s", "port": %s, "error": "%s"}' "$name" "$port" "$status"
     else
-      printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s", "imageOutdated": %s}' \
-        "$name" "$port" "$readonly_val" "$has_bearer" "$status" "$image_outdated"
+      printf '  {"name": "%s", "port": %s, "readOnly": %s, "authenticated": %s, "status": "%s", "imageOutdated": %s, "rateLimitMax": %s, "rateLimitWindowSeconds": %s}' \
+        "$name" "$port" "$readonly_val" "$has_bearer" "$status" "$image_outdated" "$rate_max" "$rate_window"
     fi
   done
   echo ""
@@ -82,7 +87,7 @@ else
   fi
   printf "%-20s %-6s %-10s %-14s %s\n" "NAME" "PORT" "MODE" "AUTH" "STATUS"
   for row in "${rows[@]}"; do
-    IFS='|' read -r name port readonly_val has_bearer status image_outdated <<< "$row"
+    IFS='|' read -r name port readonly_val has_bearer status image_outdated rate_max rate_window <<< "$row"
     if [[ "$readonly_val" == "ERROR" ]]; then
       printf "%-20s %-6s %-10s %-14s %s\n" "$name" "$port" "ERROR" "ERROR" "$status"
       continue

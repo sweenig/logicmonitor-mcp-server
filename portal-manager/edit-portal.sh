@@ -5,6 +5,7 @@
 #   ./edit-portal.sh --name acme --rotate-token          # new LM_BEARER_TOKEN (prompted, hidden)
 #   ./edit-portal.sh --name acme --rotate-bearer-token   # new MCP_BEARER_TOKEN (auto-generated)
 #   ./edit-portal.sh --name acme --port 3010
+#   ./edit-portal.sh --name acme --rate-limit-max 2000 --rate-limit-window 900
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,6 +15,8 @@ source "$SCRIPT_DIR/lib.sh"
 NAME=""
 NEW_READONLY=""
 NEW_PORT=""
+NEW_RATE_MAX=""
+NEW_RATE_WINDOW=""
 ROTATE_TOKEN="false"
 NEW_TOKEN_FLAG="${PORTAL_ROTATE_TOKEN:-}"
 ROTATE_BEARER_TOKEN="false"
@@ -22,11 +25,13 @@ JSON_OUTPUT="false"
 
 usage() {
   cat <<EOF
-Usage: $0 --name NAME [--readonly true|false] [--port PORT] [--rotate-token [--token TOKEN]] [--rotate-bearer-token] [--rebuild-image] [--json]
+Usage: $0 --name NAME [--readonly true|false] [--port PORT] [--rate-limit-max N] [--rate-limit-window SECONDS] [--rotate-token [--token TOKEN]] [--rotate-bearer-token] [--rebuild-image] [--json]
 
   --name NAME              Portal to edit (required).
   --readonly BOOL          Change MCP_READ_ONLY.
   --port PORT              Move the portal to a different host port.
+  --rate-limit-max N       Requests allowed per client IP per window (MCP_RATE_LIMIT_MAX, default 500).
+  --rate-limit-window SEC  Rate limit window in seconds (MCP_RATE_LIMIT_WINDOW_SECONDS, default 900).
   --rotate-token           Set a new LM_BEARER_TOKEN. Value comes from --token,
                            or the PORTAL_ROTATE_TOKEN env var (preferred for
                            programmatic callers), or a hidden prompt if neither is given.
@@ -43,6 +48,8 @@ while [[ $# -gt 0 ]]; do
     --name) NAME="$2"; shift 2 ;;
     --readonly) NEW_READONLY="$2"; shift 2 ;;
     --port) NEW_PORT="$2"; shift 2 ;;
+    --rate-limit-max) NEW_RATE_MAX="$2"; shift 2 ;;
+    --rate-limit-window) NEW_RATE_WINDOW="$2"; shift 2 ;;
     --rotate-token) ROTATE_TOKEN="true"; shift ;;
     --token) NEW_TOKEN_FLAG="$2"; shift 2 ;;
     --rotate-bearer-token) ROTATE_BEARER_TOKEN="true"; shift ;;
@@ -60,8 +67,8 @@ if [[ -z "$NAME" ]]; then
 fi
 require_portal_exists "$NAME"
 
-if [[ -z "$NEW_READONLY" && -z "$NEW_PORT" && "$ROTATE_TOKEN" == "false" && "$ROTATE_BEARER_TOKEN" == "false" && "$REBUILD_IMAGE" == "false" ]]; then
-  log_error "Nothing to change - pass at least one of --readonly, --port, --rotate-token, --rotate-bearer-token, --rebuild-image."
+if [[ -z "$NEW_READONLY" && -z "$NEW_PORT" && -z "$NEW_RATE_MAX" && -z "$NEW_RATE_WINDOW" && "$ROTATE_TOKEN" == "false" && "$ROTATE_BEARER_TOKEN" == "false" && "$REBUILD_IMAGE" == "false" ]]; then
+  log_error "Nothing to change - pass at least one of --readonly, --port, --rate-limit-max, --rate-limit-window, --rotate-token, --rotate-bearer-token, --rebuild-image."
   exit 1
 fi
 
@@ -97,6 +104,30 @@ if [[ "$ROTATE_BEARER_TOKEN" == "true" ]]; then
   NEW_MCP_BEARER_TOKEN="$(gen_token)"
   set_encrypted_env_var "$NAME" "MCP_BEARER_TOKEN" "$NEW_MCP_BEARER_TOKEN"
   log_info "MCP_BEARER_TOKEN rotated - .mcp.json will be updated with the new value below."
+  CHANGED="true"
+fi
+
+if [[ -n "$NEW_RATE_MAX" || -n "$NEW_RATE_WINDOW" ]]; then
+  for v in "$NEW_RATE_MAX" "$NEW_RATE_WINDOW"; do
+    if [[ -n "$v" && ! "$v" =~ ^[1-9][0-9]*$ ]]; then
+      log_error "Rate limit values must be positive integers, got: $v"
+      exit 1
+    fi
+  done
+  if [[ -n "$NEW_RATE_MAX" ]]; then
+    set_encrypted_env_var "$NAME" "MCP_RATE_LIMIT_MAX" "$NEW_RATE_MAX"
+    log_info "MCP_RATE_LIMIT_MAX -> $NEW_RATE_MAX"
+  fi
+  if [[ -n "$NEW_RATE_WINDOW" ]]; then
+    set_encrypted_env_var "$NAME" "MCP_RATE_LIMIT_WINDOW_SECONDS" "$NEW_RATE_WINDOW"
+    log_info "MCP_RATE_LIMIT_WINDOW_SECONDS -> $NEW_RATE_WINDOW"
+  fi
+  # Regenerate the compose file (keeping the current port) so portals created
+  # before these settings existed pick up the new variables.
+  if [[ -z "$NEW_PORT" ]]; then
+    CUR_PORT="$(grep -oE '"[0-9]+:3000"' "$(compose_file "$NAME")" | head -1 | grep -oE '^"[0-9]+' | tr -d '"')"
+    write_compose_file "$NAME" "$CUR_PORT"
+  fi
   CHANGED="true"
 fi
 

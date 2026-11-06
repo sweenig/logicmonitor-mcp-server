@@ -93,6 +93,8 @@ def edit_portal(
     rotate_token_value: str | None = None,
     rotate_bearer_token: bool = False,
     rebuild_image: bool = False,
+    rate_limit_max: int | None = None,
+    rate_limit_window: int | None = None,
 ) -> dict:
     args = ["--name", name, "--json"]
     extra_env = {}
@@ -100,6 +102,10 @@ def edit_portal(
         args += ["--readonly", "true" if readonly else "false"]
     if port is not None:
         args += ["--port", str(port)]
+    if rate_limit_max is not None:
+        args += ["--rate-limit-max", str(rate_limit_max)]
+    if rate_limit_window is not None:
+        args += ["--rate-limit-window", str(rate_limit_window)]
     if rotate_token_value is not None:
         args.append("--rotate-token")
         extra_env["PORTAL_ROTATE_TOKEN"] = rotate_token_value

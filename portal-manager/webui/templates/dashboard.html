@@ -26,11 +26,12 @@
           <th>Port</th>
           <th>Mode</th>
           <th>Container</th>
+          <th>Rate limit</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody id="running-body">
-        <tr><td colspan="6" class="muted">Loading...</td></tr>
+        <tr><td colspan="7" class="muted">Loading...</td></tr>
       </tbody>
     </table>
 
@@ -43,11 +44,12 @@
           <th>Port</th>
           <th>Mode</th>
           <th>Container</th>
+          <th>Rate limit</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody id="stopped-body">
-        <tr><td colspan="6" class="muted">Loading...</td></tr>
+        <tr><td colspan="7" class="muted">Loading...</td></tr>
       </tbody>
     </table>
   </main>
@@ -97,6 +99,13 @@
       <label class="checkbox-row">
         <input name="readonly" type="checkbox"> Read-only
       </label>
+      <label>Rate limit: requests per client IP per window
+        <input name="rateLimitMax" type="number" min="1" step="1">
+      </label>
+      <label>Rate limit window (seconds)
+        <input name="rateLimitWindowSeconds" type="number" min="1" step="1">
+      </label>
+      <p class="muted">This is the portal's own limit, not LogicMonitor's. Changing it restarts the portal.</p>
       <hr class="divider">
       <label class="checkbox-row">
         <input type="checkbox" id="rotate-token-check"> Rotate LM_BEARER_TOKEN

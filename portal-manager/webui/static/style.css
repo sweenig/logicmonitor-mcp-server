@@ -76,6 +76,7 @@ tr:last-child td { border-bottom: none; }
 .badge.ro { background: rgba(62,207,142,0.15); color: var(--ok); }
 .badge.stale { background: rgba(255,184,0,0.18); color: #ffb800; cursor: help; }
 .badge.rw { background: rgba(255,92,92,0.15); color: var(--danger); }
+.badge.danger { background: rgba(255,92,92,0.15); color: var(--danger); cursor: help; }
 
 .conn-cell {
   display: flex;

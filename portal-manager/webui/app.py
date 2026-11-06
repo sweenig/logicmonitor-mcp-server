@@ -68,9 +68,13 @@ def _validate_name(name: str) -> str | None:
 @login_required
 def api_list_portals():
     try:
-        return jsonify(portal_ops.list_portals())
+        portals = portal_ops.list_portals()
     except portal_ops.PortalOpError as exc:
         return jsonify({"error": str(exc)}), 500
+    for portal in portals:
+        if str(portal.get("status", "")).startswith("running"):
+            portal["rateLimit"] = mcp_probe.fetch_rate_limit(portal["port"])
+    return jsonify(portals)
 
 
 @app.route("/api/portals", methods=["POST"])
@@ -111,6 +115,8 @@ def api_edit_portal(name):
             rotate_token_value=body.get("rotateTokenValue"),
             rotate_bearer_token=bool(body.get("rotateBearerToken", False)),
             rebuild_image=bool(body.get("rebuildImage", False)),
+            rate_limit_max=body.get("rateLimitMax"),
+            rate_limit_window=body.get("rateLimitWindowSeconds"),
         )
         return jsonify(result)
     except portal_ops.PortalOpError as exc:

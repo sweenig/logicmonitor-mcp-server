@@ -192,6 +192,38 @@ if (TRANSPORT === 'stdio') {
 
   const BASE_URL = process.env.BASE_URL || `http://${HOST}:${PORT}`;
   const TRANSPORT_MODE = (process.env.TRANSPORT_MODE || 'both') as 'http-only' | 'sse-only' | 'both';
+
+  // Portal rate limits (per client IP). These are the MCP server's own limits, not LogicMonitor's.
+  const envPositiveInt = (name: string, fallback: number): number => {
+    const parsed = parseInt(process.env[name] || '', 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+  const RATE_LIMIT_WINDOW_MS = envPositiveInt('MCP_RATE_LIMIT_WINDOW_SECONDS', 900) * 1000;
+  const RATE_LIMIT_MAX = envPositiveInt('MCP_RATE_LIMIT_MAX', 500);
+  const AUTH_RATE_LIMIT_MAX = envPositiveInt('MCP_AUTH_RATE_LIMIT_MAX', 100);
+  type RateLimitedRequest = Request & { rateLimit?: { used: number; resetTime?: Date } };
+  const rateLimitUsage = new Map<string, { used: number; resetTime: number }>();
+
+  /** Rate limit settings plus the busiest client's usage in the current window (no IPs exposed). */
+  const getRateLimitStatus = () => {
+    const now = Date.now();
+    let busiest: { used: number; resetTime: number } | null = null;
+    let clients = 0;
+    for (const entry of rateLimitUsage.values()) {
+      if (entry.resetTime <= now) continue;
+      clients++;
+      if (!busiest || entry.used > busiest.used) busiest = entry;
+    }
+    return {
+      limit: RATE_LIMIT_MAX,
+      windowSeconds: Math.round(RATE_LIMIT_WINDOW_MS / 1000),
+      authLimit: AUTH_RATE_LIMIT_MAX,
+      activeClients: clients,
+      busiestClientUsed: busiest?.used ?? 0,
+      busiestClientRemaining: Math.max(0, RATE_LIMIT_MAX - (busiest?.used ?? 0)),
+      resetTime: busiest ? new Date(busiest.resetTime).toISOString() : null,
+    };
+  };
   const MCP_ENDPOINT_PATH = appConfig.endpointPath;
   const MCP_BEARER_TOKEN = appConfig.mcpBearerToken;
 
@@ -458,22 +490,58 @@ if (TRANSPORT === 'stdio') {
   // Cookie parser middleware (required for CSRF protection)
   app.use(cookieParser());
 
-  // Global rate limiter for all endpoints
+  // Global rate limiter for all endpoints. This is the portal's own per-IP limit,
+  // not LogicMonitor's. Configure with MCP_RATE_LIMIT_MAX / MCP_RATE_LIMIT_WINDOW_SECONDS.
   const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 500, // Generous limit for general use
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again later.',
+    // Health checks and monitoring must not use up the budget for real tool calls
+    skip: (req) => req.path === '/healthz' || req.path === '/health',
+    handler: (req, res, _next, options) => {
+      const resetTime = (req as RateLimitedRequest).rateLimit?.resetTime;
+      const retryAfterSeconds = resetTime
+        ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+        : Math.ceil(options.windowMs / 1000);
+      res.status(options.statusCode).json({
+        error: 'Too many requests',
+        message:
+          `This is the MCP portal server's own rate limit, not LogicMonitor's: ` +
+          `${options.limit} requests per ${Math.round(options.windowMs / 1000)}s per client IP. ` +
+          `Try again in ${retryAfterSeconds}s. Operators can raise it with MCP_RATE_LIMIT_MAX.`,
+        limit: options.limit,
+        windowSeconds: Math.round(options.windowMs / 1000),
+        retryAfterSeconds,
+        resetTime: resetTime?.toISOString() ?? null,
+        source: 'mcp-server',
+      });
+    },
   });
 
   // Apply global rate limiter to all routes
   app.use(globalLimiter);
 
+  // Track the busiest client in the current window so /health can show how close the portal is to its limit
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const info = (req as RateLimitedRequest).rateLimit;
+    if (info && req.ip) {
+      const now = Date.now();
+      for (const [ip, entry] of rateLimitUsage) {
+        if (entry.resetTime <= now) rateLimitUsage.delete(ip);
+      }
+      rateLimitUsage.set(req.ip, {
+        used: info.used,
+        resetTime: info.resetTime?.getTime() ?? now + RATE_LIMIT_WINDOW_MS,
+      });
+    }
+    next();
+  });
+
   // Rate limiting for authentication endpoints
   const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: AUTH_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many requests from this IP, please try again later.',
@@ -1052,6 +1120,7 @@ if (TRANSPORT === 'stdio') {
         external: memoryUsage.external,
         arrayBuffers: memoryUsage.arrayBuffers,
       },
+      rateLimit: getRateLimitStatus(),
       connections: {
         mcp: mcpServers.size,
         http: httpSessions.size,

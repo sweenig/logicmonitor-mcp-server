@@ -90,3 +90,13 @@ def test_connectivity(port: int, mcp_bearer_token: str | None) -> dict:
         return {"ok": False, "message": f"LogicMonitor API call failed: {(text or rpc_error)[:300]}"}
 
     return {"ok": True, "message": "Read-only connectivity to LogicMonitor confirmed."}
+
+
+def fetch_rate_limit(port: int) -> dict | None:
+    """The portal's own rate limit status from its /health endpoint (None if unreachable
+    or running an older image without the field). /health does not count against the limit."""
+    try:
+        resp = requests.get(f"http://localhost:{port}/health", timeout=3)
+        return resp.json().get("rateLimit")
+    except (requests.RequestException, ValueError):
+        return None
