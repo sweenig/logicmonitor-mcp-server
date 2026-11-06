@@ -16,3 +16,4 @@ portal-manager/webui/__pycache__/*
 swagger.json
 context_data/*
 .claude/*
+CLAUDE.local.md
