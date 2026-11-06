@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { findMissingRequired, findUnknownArguments, acceptedParameterNames } from './validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias } from './validate-args.js';
 
 describe('findMissingRequired', () => {
   const tool = { name: 't', inputSchema: { required: ['id', 'name'] } };
@@ -31,5 +31,20 @@ describe('findUnknownArguments / acceptedParameterNames', () => {
 
   it('lists accepted names, required first', () => {
     expect(acceptedParameterNames(tool)).toEqual(['dataSourceId', 'fields']);
+  });
+});
+
+describe('applyIdAlias', () => {
+  const one = { name: 't', inputSchema: { required: ['dataSourceId'], properties: { dataSourceId: {} } } };
+  const two = { name: 't', inputSchema: { required: ['dataSourceId', 'graphId'], properties: { dataSourceId: {}, graphId: {} } } };
+  const declaresId = { name: 't', inputSchema: { required: ['collectorId'], properties: { id: {}, collectorId: {} } } };
+
+  it('maps id to the single required *Id parameter', () => {
+    expect(applyIdAlias(one, { id: 5 })).toEqual({ dataSourceId: 5 });
+  });
+  it('leaves calls alone when the real parameter is given, id is ambiguous, or id is declared', () => {
+    expect(applyIdAlias(one, { id: 5, dataSourceId: 7 })).toEqual({ id: 5, dataSourceId: 7 });
+    expect(applyIdAlias(two, { id: 5 })).toEqual({ id: 5 });
+    expect(applyIdAlias(declaresId, { id: 5 })).toEqual({ id: 5 });
   });
 });

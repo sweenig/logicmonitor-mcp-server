@@ -23,7 +23,7 @@ import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointW
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
-import { findMissingRequired, findUnknownArguments, acceptedParameterNames } from '../utils/helpers/validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
@@ -449,6 +449,7 @@ export class LogicMonitorHandlers {
       // Reject calls missing required arguments before any request is built, since
       // request paths interpolate IDs (a missing one would hit /.../undefined).
       const tool = toolsByName().get(name);
+      args = applyIdAlias(tool, args);
       const missing = findMissingRequired(tool, args);
       if (missing.length) {
         const unknown = findUnknownArguments(tool, args);

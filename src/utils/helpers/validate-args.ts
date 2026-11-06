@@ -38,3 +38,19 @@ export function acceptedParameterNames(tool: ToolSchemaLike & { inputSchema?: { 
   const required = new Set(tool?.inputSchema?.required ?? []);
   return [...names.filter(n => required.has(n)), ...names.filter(n => !required.has(n))];
 }
+
+/**
+ * Clients routinely guess "id" (list_* results return "id") where a tool declares "<thing>Id".
+ * When a tool does not declare "id", requires exactly one parameter, that parameter is named
+ * "*Id" and is missing, treat "id" as that parameter. Tools with several required IDs stay
+ * strict because "id" would be ambiguous.
+ */
+export function applyIdAlias<T>(tool: (ToolSchemaLike & { inputSchema?: { properties?: Record<string, unknown> } }) | undefined, args: T): T {
+  const provided = (args ?? {}) as Record<string, unknown>;
+  const required = tool?.inputSchema?.required;
+  if (!tool || !required || required.length !== 1 || !/Id$/.test(required[0])) return args;
+  if ('id' in (tool.inputSchema?.properties ?? {}) || provided.id === undefined) return args;
+  if (findMissingRequired(tool, args).length === 0) return args;
+  const { id, ...rest } = provided;
+  return { ...rest, [required[0]]: id } as T;
+}

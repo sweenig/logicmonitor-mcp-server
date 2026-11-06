@@ -1579,8 +1579,18 @@ describe('LogicMonitorHandlers', () => {
     });
 
     describe('missing required argument errors', () => {
+      it('accepts a bare "id" for a tool with a single required *Id parameter', async () => {
+        mockClient.getDataSource.mockResolvedValue({ id: 5, name: 'DS', dataPoints: [] } as any);
+        await handlers.handleToolCall('get_datasource', { id: 5 });
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(5, { fields: undefined });
+      });
+
+      it('keeps "id" an error when several IDs are required', async () => {
+        await expect(handlers.handleToolCall('get_datasource_graph', { id: 5, graphId: 1 })).rejects.toThrow(/Missing required argument for get_datasource_graph: dataSourceId/);
+      });
+
       it('name the unrecognized arguments and the accepted parameters', async () => {
-        await expect(handlers.handleToolCall('get_datasource', { id: 5 })).rejects.toThrow(/unrecognized argument received: id/);
+        await expect(handlers.handleToolCall('get_datasource', { name: 'x' })).rejects.toThrow(/unrecognized argument received: name/);
         await expect(handlers.handleToolCall('update_resource_property', { resourceId: 1, propertyName: 'a', value: 'b' }))
           .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: resourceId\)/);
       });
