@@ -25,4 +25,4 @@ Only the portal you name is recreated; the others keep running the old image unt
 
 ## Commit and push
 
-Only after the change is deployed and verified live. When the user says "commit and push": first add a line under `## [Unreleased]` in `CHANGELOG.md` (matching the surrounding style) and update `context_data/mcp_server_todo.md` (mark the item DONE in the table and move it under "Done", or add a new entry), then commit straight to main, staging files by name, and push.
+Only after the change is deployed and verified live. When the user says "commit and push": first add a line under `## [Unreleased]` in `CHANGELOG.md` (matching the surrounding style), then commit straight to main, staging files by name, and push.
