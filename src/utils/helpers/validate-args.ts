@@ -54,3 +54,24 @@ export function applyIdAlias<T>(tool: (ToolSchemaLike & { inputSchema?: { proper
   const { id, ...rest } = provided;
   return { ...rest, [required[0]]: id } as T;
 }
+
+/** Argument aliases: tools say "resource" in their names but take LogicMonitor's older "device" parameters. */
+const PARAMETER_ALIASES: Record<string, string> = { resourceId: 'deviceId', resourceIds: 'deviceIds' };
+
+/**
+ * Accept resourceId/resourceIds where a tool declares deviceId/deviceIds. The canonical name
+ * wins when both are given, and a tool that declares the alias itself is left alone.
+ */
+export function applyParameterAliases<T>(tool: { inputSchema?: { properties?: Record<string, unknown> } } | undefined, args: T): T {
+  const properties = tool?.inputSchema?.properties;
+  if (!properties || !args || typeof args !== 'object') return args;
+  const provided = args as Record<string, unknown>;
+  let result: Record<string, unknown> | undefined;
+  for (const [alias, canonical] of Object.entries(PARAMETER_ALIASES)) {
+    if (!(alias in provided) || alias in properties || !(canonical in properties)) continue;
+    result ??= { ...provided };
+    if (result[canonical] === undefined) result[canonical] = result[alias];
+    delete result[alias];
+  }
+  return (result ?? args) as T;
+}

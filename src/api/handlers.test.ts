@@ -387,6 +387,24 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('resourceId alias', () => {
+      it('accepts resourceId where the tool takes deviceId', async () => {
+        mockClient.getDevice.mockResolvedValue({ id: 123 });
+        await handlers.handleToolCall('get_resource', { resourceId: 123 });
+        expect(mockClient.getDevice).toHaveBeenCalledWith(123, { fields: undefined });
+      });
+
+      it('accepts resourceIds for deviceIds and prefers deviceId when both are given', async () => {
+        mockClient.deleteDevice.mockResolvedValue({});
+        await handlers.handleToolCall('delete_resource', { resourceIds: [1, 2] });
+        expect(mockClient.deleteDevice).toHaveBeenCalledTimes(2);
+
+        mockClient.getDevice.mockResolvedValue({ id: 5 });
+        await handlers.handleToolCall('get_resource', { deviceId: 5, resourceId: 9 });
+        expect(mockClient.getDevice).toHaveBeenLastCalledWith(5, { fields: undefined });
+      });
+    });
+
     describe('create_resource', () => {
       it('should create a single device', async () => {
         const mockDevice = { id: 1, displayName: 'new-device' };
@@ -1652,8 +1670,8 @@ describe('LogicMonitorHandlers', () => {
 
       it('name the unrecognized arguments and the accepted parameters', async () => {
         await expect(handlers.handleToolCall('get_datasource', { name: 'x' })).rejects.toThrow(/unrecognized argument received: name/);
-        await expect(handlers.handleToolCall('update_resource_property', { resourceId: 1, propertyName: 'a', value: 'b' }))
-          .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: resourceId\)/);
+        await expect(handlers.handleToolCall('update_resource_property', { hostId: 1, propertyName: 'a', value: 'b' }))
+          .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: hostId\)/);
       });
     });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias } from './validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from './validate-args.js';
 
 describe('findMissingRequired', () => {
   const tool = { name: 't', inputSchema: { required: ['id', 'name'] } };
@@ -46,5 +46,18 @@ describe('applyIdAlias', () => {
     expect(applyIdAlias(one, { id: 5, dataSourceId: 7 })).toEqual({ id: 5, dataSourceId: 7 });
     expect(applyIdAlias(two, { id: 5 })).toEqual({ id: 5 });
     expect(applyIdAlias(declaresId, { id: 5 })).toEqual({ id: 5 });
+  });
+});
+
+describe('applyParameterAliases', () => {
+  const tool = { inputSchema: { properties: { deviceId: {}, deviceIds: {} } } };
+  it('maps resourceId/resourceIds to deviceId/deviceIds', () => {
+    expect(applyParameterAliases(tool, { resourceId: 5 })).toEqual({ deviceId: 5 });
+    expect(applyParameterAliases(tool, { resourceIds: [1] })).toEqual({ deviceIds: [1] });
+  });
+  it('keeps the canonical name when both are given, and leaves tools that declare the alias alone', () => {
+    expect(applyParameterAliases(tool, { deviceId: 1, resourceId: 2 })).toEqual({ deviceId: 1 });
+    const own = { inputSchema: { properties: { deviceId: {}, resourceId: {} } } };
+    expect(applyParameterAliases(own, { resourceId: 2 })).toEqual({ resourceId: 2 });
   });
 });

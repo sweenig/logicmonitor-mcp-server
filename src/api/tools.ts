@@ -135,7 +135,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to retrieve',
+          description: 'The ID of the resource/device to retrieve (resourceId is accepted as an alias)',
         },
         ...fieldsSchema,
       },
@@ -297,7 +297,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         // Single resource/device properties
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to update (for single update)',
+          description: 'The ID of the resource/device to update (for single update) (resourceId is accepted as an alias)',
         },
         displayName: {
           type: 'string',
@@ -417,7 +417,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         // Single resource/device properties
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to delete (for single deletion)',
+          description: 'The ID of the resource/device to delete (for single deletion) (resourceId is accepted as an alias)',
         },
         deleteFromSystem: {
           type: 'boolean',
@@ -1308,7 +1308,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       type: 'object',
       properties: {
         dataSourceId: { type: 'number', description: 'The ID of the saved DataSource to test' },
-        deviceId: { type: 'number', description: 'The ID of the resource/device whose properties the scripts run with (from "list_resources")' },
+        deviceId: { type: 'number', description: 'The ID of the resource/device whose properties the scripts run with (from "list_resources") (resourceId is accepted as an alias)' },
         collectorId: { type: 'number', description: 'Collector to run on. Defaults to the resource\'s preferredCollectorId.' },
         waitSeconds: debugRunSchema.waitSeconds,
       },
@@ -1970,7 +1970,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         deviceDataSourceId: {
           type: 'number',
@@ -2019,7 +2019,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         deviceDataSourceId: {
           type: 'number',
@@ -2675,7 +2675,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to generate a link for',
+          description: 'The ID of the resource/device to generate a link for (resourceId is accepted as an alias)',
         },
       },
       additionalProperties: false,
@@ -3437,7 +3437,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        deviceId: { type: 'number', description: 'ID of the Uptime check (resource) to update' },
+        deviceId: { type: 'number', description: 'ID of the Uptime check (resource) to update (resourceId is accepted as an alias)' },
         displayName: { type: 'string', description: 'New friendly name' },
         name: { type: 'string', description: 'New internal name' },
         description: { type: 'string', description: 'New description' },
@@ -3936,7 +3936,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         type: {
           type: 'string',
@@ -4382,7 +4382,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         ...paginationSchema,
         ...filterSchema,
@@ -4449,7 +4449,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         propertyName: {
           type: 'string',
@@ -4487,7 +4487,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID (from "list\\_resources")',
+          description: 'The resource/device ID (from "list\\_resources") (resourceId is accepted as an alias)',
         },
         propertyName: {
           type: 'string',
@@ -4519,7 +4519,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID (from "list_resources")',
+          description: 'The resource/device ID (from "list_resources") (resourceId is accepted as an alias)',
         },
       },
       additionalProperties: false,
@@ -4976,7 +4976,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         ...paginationSchema,
         ...filterSchema,
@@ -5043,7 +5043,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         deviceDataSourceId: {
           type: 'number',
@@ -5099,7 +5099,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
         },
         deviceDataSourceId: {
           type: 'number',
@@ -6575,7 +6575,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'Attach the note to this resource/device (added to scopes)',
+          description: 'Attach the note to this resource/device (added to scopes) (resourceId is accepted as an alias)',
         },
         deviceGroupId: {
           type: 'number',
@@ -6652,7 +6652,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'Attach the note to this resource/device (added to scopes)',
+          description: 'Attach the note to this resource/device (added to scopes) (resourceId is accepted as an alias)',
         },
         deviceGroupId: {
           type: 'number',
