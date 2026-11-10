@@ -44,7 +44,9 @@ const fieldsSchema = {
     type: 'string',
     description: 'Comma-separated list of fields to include in response. ' +
       'Examples: "id,displayName,hostStatus" or use "*" for all fields. ' +
-      'Omit this parameter to receive a curated set of commonly used fields.',
+      'Omit this parameter to receive a curated set of commonly used fields. ' +
+      '"*" can be very large (for a collector it includes its config files, for a resource all of its properties): ' +
+      'name the fields you need. A list response over 40,000 characters is cut to the first items that fit, with truncated:true and a truncationNote.',
   },
 };
 
@@ -91,6 +93,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Alert status (alertStatus field):** Encodes both severity and acknowledgement in one string, e.g. "critical-unconfirmed" or "warn-confirmed"; "none" means no active alert. Severity is one of warn/error/critical; acknowledgement is confirmed/unconfirmed. ' +
       '\n\n**hostGroupIds gotcha:** This is a single comma-separated string of group IDs (e.g. "14,26,116"), not a list field, so filter:"hostGroupIds~27" will also match "127", "270", etc. (substring match, not exact membership). To find resources in a specific group reliably, prefer filtering on systemProperties (e.g. filter:"systemProperties.name:system.groups,systemProperties.value~*Exact/Group/Path*" using the group\'s distinctive full path) or cross-check candidate matches against "list\\_resource\\_groups"/"get\\_resource\\_group" rather than trusting a bare hostGroupIds substring match. ' +
       '\n\n**Known reliability caveat:** Filtering on computed/rollup fields such as sdtStatus or alertDisableStatus (e.g. filter:"sdtStatus:none-SDT-none" or filter:"sdtStatus~SDT-none-") has been observed to return stale results - both missing resources that do match and including ones that do not - likely due to search-index lag on these fields rather than a filter-syntax problem (plain attribute filters like hostStatus or displayName are not known to have this issue). For an accurate audit of SDT or alerting-disabled state, prefer fetching the field unfiltered (fields:"id,displayName,sdtStatus", autoPaginate:true) and evaluating it client-side rather than trusting filter= on it. ' +
+      '\n\n**Response size:** By default each resource carries a curated field set that includes all of its customProperties (about 6 or more each), so a filter that matches many resources can return tens of thousands of characters. Pass fields to ask for only what you need, e.g. fields:"id,displayName,hostGroupIds" or fields:"id,displayName,customProperties,autoProperties,hostGroupIds" (autoProperties come back only when requested by name). A response over 40,000 characters is cut to the first items that fit, with truncated:true and a truncationNote; narrow the filter or use size/offset to see the rest. ' +
       '\n\n**Performance tips:** Use autoPaginate:false for large environments (>1000 resources/devices) and paginate manually to avoid timeouts. ' +
       '\n\n**Related tools:** "get\\_resource" (details), "generate\\_resource\\_link" (get UI link), "list\\_sdts" (SDT records), "get\\_sdt" (SDT details).',
     annotations: {
@@ -8563,6 +8566,26 @@ function withReturnFullOption(tool: Tool): Tool {
   };
 }
 
+// List tools accept excludeFields: keys removed from each returned item (see handlers.ts), for the
+// "everything except the heavy fields" case that fields="*" cannot express.
+const EXCLUDE_FIELDS_PROPERTY = {
+  type: 'string',
+  description: 'Comma-separated fields to remove from each returned item, for when you want most fields but not the heavy ones (for example "collectorConf,wrapperConf,watchdogConf,sbproxyConf,websiteConf" on collectors, or "customProperties" on resources). Applied after LogicMonitor responds, so it shortens the result but not the API call; to fetch less, name the fields you want in "fields" instead.',
+};
+
+function withExcludeFieldsOption(tool: Tool): Tool {
+  if (!tool.name.startsWith('list_') || !tool.inputSchema.properties?.fields) {
+    return tool;
+  }
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: { ...tool.inputSchema.properties, excludeFields: EXCLUDE_FIELDS_PROPERTY },
+    },
+  };
+}
+
 export function getLogicMonitorTools(onlyReadOnly: boolean = false): Tool[] {
   const tools = onlyReadOnly
     ? ALL_LOGICMONITOR_TOOLS.filter(tool => {
@@ -8572,5 +8595,5 @@ export function getLogicMonitorTools(onlyReadOnly: boolean = false): Tool[] {
     : ALL_LOGICMONITOR_TOOLS;
 
   // Sort tools alphabetically by name
-  return tools.map(withReturnFullOption).sort((a, b) => a.name.localeCompare(b.name));
+  return tools.map(withReturnFullOption).map(withExcludeFieldsOption).sort((a, b) => a.name.localeCompare(b.name));
 }

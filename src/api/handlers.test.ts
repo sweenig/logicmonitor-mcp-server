@@ -248,6 +248,67 @@ describe('LogicMonitorHandlers', () => {
         expect(result).toEqual(mockResponse);
       });
 
+      it('should cut an oversized response to the items that fit and say so', async () => {
+        const big = 'x'.repeat(1000);
+        const items = Array.from({ length: 200 }, (_, i) => ({ id: i, displayName: `d${i}`, customProperties: [{ name: 'p', value: big }] }));
+        mockClient.listResources.mockResolvedValue({ items, total: 200 });
+
+        const result = await handlers.handleToolCall('list_resources', {});
+
+        expect(result.truncated).toBe(true);
+        expect(result.items.length).toBeGreaterThan(0);
+        expect(result.items.length).toBeLessThan(200);
+        expect(JSON.stringify(result, null, 2).length).toBeLessThanOrEqual(40000 + 400);
+        expect(result.truncationNote).toContain(`first ${result.items.length} of 200`);
+        expect(result.truncationNote).toContain('fields=');
+      });
+
+      it('should cut an oversized response from any list tool, e.g. collectors asked for all fields', async () => {
+        const config = 'c'.repeat(5000);
+        const items = Array.from({ length: 100 }, (_, i) => ({ id: i, description: `c${i}`, collectorConf: config }));
+        mockClient.listCollectors.mockResolvedValue({ items, total: 100 });
+
+        const result = await handlers.handleToolCall('list_collectors', { fields: '*' });
+
+        expect(result.truncated).toBe(true);
+        expect(result.items.length).toBeLessThan(100);
+        expect(result.truncationNote).toContain('of 100');
+      });
+
+      it('should replace very long values when a single item is still over the limit', async () => {
+        const huge = 'c'.repeat(60000);
+        mockClient.listCollectors.mockResolvedValue({
+          items: [{ id: 1, description: 'c1', collectorConf: huge }, { id: 2, description: 'c2', collectorConf: huge }],
+          total: 2,
+        });
+
+        const result = await handlers.handleToolCall('list_collectors', { fields: '*' });
+
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0].description).toBe('c1');
+        expect(result.items[0].collectorConf).toBe('[60000 characters omitted from the list view]');
+        expect(result.truncationNote).toContain('collectorConf');
+        expect(JSON.stringify(result, null, 2).length).toBeLessThan(40000);
+      });
+
+      it('should remove excludeFields from each item and not pass them to the client', async () => {
+        mockClient.listCollectors.mockResolvedValue({
+          items: [{ id: 1, description: 'c1', collectorConf: 'big', wrapperConf: 'big' }],
+          total: 1,
+        });
+
+        const result = await handlers.handleToolCall('list_collectors', { fields: '*', excludeFields: 'collectorConf, wrapperConf' });
+
+        expect(result.items[0]).toEqual({ id: 1, description: 'c1' });
+        expect(mockClient.listCollectors).toHaveBeenCalledWith(expect.not.objectContaining({ excludeFields: expect.anything() }));
+      });
+
+      it('should not mark a small response as truncated', async () => {
+        mockClient.listResources.mockResolvedValue({ items: [{ id: 1, displayName: 'a' }], total: 1 });
+        const result = await handlers.handleToolCall('list_resources', { fields: 'id,displayName' });
+        expect(result.truncated).toBeUndefined();
+      });
+
       it('should list devices with filter', async () => {
         const mockResponse = { items: [], total: 0 };
         mockClient.listResources.mockResolvedValue(mockResponse);

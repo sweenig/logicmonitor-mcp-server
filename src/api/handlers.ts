@@ -152,6 +152,61 @@ function filterFields<T extends Record<string, any>>(obj: T, fields: string[]): 
   return filtered;
 }
 
+/** Largest list_* response (characters as sent, pretty-printed) returned whole; bigger ones are cut to the first items that fit. */
+export const MAX_LIST_RESPONSE_CHARS = 40000;
+
+/** A single string value longer than this is replaced by a placeholder when one item alone is over the limit. */
+const MAX_LONG_STRING_CHARS = 2000;
+
+/** Size of a response as formatResponse sends it. */
+function sentSize(value: unknown): number {
+  return JSON.stringify(value, null, 2).length;
+}
+
+/**
+ * Keep a list response under maxChars, and say so in the response, so one broad filter cannot overflow
+ * the client's token limit. First trailing items are dropped (at least one is kept); if that one item is
+ * still too big (a collector asked for all fields carries ~70,000 characters of config files), its very
+ * long string values are replaced by a placeholder naming their size. Responses already under the limit
+ * are untouched.
+ */
+function capListResponse<T extends { items: any[] }>(result: T, maxChars: number, hint: string): T {
+  if (sentSize(result) <= maxChars) return result;
+  const items = result.items;
+  // Binary search for the largest prefix that fits (at least one item is always kept).
+  let lo = 1;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (sentSize({ ...result, items: items.slice(0, mid) }) <= maxChars) lo = mid;
+    else hi = mid - 1;
+  }
+  let kept = items.slice(0, lo);
+  const omittedFields = new Set<string>();
+  if (sentSize({ ...result, items: kept }) > maxChars) {
+    kept = kept.map(item => {
+      if (!item || typeof item !== 'object') return item;
+      const copy: Record<string, any> = { ...item };
+      for (const [key, value] of Object.entries(copy)) {
+        if (typeof value === 'string' && value.length > MAX_LONG_STRING_CHARS) {
+          copy[key] = `[${value.length} characters omitted from the list view]`;
+          omittedFields.add(key);
+        }
+      }
+      return copy;
+    });
+  }
+  const omittedNote = omittedFields.size > 0
+    ? ` Long values replaced by a placeholder: ${[...omittedFields].join(', ')} (read them with the matching get tool).`
+    : '';
+  return {
+    ...result,
+    items: kept,
+    truncated: true,
+    truncationNote: `Response cut to the first ${lo} of ${items.length} items returned (over ${maxChars} characters). ${hint}${omittedNote}`,
+  };
+}
+
 let toolIndex: Map<string, Tool> | undefined;
 function toolsByName(): Map<string, Tool> {
   toolIndex ??= new Map(getLogicMonitorTools().map(t => [t.name, t]));
@@ -224,7 +279,37 @@ export class LogicMonitorHandlers {
       callArgs = rest;
     }
 
-    const result = await this.runToolCall(name, callArgs, progressCallback);
+    // excludeFields (list tools) only changes what is shown, so it is not passed on to the handlers.
+    let excludeFields: string[] = [];
+    if (name.startsWith('list_') && callArgs && typeof callArgs === 'object' && 'excludeFields' in callArgs) {
+      const { excludeFields: requested, ...rest } = callArgs;
+      excludeFields = String(requested ?? '').split(',').map(f => f.trim()).filter(Boolean);
+      callArgs = rest;
+    }
+
+    let result = await this.runToolCall(name, callArgs, progressCallback);
+
+    if (excludeFields.length > 0 && Array.isArray(result?.items)) {
+      result = {
+        ...result,
+        items: result.items.map((item: any) => {
+          if (!item || typeof item !== 'object') return item;
+          const kept = { ...item };
+          for (const field of excludeFields) delete kept[field];
+          return kept;
+        }),
+      };
+    }
+
+    // One broad filter (or fields="*") on any list tool can return far more than a client accepts
+    // (every resource's customProperties, every collector's config files); cut it to what fits.
+    if (name.startsWith('list_') && Array.isArray(result?.items)) {
+      return capListResponse(
+        result,
+        MAX_LIST_RESPONSE_CHARS,
+        'Narrow the filter, page with size/offset, or pass fields= (for example "id,displayName") to get fewer fields per item.',
+      );
+    }
 
     // Create/update responses can be very large (a whole DataSource, a whole resource); shorten them
     // unless the caller asked for everything.

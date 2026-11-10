@@ -939,3 +939,15 @@ describe('dynamic table widget guidance', () => {
     expect(tool('get_widget_data').description).toContain('jq');
   });
 });
+
+describe('excludeFields option', () => {
+  it('is offered by every list tool that has fields, and by no other tool', () => {
+    const tools = getLogicMonitorTools();
+    for (const tool of tools) {
+      const has = !!(tool.inputSchema.properties as any)?.excludeFields;
+      const expected = tool.name.startsWith('list_') && !!(tool.inputSchema.properties as any)?.fields;
+      expect({ name: tool.name, has }).toEqual({ name: tool.name, has: expected });
+    }
+    expect(tools.find(t => t.name === 'list_collectors')?.inputSchema.properties).toHaveProperty('excludeFields');
+  });
+});
