@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- The `lm://knowledge/dashboards-and-widgets` resource explains how to colour a whole dynamic table cell by state: a `colorBar` column with `minValue:-1`, `maxValue:0` and `colorThresholds` (level 2 yellow, 3 orange, 4 red, green below every threshold) fills the cell instead of showing a progress bar, how `get_widget_data` reports it, and that LogicMonitor allows only two such columns per table. The same resource now also covers the 10-column table limit, that a table column's `rpn` only sees its own datapoint (no virtual datapoints, so a derived value must be a datapoint of the DataSource), and the gauge widget (a "% of portals" figure from an `AVERAGE` aggregate times 100, and that the denominator is the instances that report).
 - Resource tools accept `resourceId` (and `resourceIds`) as an alias for `deviceId` (`deviceIds`); the device names stay canonical and win if both are given.
 - Portal rate limit is now configurable (`MCP_RATE_LIMIT_MAX`, `MCP_RATE_LIMIT_WINDOW_SECONDS`, `MCP_AUTH_RATE_LIMIT_MAX`) and visible: `/health` reports the limit and the busiest client's usage and reset time, the 429 body says it is the MCP server's limit (not LogicMonitor's) with limit, window and retry time, and `/health`/`/healthz` no longer count against it. Portal Manager: `edit-portal.sh --rate-limit-max/--rate-limit-window` and a Rate limit column in the web UI.
 

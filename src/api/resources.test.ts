@@ -128,6 +128,30 @@ describe('dashboards-and-widgets knowledge resource', () => {
       expect(text).toContain(term);
     }
   });
+
+  it('explains colouring a whole table cell by state with a colorBar of min -1 and max 0', async () => {
+    const content = await readLMResource('lm://knowledge/dashboards-and-widgets');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['Colour the whole cell by state', 'colorBar', 'minValue', 'maxValue', 'colorThresholds', 'colorLevel', 'rawValue', 'Only two columns can show percentage bars']) {
+      expect(text).toContain(term);
+    }
+  });
+
+  it('explains the table column limit and that a column rpn only sees its own datapoint', async () => {
+    const content = await readLMResource('lm://knowledge/dashboards-and-widgets');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['max allowed column size is 10', 'only sees its own datapoint', 'virtual datapoints', 'emitted by the collection script']) {
+      expect(text).toContain(term);
+    }
+  });
+
+  it('explains how to build a percentage gauge', async () => {
+    const content = await readLMResource('lm://knowledge/dashboards-and-widgets');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['Gauge widget', 'aggregateFunction', 'AVERAGE', '* 100', 'denominator', 'No Data']) {
+      expect(text).toContain(term);
+    }
+  });
 });
 
 describe('website knowledge resource', () => {
