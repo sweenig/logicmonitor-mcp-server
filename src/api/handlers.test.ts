@@ -1586,6 +1586,36 @@ describe('LogicMonitorHandlers', () => {
         ] });
       });
 
+      it('builds alertExpr from structured time-of-day alertThresholds on update_datasource', async () => {
+        mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a', rawDataFieldName: 'output' }] });
+        mockClient.updateDataSource.mockReset();
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+
+        await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5,
+          dataPoints: [{
+            id: 1,
+            alertThresholds: [
+              { window: { start: '06:30', end: '22:30' }, operator: '=', warn: 1, error: 2, critical: 3 },
+              { window: { start: '00:00', end: '01:30' }, operator: '<', warn: 3, error: 2, critical: 1 },
+            ],
+            timezone: 'America/New_York',
+          }],
+        });
+        expect(mockClient.updateDataSource).toHaveBeenCalledWith(5, { dataPoints: [
+          { id: 1, name: 'a', rawDataFieldName: 'output', alertExpr: '( 06:30 22:30 ) = 1 2 3 , ( 00:00 01:30 ) < 3 2 1 timezone=America/New_York' },
+        ] });
+
+        mockClient.updateDataSource.mockClear();
+        await expect(handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 1, alertThresholds: [{ window: { start: '6am', end: '22:30' }, operator: '>', warn: 1 }] }],
+        })).rejects.toThrow(/HH:mm/);
+        await expect(handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 1, alertThresholds: [{ window: { start: '06:30', end: '22:30' }, operator: '>', warn: 1 }], timezone: 'Nowhere/Land' }],
+        })).rejects.toThrow(/IANA/);
+        expect(mockClient.updateDataSource).not.toHaveBeenCalled();
+      });
+
       it('lets new datapoints be added next to all the saved ones', async () => {
         mockClient.getDataSource.mockResolvedValue({ dataPoints: [{ id: 1, name: 'a', rawDataFieldName: 'output' }] });
         mockClient.updateDataSource.mockReset();
@@ -2174,6 +2204,25 @@ describe('LogicMonitorHandlers', () => {
             alertForNoData: 1,
           },
         ]);
+      });
+
+      it('builds a group override from alertThresholds', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(currentSettings);
+        mockClient.updateDeviceGroupDataSourceAlertSettings.mockResolvedValue({ dpConfig: [] });
+
+        await handlers.handleToolCall('update_resource_group_datasource_thresholds', {
+          groupId: 18,
+          dataSourceId: 34,
+          dpConfig: [{
+            dataPointName: 'DaysRemaining',
+            alertThresholds: [{ window: { start: '06:45', end: '23:59' }, operator: '>', warn: 5400, error: 7200 }],
+            timezone: 'America/New_York',
+          }],
+        });
+        const sent = mockClient.updateDeviceGroupDataSourceAlertSettings.mock.calls[0][2][0];
+        expect(sent.alertExpr).toBe('( 06:45 23:59 ) > 5400 7200 timezone=America/New_York');
+        expect((sent as any).alertThresholds).toBeUndefined();
+        expect((sent as any).timezone).toBeUndefined();
       });
 
       it('should preserve an existing non-default transition interval instead of resetting it to global', async () => {

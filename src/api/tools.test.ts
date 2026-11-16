@@ -842,7 +842,7 @@ describe('parameter names in descriptions match the input schemas', () => {
   // Bullets in a "Parameters" section that are fields of a nested object (a step, a datapoint config), not top-level arguments.
   const NESTED_FIELD_SECTIONS: Record<string, string[]> = {
     create_uptime_check: ['url', 'HTTPMethod', 'matchType', 'keyword', 'invertMatch', 'statusCode', 'timeout', 'followRedirection'],
-    update_resource_group_datasource_thresholds: ['alertExpr', 'disableAlerting'],
+    update_resource_group_datasource_thresholds: ['alertExpr', 'disableAlerting', 'alertThresholds', 'timezone'],
   };
 
   function documentedParameters(description: string): string[] {

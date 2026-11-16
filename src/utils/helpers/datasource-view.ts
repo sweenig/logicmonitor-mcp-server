@@ -11,6 +11,7 @@
  */
 
 import { describeAlertIntervals } from './alert-intervals.js';
+import { parseAlertExpr } from './alert-thresholds.js';
 
 const SCRIPT_FIELDS = new Set(['groovyScript', 'windowsScript', 'linuxScript', 'winScript']);
 const MAX_TEXT_LENGTH = 300;
@@ -68,6 +69,9 @@ export function compactDataPoint(dataPoint: any, collectIntervalSeconds?: number
   if (typeof dataPoint?.postProcessorParam === 'string' && dataPoint.postProcessorParam !== '') {
     compact.postProcessorParam = truncate(dataPoint.postProcessorParam, `${SCRIPT_HINT} or fields`);
   }
+  // Time-of-day thresholds: list the windows next to the raw string.
+  const parsed = parseAlertExpr(dataPoint?.alertExpr);
+  if (parsed && (parsed.timezone || parsed.thresholds.some(t => t.window))) compact.alertExprParsed = parsed;
   // What the trigger and clear intervals mean in polls and minutes for this DataSource.
   const meaning = describeAlertIntervals(
     dataPoint?.alertTransitionInterval,

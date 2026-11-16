@@ -6,6 +6,7 @@
  */
 
 import { ALERT_INTERVAL_RULE } from '../utils/helpers/alert-intervals.js';
+import { ALERT_THRESHOLDS_RULE } from '../utils/helpers/alert-thresholds.js';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { isConciseResultTool } from '../utils/helpers/write-result.js';
 
@@ -1883,7 +1884,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         dataPoints: {
           type: 'array',
-          description: 'Array of datapoint definitions (metrics collected). See an existing DataSource via "get_datasource" for the shape.',
+          description: 'Array of datapoint definitions (metrics collected). See an existing DataSource via "get_datasource" for the shape. A datapoint may carry alertThresholds (+ timezone) instead of a hand-written alertExpr. ' + ALERT_THRESHOLDS_RULE,
         },
         hasMultiInstances: {
           type: 'boolean',
@@ -1925,6 +1926,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Safeguard:** this tool reads the saved datapoints first and REFUSES an update whose list would drop any of them (it names them and changes nothing), and also when it cannot read them. Set "allowDatapointRemoval":true only when the user has explicitly asked for those datapoints to be deleted; never to get past the error. ' +
       '\n\n**Fields you leave out of a datapoint:** LogicMonitor resets every field of a datapoint that an update does not send (for a script DataSource an empty "rawDataFieldName" means "uses an unknown raw datapoint" and no data is collected). For each datapoint sent with an "id" this tool fills in the fields you leave out from the saved datapoint; what you send wins, and "" clears a field. A datapoint sent without an "id" is created as a new one, so it does not keep a saved datapoint of the same name (that one counts as dropped), and its graph lines are lost: give it "rawDataFieldName":"output" if it belongs to a script DataSource. The response carries a "warning" when any datapoint was sent without an "id". ' +
       '\n\n**State across polls:** if the script must remember anything between collection intervals (auth tokens, previous values for delta/rate calculations, rolling totals, bookmarks/cursors), read MCP resource "lm://knowledge/collector-script-cache" first - it covers ScriptCache. ' +
+      '\n\n**Time-of-day thresholds (per datapoint):** ' + ALERT_THRESHOLDS_RULE + ' Reads ("get\\_datasource") return "alertExprParsed" next to alertExpr for a datapoint that uses windows. Verified on a live portal: a window whose start is after its end (22:30 to 01:30) wraps over midnight and alerts on both sides of it; no need to split it. Outside every window nothing alerts. END 24:00 is accepted. END is exclusive at the minute (a window ending 22:20 stops alerting at the first poll in minute 22:20, and an open alert clears at that poll even though the value still violates). Overlapping windows: the FIRST matching window in the string decides, not the most severe, so put the one you want first. The one timezone applies to every window, wherever it sits. The zone\'s current daylight saving offset is applied, so write windows in local wall-clock time. A group-level override REPLACES the DataSource default (a window override on an always-on default silences it outside the window; a window override on a default that does not match takes over). Instance-level thresholds are not exposed by this server.' +
       '\n\n**Alert trigger and clear intervals (per datapoint):** ' + ALERT_INTERVAL_RULE + ' The response carries a "warning" when a datapoint with a "> 0" threshold has a trigger interval above 0. ' +
       '\n\n**Workflow:** Use "get\\_datasource" or "get\\_datasource\\_scripts" first to see the current definition/scripts, test any script changes via "execute\\_groovy\\_script"/"execute\\_powershell\\_script", then write the change back with this tool. ' +
       '\n\n**Related tools:** "get\\_datasource" (current definition), "get\\_datasource\\_scripts" (current scripts), "create\\_datasource", "delete\\_datasource".',
@@ -1954,7 +1956,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         },
         dataPoints: {
           type: 'array',
-          description: 'The COMPLETE list of datapoints: every datapoint the DataSource should have, each existing one with its "id" (an id alone keeps it unchanged). This replaces the list: a saved datapoint that is left out is deleted together with all of its history, so the update is refused if it would drop any (see allowDatapointRemoval). See "get_datasource" (datapointsOnly:true) for the ids and shape. A datapoint without an "id" is created as new. Per datapoint, alertTransitionInterval and alertClearTransitionInterval count poll cycles: 0 = alert at the first violating poll, N = N further cycles (N+1 consecutive polls, N x collectInterval); to alert on any occurrence use 0 (see the tool description).',
+          description: 'The COMPLETE list of datapoints: every datapoint the DataSource should have, each existing one with its "id" (an id alone keeps it unchanged). This replaces the list: a saved datapoint that is left out is deleted together with all of its history, so the update is refused if it would drop any (see allowDatapointRemoval). See "get_datasource" (datapointsOnly:true) for the ids and shape. A datapoint without an "id" is created as new. Per datapoint, alertTransitionInterval and alertClearTransitionInterval count poll cycles: 0 = alert at the first violating poll, N = N further cycles (N+1 consecutive polls, N x collectInterval); to alert on any occurrence use 0 (see the tool description). A datapoint may carry alertThresholds (+ timezone) instead of a hand-written alertExpr. ' + ALERT_THRESHOLDS_RULE + '',
         },
         allowDatapointRemoval: {
           type: 'boolean',
@@ -7419,6 +7421,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- dpConfig: Array of datapoint overrides, each with: ' +
       '\n  - dataPointId or dataPointName (one required) - which datapoint to override ' +
       '\n  - alertExpr (optional) - the threshold expression, e.g. "< 28 7 2" for a "less than" comparator with warning/error/critical levels. There must be a space between the operator and each value. ' +
+      '\n  - alertThresholds (optional) + timezone (optional) - structured form of alertExpr, for time-of-day windows. ' + ALERT_THRESHOLDS_RULE +
       '\n  - disableAlerting (optional) - true to suppress alerting for this datapoint in this group without changing its threshold ' +
       '\n\n**Omitting severity levels:** alertExpr values are read left-to-right as warning, error, critical. Supplying fewer values than the datasource normally has omits the more severe level(s) for this group - e.g. "< 28 7" sets warning/error but leaves this group\'s copy of the datapoint with no critical threshold, even if the datasource\'s global default includes one. ' +
       '\n\n**Clearing an override:** Pass alertExpr: "" to remove a group\'s override for that datapoint and revert it to inheriting the datasource\'s global threshold. ' +
@@ -7459,6 +7462,15 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
               alertExpr: {
                 type: 'string',
                 description: 'The threshold expression for this group, e.g. "> 1" or "< 28 7 2". Space-separated operator and values (warning, error, critical - trailing values may be omitted to skip those levels). Pass "" to clear the override and revert to the datasource\'s global threshold.',
+              },
+              alertThresholds: {
+                type: 'array',
+                description: 'Structured threshold, built into alertExpr for you (wins over alertExpr). Entries: {operator, warn, error, critical} or, for a time-of-day threshold, {window:{start:"06:30",end:"22:30"}, operator, warn, error, critical}. Several windows may be given, each with its own operator and values.',
+                items: { type: 'object' },
+              },
+              timezone: {
+                type: 'string',
+                description: 'IANA zone id (for example America/New_York) applied to every window in alertThresholds.',
               },
               disableAlerting: {
                 type: 'boolean',

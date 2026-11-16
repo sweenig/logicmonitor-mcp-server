@@ -25,6 +25,7 @@ import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../util
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
+import { applyAlertThresholds, withParsedThreshold } from '../utils/helpers/alert-thresholds.js';
 import { describeAlertIntervals, datapointIntervalWarnings, anyOccurrenceWarning } from '../utils/helpers/alert-intervals.js';
 import { planNestedFields, projectResult, capRows, capRowsToSize, capText, compactRoles } from '../utils/helpers/output-limits.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -375,6 +376,12 @@ export class LogicMonitorHandlers {
     } catch {
       return undefined;
     }
+  }
+
+  /** Fold structured alertThresholds/timezone on each datapoint into its alertExpr string. */
+  private applyDatapointThresholds(dataPoints: unknown): unknown {
+    const parsed = parseJsonArray(dataPoints);
+    return Array.isArray(parsed) ? parsed.map(dp => applyAlertThresholds(dp)) : dataPoints;
   }
 
   /** Warnings about "alert on any occurrence" datapoints whose trigger interval would swallow a one-poll spike. */
@@ -1211,7 +1218,7 @@ export class LogicMonitorHandlers {
             collectMethod: args.collectMethod,
             collectInterval: args.collectInterval,
             collectorAttribute: normalizeCollectorAttribute(args.collectorAttribute, args.collectMethod, true),
-            dataPoints: args.dataPoints,
+            dataPoints: this.applyDatapointThresholds(args.dataPoints),
             // hasMultiInstances is create-only in LM; default to true when Active Discovery is on
             hasMultiInstances: args.hasMultiInstances ?? (args.enableAutoDiscovery ? true : undefined),
             useWildValueAsUUID: args.useWildValueAsUUID === undefined ? undefined : isTrue(args.useWildValueAsUUID),
@@ -1220,7 +1227,7 @@ export class LogicMonitorHandlers {
             enableEriDiscovery: args.enableEriDiscovery,
             eriDiscoveryConfig: args.eriDiscoveryConfig,
           });
-          const createWarnings = await this.alertIntervalWarnings(parseJsonArray(args.dataPoints), args.collectInterval);
+          const createWarnings = await this.alertIntervalWarnings(this.applyDatapointThresholds(args.dataPoints), args.collectInterval);
           return createWarnings.length > 0 && created && typeof created === 'object'
             ? { ...created, warning: createWarnings.join(' ') }
             : created;
@@ -1238,6 +1245,7 @@ export class LogicMonitorHandlers {
               normalizeAutoDiscoveryConfig(updates.autoDiscoveryConfig, false) as Record<string, any>,
             );
           }
+          if (updates.dataPoints !== undefined) updates.dataPoints = this.applyDatapointThresholds(updates.dataPoints);
           await this.prepareDatapointUpdate(dataSourceId, updates, isTrue(allowDatapointRemoval));
           const updated = await this.client.updateDataSource(dataSourceId, updates);
           const withoutId = Array.isArray(updates.dataPoints)
@@ -2575,7 +2583,8 @@ export class LogicMonitorHandlers {
           const inherit = (value: unknown, globalValue: unknown) => (value === -1 ? globalValue : value);
           return {
             ...settings,
-            dpConfig: settings.dpConfig.map((dp: any) => {
+            dpConfig: settings.dpConfig.map((rawDp: any) => {
+              const dp = withParsedThreshold(withParsedThreshold(rawDp), 'globalAlertExpr');
               const meaning = describeAlertIntervals(
                 inherit(dp.alertTransitionInterval, dp.globalAlertTransitionInterval),
                 inherit(dp.alertClearTransitionInterval, dp.globalAlertClearTransitionInterval),
@@ -2604,7 +2613,8 @@ export class LogicMonitorHandlers {
 
           const resolveInterval = (value: number, globalValue: number) => (value === -1 ? globalValue : value);
 
-          const dpConfig = (args.dpConfig || []).map((entry: any) => {
+          const dpConfig = (args.dpConfig || []).map((rawEntry: any) => {
+            const entry = applyAlertThresholds(rawEntry);
             const key = entry.dataPointId !== undefined ? String(entry.dataPointId) : entry.dataPointName;
             const match = currentByKey.get(key);
             if (!match) {
