@@ -4523,6 +4523,47 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'set_resource_property_bulk',
+    description: 'Set one custom property to one value on many resources/devices in LogicMonitor (LM) monitoring, with a dry run first. ' +
+      '\n\n**What this does:** For each resource in "deviceIds" (or each resource matching "filter"), reads the current value of the property and, unless "dryRun" is true, sets it. Every resource gets its own result row: `{deviceId, displayName, oldValue, newValue, status}`. One failure does not stop the rest. ' +
+      '\n\n**Dry run is the default.** Without "dryRun": false nothing is written; the rows show what would change (status "would-create", "would-update" or "unchanged"). Review them, then repeat the call with "dryRun": false. Written rows have status "created", "updated", "unchanged" or "error". ' +
+      '\n\n**Required:** "propertyName", "value", and either "deviceIds" or "filter" (not both). At most 100 resources per call. ' +
+      '\n\n**Example:** {deviceIds: [101, 102], propertyName: "location.snow.sysid", value: "abc123"} then the same with dryRun: false. ' +
+      '\n\n**Related tools:** "update\\_resource\\_property" (one resource), "list\\_resource\\_properties" (view properties).',
+    annotations: {
+      title: 'Bulk set resource/device property',
+      readOnlyHint: false,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceIds: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Resource/device IDs to change (resourceIds is accepted as an alias). Use this or "filter".',
+        },
+        filter: {
+          type: 'string',
+          description: 'A list_resources filter selecting the resources to change, for example "displayName~\\"web\\"". Use this or "deviceIds".',
+        },
+        propertyName: {
+          type: 'string',
+          description: 'The name of the property to set (created if it does not exist)',
+        },
+        value: {
+          type: 'string',
+          description: 'The value to set',
+        },
+        dryRun: {
+          type: 'boolean',
+          description: 'Default true: report old and new values without writing. Pass false to write.',
+        },
+      },
+      additionalProperties: false,
+      required: ['propertyName', 'value'],
+    },
+  },
+  {
     name: 'delete_resource_property',
     description: 'Delete a custom property from a resource/device in LogicMonitor (LM) monitoring. ' +
       '\n\n**What this does:** Removes one resource/device-level custom property by name. Other properties are untouched (unlike "update\\_resource", which replaces the whole list). ' +

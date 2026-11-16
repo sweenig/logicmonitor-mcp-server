@@ -3566,6 +3566,65 @@ describe('LogicMonitorHandlers', () => {
       expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'test.prop', 'new-value');
     });
 
+    describe('set_resource_property_bulk', () => {
+      beforeEach(() => {
+        mockClient.getDevice.mockImplementation(async (id: number) => ({ id, displayName: `dev${id}` }));
+        mockClient.listDeviceProperties.mockImplementation(async (id: number) => ({
+          items: id === 1 ? [{ name: 'p', value: 'old' }] : id === 2 ? [{ name: 'p', value: 'new' }] : [],
+          total: 1,
+        }));
+        mockClient.updateDeviceProperty.mockResolvedValue({ action: 'updated' });
+      });
+
+      it('defaults to a dry run and writes nothing', async () => {
+        const result = await handlers.handleToolCall('set_resource_property_bulk', {
+          deviceIds: [1, 2, 3], propertyName: 'p', value: 'new',
+        });
+        expect(result.dryRun).toBe(true);
+        expect(result.results.map((r: any) => [r.deviceId, r.oldValue, r.status])).toEqual([
+          [1, 'old', 'would-update'], [2, 'new', 'unchanged'], [3, null, 'would-create'],
+        ]);
+        expect(mockClient.updateDeviceProperty).not.toHaveBeenCalled();
+      });
+
+      it('writes only changed resources with dryRun false (string "false" too)', async () => {
+        const result = await handlers.handleToolCall('set_resource_property_bulk', {
+          deviceIds: '[1,2]', propertyName: 'p', value: 'new', dryRun: 'false',
+        });
+        expect(result.results.map((r: any) => r.status)).toEqual(['updated', 'unchanged']);
+        expect(mockClient.updateDeviceProperty).toHaveBeenCalledTimes(1);
+        expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'p', 'new');
+      });
+
+      it('reports a per-resource error and continues', async () => {
+        mockClient.updateDeviceProperty.mockRejectedValueOnce(new Error('403'));
+        const result = await handlers.handleToolCall('set_resource_property_bulk', {
+          deviceIds: [1, 3], propertyName: 'p', value: 'x', dryRun: false,
+        });
+        expect(result.results[0]).toMatchObject({ status: 'error', error: '403' });
+        expect(result.results[1].deviceId).toBe(3);
+      });
+
+      it('selects resources by filter', async () => {
+        mockClient.listResources.mockResolvedValue({ items: [{ id: 3, displayName: 'web' }], total: 1 });
+        const result = await handlers.handleToolCall('set_resource_property_bulk', {
+          filter: 'displayName~"web"', propertyName: 'p', value: 'x',
+        });
+        expect(result.results[0]).toMatchObject({ deviceId: 3, displayName: 'web', status: 'would-create' });
+      });
+
+      it('rejects both or neither selector and more than 100 resources', async () => {
+        await expect(handlers.handleToolCall('set_resource_property_bulk', { propertyName: 'p', value: 'x' }))
+          .rejects.toThrow(/exactly one of deviceIds or filter/);
+        await expect(handlers.handleToolCall('set_resource_property_bulk', {
+          deviceIds: [1], filter: 'a', propertyName: 'p', value: 'x',
+        })).rejects.toThrow(/exactly one/);
+        await expect(handlers.handleToolCall('set_resource_property_bulk', {
+          deviceIds: Array.from({ length: 101 }, (_, i) => i + 1), propertyName: 'p', value: 'x',
+        })).rejects.toThrow(/limited to 100/);
+      });
+    });
+
     it('should delete device property', async () => {
       mockClient.deleteDeviceProperty.mockResolvedValue({});
 

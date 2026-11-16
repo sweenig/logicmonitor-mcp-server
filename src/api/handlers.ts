@@ -1936,6 +1936,60 @@ export class LogicMonitorHandlers {
             args.value,
           );
 
+        case 'set_resource_property_bulk': {
+          const MAX_BULK = 100;
+          const ids = parseJsonArray(args.deviceIds);
+          if (args.propertyName === undefined || args.value === undefined) {
+            throw new Error('Missing required argument for set_resource_property_bulk: propertyName and value');
+          }
+          if ((ids === undefined) === (args.filter === undefined)) {
+            throw new Error('set_resource_property_bulk needs exactly one of deviceIds or filter');
+          }
+          let targets: Array<{ id: number; displayName?: string }>;
+          if (ids !== undefined) {
+            if (!Array.isArray(ids)) throw new Error('deviceIds must be an array of resource ids');
+            targets = ids.map((id: any) => ({ id: Number(id) }));
+          } else {
+            const found = await this.client.listResources({ filter: args.filter, fields: 'id,displayName', autoPaginate: true });
+            targets = found.items.map((d: any) => ({ id: d.id, displayName: d.displayName }));
+          }
+          if (targets.length > MAX_BULK) {
+            throw new Error(`set_resource_property_bulk is limited to ${MAX_BULK} resources per call (got ${targets.length}); narrow the selection`);
+          }
+          const dryRun = args.dryRun === undefined ? true : isTrue(args.dryRun);
+          const newValue = String(args.value);
+          const rows = [];
+          for (const target of targets) {
+            const row: any = { deviceId: target.id, displayName: target.displayName, oldValue: null, newValue };
+            try {
+              if (row.displayName === undefined) {
+                const device = await this.client.getDevice(target.id, { fields: 'id,displayName' });
+                row.displayName = device.displayName;
+              }
+              const existing = await this.client.listDeviceProperties(target.id, {
+                filter: `name:"${args.propertyName}"`,
+                fields: 'name,value',
+              });
+              const current = existing.items.find((p: any) => p.name === args.propertyName);
+              row.oldValue = current ? current.value : null;
+              const unchanged = current !== undefined && current.value === newValue;
+              if (dryRun) {
+                row.status = unchanged ? 'unchanged' : current ? 'would-update' : 'would-create';
+              } else if (unchanged) {
+                row.status = 'unchanged';
+              } else {
+                const written = await this.client.updateDeviceProperty(target.id, args.propertyName, newValue);
+                row.status = written.action;
+              }
+            } catch (error) {
+              row.status = 'error';
+              row.error = error instanceof Error ? error.message : String(error);
+            }
+            rows.push(row);
+          }
+          return { dryRun, propertyName: args.propertyName, total: rows.length, results: rows };
+        }
+
         case 'delete_resource_property':
           return await this.client.deleteDeviceProperty(args.deviceId, args.propertyName);
 
