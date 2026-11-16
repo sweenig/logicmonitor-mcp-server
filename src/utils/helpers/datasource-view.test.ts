@@ -102,6 +102,7 @@ describe('curateDataSource', () => {
       alertExpr: '> 5',
       alertTransitionInterval: 3,
       alertForNoData: 1,
+      alertIntervals: 'trigger 3 = alerts after 4 consecutive polls (15 minutes)',
       description: 'The uptime of the collector in seconds',
       postProcessorParam: '##WILDVALUE##.uptime',
     });
