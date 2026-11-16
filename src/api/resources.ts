@@ -94,6 +94,14 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/dynamic-groups-and-auto-properties',
+    name: 'Dynamic resource groups, auto properties and why membership lags',
+    description: 'How dynamic (appliesTo-driven) resource groups work, the difference between custom, system and auto properties, how a PropertySource derives an auto property, and why a resource stays in its old group after you edit a property that an auto property is copied from. ' +
+      'Covers a verify-after-change checklist (custom property, then auto property, then group membership), how to nudge a refresh with "schedule_resource_discovery", and what not to do. ' +
+      'Read this before changing a property that a group rule depends on (a location, site or customer property), and when a resource is in the wrong dynamic group after a change.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/dashboards-and-widgets',
     name: 'Dashboards and alert list widgets: folders, layout, filters, columns, property filters',
     description: 'How to build a dashboard with "create_dashboard", "create_widget" and "update_widget": public vs private dashboards and folders, the 12-column layout, dashboard-level property filters, alert list widget filters (display name, severity words, "show all" open alerts), columns and custom columns (including which columns are worth showing), the NOC widget (including limiting it to a resource group), the dynamic table widget (including topX -1 for all rows, colouring a whole cell by state with a colorBar column of min -1, max 0, the 10-column limit, and why a column rpn cannot sum other datapoints), the gauge widget (a "% of resources" figure from an AVERAGE aggregate), checking a widget with get_widget_data, and what to fix after renaming a DataSource. ' +
@@ -128,6 +136,7 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://knowledge/script-datasource': 'knowledge/script-datasource.md',
   'lm://knowledge/snmp-datasource-from-mib': 'knowledge/snmp-datasource-from-mib.md',
   'lm://knowledge/property-driven-discovery': 'knowledge/property-driven-discovery.md',
+  'lm://knowledge/dynamic-groups-and-auto-properties': 'knowledge/dynamic-groups-and-auto-properties.md',
   'lm://knowledge/dashboards-and-widgets': 'knowledge/dashboards-and-widgets.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',
