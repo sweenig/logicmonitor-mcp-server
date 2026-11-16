@@ -25,6 +25,7 @@ import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../util
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
+import { describeAlertIntervals, datapointIntervalWarnings, anyOccurrenceWarning } from '../utils/helpers/alert-intervals.js';
 import { planNestedFields, projectResult, capRows, capRowsToSize, capText, compactRoles } from '../utils/helpers/output-limits.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
@@ -366,6 +367,26 @@ export class LogicMonitorHandlers {
    * datapoints sent with an id leave out (see fillDatapointsFromSaved). If the saved datapoints cannot
    * be read the update is refused as well, because nothing can then be checked.
    */
+  /** The DataSource's collection interval in seconds, or undefined when it cannot be read. */
+  private async readCollectInterval(dataSourceId: number): Promise<number | undefined> {
+    try {
+      const ds: any = await this.client.getDataSource(dataSourceId, { fields: 'collectInterval' });
+      return typeof ds?.collectInterval === 'number' ? ds.collectInterval : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Warnings about "alert on any occurrence" datapoints whose trigger interval would swallow a one-poll spike. */
+  private async alertIntervalWarnings(dataPoints: unknown, collectInterval: number | undefined, dataSourceId?: number): Promise<string[]> {
+    let warnings = datapointIntervalWarnings(dataPoints, collectInterval);
+    if (warnings.length > 0 && collectInterval === undefined && dataSourceId !== undefined) {
+      const rate = await this.readCollectInterval(dataSourceId);
+      if (rate !== undefined) warnings = datapointIntervalWarnings(dataPoints, rate);
+    }
+    return warnings;
+  }
+
   private async prepareDatapointUpdate(dataSourceId: number, updates: Record<string, any>, allowRemoval: boolean): Promise<void> {
     if (updates.dataPoints === undefined) return;
     const dataPoints = parseJsonArray(updates.dataPoints);
@@ -1107,14 +1128,14 @@ export class LogicMonitorHandlers {
         case 'get_datasource': {
           const nested = planNestedFields(args.fields);
           const dataSource = await this.client.getDataSource(args.dataSourceId, {
-            fields: nested.apiFields ?? (isTrue(args.datapointsOnly) ? 'id,name,dataPoints' : undefined),
+            fields: nested.apiFields ?? (isTrue(args.datapointsOnly) ? 'id,name,collectInterval,dataPoints' : undefined),
           });
           // An explicit fields selection is returned as asked (dot paths are projected here, because the API
           // answers them with {}); the full definition (every script, alert template and access group) is too
           // large to be a useful default.
           if (args.fields) return projectResult(dataSource, nested.paths);
           if (isTrue(args.datapointsOnly)) {
-            return { id: dataSource?.id, name: dataSource?.name, dataPoints: (dataSource?.dataPoints ?? []).map(compactDataPoint) };
+            return { id: dataSource?.id, name: dataSource?.name, dataPoints: (dataSource?.dataPoints ?? []).map((dp: any) => compactDataPoint(dp, dataSource?.collectInterval)) };
           }
           return curateDataSource(dataSource);
         }
@@ -1178,8 +1199,8 @@ export class LogicMonitorHandlers {
         case 'delete_datasource_graph':
           return await this.client.deleteDataSourceGraph(args.dataSourceId, args.graphId);
 
-        case 'create_datasource':
-          return await this.client.createDataSource({
+        case 'create_datasource': {
+          const created: any = await this.client.createDataSource({
             name: args.name,
             displayName: args.displayName,
             description: args.description,
@@ -1199,6 +1220,11 @@ export class LogicMonitorHandlers {
             enableEriDiscovery: args.enableEriDiscovery,
             eriDiscoveryConfig: args.eriDiscoveryConfig,
           });
+          const createWarnings = await this.alertIntervalWarnings(parseJsonArray(args.dataPoints), args.collectInterval);
+          return createWarnings.length > 0 && created && typeof created === 'object'
+            ? { ...created, warning: createWarnings.join(' ') }
+            : created;
+        }
 
         case 'update_datasource': {
           const { dataSourceId, allowDatapointRemoval, ...updates } = args;
@@ -1217,8 +1243,13 @@ export class LogicMonitorHandlers {
           const withoutId = Array.isArray(updates.dataPoints)
             ? updates.dataPoints.filter((dp: any) => dp && typeof dp === 'object' && dp.id === undefined).length
             : 0;
-          return withoutId > 0 && updated && typeof updated === 'object'
-            ? { ...updated, warning: `${withoutId} datapoint(s) were sent without an "id" and were recreated; graphs that used them lost them. Re-save the lines of each graph (update_datasource_graph / update_datasource_overview_graph), and pass each datapoint's id on future updates.` }
+          const updateWarnings: string[] = [];
+          if (withoutId > 0) {
+            updateWarnings.push(`${withoutId} datapoint(s) were sent without an "id" and were recreated; graphs that used them lost them. Re-save the lines of each graph (update_datasource_graph / update_datasource_overview_graph), and pass each datapoint's id on future updates.`);
+          }
+          updateWarnings.push(...await this.alertIntervalWarnings(updates.dataPoints, updates.collectInterval, dataSourceId));
+          return updateWarnings.length > 0 && updated && typeof updated === 'object'
+            ? { ...updated, warning: updateWarnings.join(' ') }
             : updated;
         }
 
@@ -2533,11 +2564,27 @@ export class LogicMonitorHandlers {
             autoPaginate: args.autoPaginate,
           });
 
-        case 'get_resource_group_datasource_thresholds':
-          return await this.client.getDeviceGroupDataSourceAlertSettings(
+        case 'get_resource_group_datasource_thresholds': {
+          const settings: any = await this.client.getDeviceGroupDataSourceAlertSettings(
             args.groupId,
             args.dataSourceId,
           );
+          if (!settings || !Array.isArray(settings.dpConfig)) return settings;
+          // Say what each interval means for this DataSource (polls and minutes); -1 means inherited, so use the global value.
+          const collectInterval = await this.readCollectInterval(args.dataSourceId);
+          const inherit = (value: unknown, globalValue: unknown) => (value === -1 ? globalValue : value);
+          return {
+            ...settings,
+            dpConfig: settings.dpConfig.map((dp: any) => {
+              const meaning = describeAlertIntervals(
+                inherit(dp.alertTransitionInterval, dp.globalAlertTransitionInterval),
+                inherit(dp.alertClearTransitionInterval, dp.globalAlertClearTransitionInterval),
+                collectInterval,
+              );
+              return meaning ? { ...dp, alertIntervals: meaning } : dp;
+            }),
+          };
+        }
 
         case 'update_resource_group_datasource_thresholds': {
           // The write endpoint requires alertTransitionInterval/alertClearTransitionInterval/alertForNoData
@@ -2581,11 +2628,21 @@ export class LogicMonitorHandlers {
             };
           });
 
-          return await this.client.updateDeviceGroupDataSourceAlertSettings(
+          const groupResult: any = await this.client.updateDeviceGroupDataSourceAlertSettings(
             args.groupId,
             args.dataSourceId,
             dpConfig,
           );
+          // An empty override alertExpr inherits the datasource's global threshold, so judge that one.
+          const groupWarnings = dpConfig
+            .map((dp: any) => {
+              const global = currentByKey.get(String(dp.dataPointId))?.globalAlertExpr;
+              return anyOccurrenceWarning(dp.dataPointName, dp.alertExpr || global, dp.alertTransitionInterval);
+            })
+            .filter((w: string | undefined): w is string => !!w);
+          return groupWarnings.length > 0 && groupResult && typeof groupResult === 'object'
+            ? { ...groupResult, warning: groupWarnings.join(' ') }
+            : groupResult;
         }
 
         // Netscans

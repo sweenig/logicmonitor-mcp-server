@@ -1682,13 +1682,59 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('alert trigger and clear intervals', () => {
+      it('get_datasource shows what the intervals mean in polls and minutes', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          id: 2, name: 'DS', collectInterval: 300,
+          dataPoints: [{ id: 5, name: 'dp', alertExpr: '> 0', alertTransitionInterval: 1, alertClearTransitionInterval: 12 }],
+        });
+        const result: any = await handlers.handleToolCall('get_datasource', { dataSourceId: 2 });
+        expect(result.dataPoints[0].alertIntervals).toBe(
+          'trigger 1 = alerts after 2 consecutive polls (5 minutes); clear 12 = clears after 13 consecutive polls (60 minutes)',
+        );
+        const only: any = await handlers.handleToolCall('get_datasource', { dataSourceId: 2, datapointsOnly: true });
+        expect(only.dataPoints[0].alertIntervals).toContain('trigger 1');
+      });
+
+      it('create_datasource warns when "> 0" has a trigger interval above 0, and not with 0', async () => {
+        mockClient.createDataSource.mockResolvedValue({ id: 5 });
+        const base = { name: 'B', displayName: 'B', collectMethod: 'script', collectInterval: 300, collectorAttribute: { groovyScript: 'x' } };
+        const warned: any = await handlers.handleToolCall('create_datasource', {
+          ...base, dataPoints: [{ name: 'Errors', alertExpr: '> 0', alertTransitionInterval: 1 }],
+        });
+        expect(warned.warning).toContain('Errors');
+        expect(warned.warning).toContain('set alertTransitionInterval to 0');
+        const clean: any = await handlers.handleToolCall('create_datasource', {
+          ...base, dataPoints: [{ name: 'Errors', alertExpr: '> 0', alertTransitionInterval: 0 }],
+        });
+        expect(clean.warning).toBeUndefined();
+      });
+
+      it('update_datasource warns using the saved collect interval, and not with trigger 0', async () => {
+        mockClient.getDataSource.mockImplementation(async (_id: number, opts: any) =>
+          opts?.fields === 'collectInterval'
+            ? { collectInterval: 300 }
+            : { dataPoints: [{ id: 5, name: 'Errors', alertExpr: '> 0', alertTransitionInterval: 1 }] });
+        mockClient.updateDataSource.mockResolvedValue({ id: 5 });
+        const warned: any = await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 5, alertTransitionInterval: 2 }],
+        });
+        expect(warned.warning).toContain('3 consecutive violating polls');
+        expect(warned.warning).toContain('10 minutes');
+        const clean: any = await handlers.handleToolCall('update_datasource', {
+          dataSourceId: 5, dataPoints: [{ id: 5, alertTransitionInterval: 0 }],
+        });
+        expect(clean.warning).toBeUndefined();
+      });
+    });
+
     describe('get_datasource datapointsOnly', () => {
       it('returns only the trimmed datapoints', async () => {
         mockClient.getDataSource.mockResolvedValue({
           id: 2, name: 'DS', dataPoints: [{ id: 5, name: 'dp', alertBody: 'long', postProcessorMethod: 'namevalue', postProcessorParam: 'x' }],
         });
         const result = await handlers.handleToolCall('get_datasource', { dataSourceId: 2, datapointsOnly: true });
-        expect(mockClient.getDataSource).toHaveBeenCalledWith(2, { fields: 'id,name,dataPoints' });
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(2, { fields: 'id,name,collectInterval,dataPoints' });
         expect(result).toEqual({ id: 2, name: 'DS', dataPoints: [{ id: 5, name: 'dp', postProcessorMethod: 'namevalue', postProcessorParam: 'x' }] });
       });
     });
@@ -2030,6 +2076,43 @@ describe('LogicMonitorHandlers', () => {
 
         expect(result).toEqual(mockSettings);
         expect(mockClient.getDeviceGroupDataSourceAlertSettings).toHaveBeenCalledWith(18, 34);
+      });
+    });
+
+    describe('group thresholds and alert intervals', () => {
+      const settings = {
+        dpConfig: [
+          { dataPointId: 1, dataPointName: 'Errors', alertExpr: '', globalAlertExpr: '> 0', disableAlerting: false,
+            alertTransitionInterval: -1, alertClearTransitionInterval: 12, alertForNoData: 1,
+            globalAlertTransitionInterval: 1, globalAlertClearTransitionInterval: 0, globalAlertForNoData: 1 },
+        ],
+      };
+
+      it('get shows the meaning of each interval, resolving inherited values to the global ones', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(settings);
+        mockClient.getDataSource.mockResolvedValue({ collectInterval: 300 });
+        const result: any = await handlers.handleToolCall('get_resource_group_datasource_thresholds', { groupId: 18, dataSourceId: 34 });
+        expect(result.dpConfig[0].alertIntervals).toBe(
+          'trigger 1 = alerts after 2 consecutive polls (5 minutes); clear 12 = clears after 13 consecutive polls (60 minutes)',
+        );
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(34, { fields: 'collectInterval' });
+      });
+
+      it('get still works when the collect interval cannot be read', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(settings);
+        mockClient.getDataSource.mockRejectedValue(new Error('boom'));
+        const result: any = await handlers.handleToolCall('get_resource_group_datasource_thresholds', { groupId: 18, dataSourceId: 34 });
+        expect(result.dpConfig[0].alertIntervals).toContain('trigger 1 = alerts after 2 consecutive polls;');
+      });
+
+      it('update warns when the effective "> 0" threshold has a trigger interval above 0', async () => {
+        mockClient.getDeviceGroupDataSourceAlertSettings.mockResolvedValue(settings);
+        mockClient.updateDeviceGroupDataSourceAlertSettings.mockResolvedValue({ dpConfig: [] });
+        const result: any = await handlers.handleToolCall('update_resource_group_datasource_thresholds', {
+          groupId: 18, dataSourceId: 34, dpConfig: [{ dataPointName: 'Errors', disableAlerting: false }],
+        });
+        expect(result.warning).toContain('Errors');
+        expect(result.warning).toContain('set alertTransitionInterval to 0');
       });
     });
 

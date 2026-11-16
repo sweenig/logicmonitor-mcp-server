@@ -109,6 +109,14 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/alert-thresholds',
+    name: 'Alert thresholds: trigger and clear intervals are poll cycles (interval x poll rate)',
+    description: 'What alertTransitionInterval and alertClearTransitionInterval mean: they count poll CYCLES after the first poll, so 0 = alert at the first violating poll and N = N+1 consecutive polls spanning N x the collection interval. ' +
+      'Includes the minutes formula, a table of examples at a 5-minute poll, how to alert on any occurrence (trigger 0), how to alert after a duration, and where the tools show the meaning (alertIntervals). ' +
+      'Read this before setting thresholds or alert intervals on a DataSource datapoint.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/websites',
     name: 'Websites (synthetic checks): web vs ping, internal vs external, groups',
     description: 'How LogicMonitor website monitors work: the two types (webcheck = HTTP/HTTPS, pingcheck = ICMP) and the two locations ' +
@@ -138,6 +146,7 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://knowledge/property-driven-discovery': 'knowledge/property-driven-discovery.md',
   'lm://knowledge/dynamic-groups-and-auto-properties': 'knowledge/dynamic-groups-and-auto-properties.md',
   'lm://knowledge/dashboards-and-widgets': 'knowledge/dashboards-and-widgets.md',
+  'lm://knowledge/alert-thresholds': 'knowledge/alert-thresholds.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',
 };

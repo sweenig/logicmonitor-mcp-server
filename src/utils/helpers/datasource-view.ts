@@ -10,6 +10,8 @@
  * scripts through get_datasource_scripts.
  */
 
+import { describeAlertIntervals } from './alert-intervals.js';
+
 const SCRIPT_FIELDS = new Set(['groovyScript', 'windowsScript', 'linuxScript', 'winScript']);
 const MAX_TEXT_LENGTH = 300;
 
@@ -48,7 +50,7 @@ function stripScripts(value: any, state: { replaced: boolean }): any {
   return value;
 }
 
-export function compactDataPoint(dataPoint: any): any {
+export function compactDataPoint(dataPoint: any, collectIntervalSeconds?: number): any {
   const compact: Record<string, any> = {};
   for (const field of DATAPOINT_SCALAR_FIELDS) {
     if (dataPoint?.[field] !== undefined && dataPoint[field] !== '') {
@@ -66,6 +68,13 @@ export function compactDataPoint(dataPoint: any): any {
   if (typeof dataPoint?.postProcessorParam === 'string' && dataPoint.postProcessorParam !== '') {
     compact.postProcessorParam = truncate(dataPoint.postProcessorParam, `${SCRIPT_HINT} or fields`);
   }
+  // What the trigger and clear intervals mean in polls and minutes for this DataSource.
+  const meaning = describeAlertIntervals(
+    dataPoint?.alertTransitionInterval,
+    dataPoint?.alertClearTransitionInterval,
+    collectIntervalSeconds,
+  );
+  if (meaning) compact.alertIntervals = meaning;
   return compact;
 }
 
@@ -87,7 +96,7 @@ export function curateDataSource(dataSource: any): any {
       // accessGroupIds already identifies them; the expanded objects are noise here.
       trimmed = true;
     } else if (key === 'dataPoints' && Array.isArray(value)) {
-      curated.dataPoints = value.map(compactDataPoint);
+      curated.dataPoints = value.map(dp => compactDataPoint(dp, dataSource.collectInterval));
       trimmed = true;
     } else {
       curated[key] = stripScripts(value, state);

@@ -232,3 +232,17 @@ describe('dynamic groups and auto properties knowledge resource', () => {
     }
   });
 });
+
+describe('alert thresholds knowledge resource', () => {
+  it('is listed and states the poll-cycle rule with examples', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/alert-thresholds');
+    expect(resource).toBeDefined();
+    expect(resource!.mimeType).toBe('text/markdown');
+
+    const content = await readLMResource('lm://knowledge/alert-thresholds');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['poll **cycles after the first poll**', 'N+1 consecutive polls', 'alertTransitionInterval', 'alertClearTransitionInterval', '**any occurrence**']) {
+      expect(text).toContain(term);
+    }
+  });
+});
