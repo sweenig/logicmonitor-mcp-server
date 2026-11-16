@@ -25,6 +25,7 @@ import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../util
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
 import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
+import { planNestedFields, projectResult, capRows, capRowsToSize, capText, compactRoles } from '../utils/helpers/output-limits.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { LogicMonitorApiError } from '../utils/core/lm-error.js';
 import { MCPError, ErrorCodes, ErrorSuggestions, InvalidArgumentError, createMCPError } from '../utils/core/error-handler.js';
@@ -151,6 +152,12 @@ function filterFields<T extends Record<string, any>>(obj: T, fields: string[]): 
   }
   return filtered;
 }
+
+/** test_datasource returns this many instances in full unless maxInstances says otherwise. */
+const DEFAULT_TEST_MAX_INSTANCES = 5;
+
+/** test_datasource cuts each script's raw output to this many characters unless verbose. */
+const MAX_TEST_OUTPUT_CHARS = 2000;
 
 /** Largest list_* response (characters as sent, pretty-printed) returned whole; bigger ones are cut to the first items that fit. */
 export const MAX_LIST_RESPONSE_CHARS = 40000;
@@ -522,7 +529,51 @@ export class LogicMonitorHandlers {
     } else {
       result.results = [{ datapoints: evaluateDatapoints(ds.dataPoints, output) }];
     }
-    return result;
+    return isTrue(args.verbose) ? result : this.compactTestResult(result, Number(args.maxInstances ?? DEFAULT_TEST_MAX_INSTANCES));
+  }
+
+  /**
+   * Keep a test_datasource result small: the first maxInstances instances' results in full,
+   * every other instance reduced to its name (and listed under instancesWithMissingValues when a datapoint
+   * had no value), and the raw script output cut. verbose:true skips this.
+   */
+  private compactTestResult(result: Record<string, any>, maxInstances: number): Record<string, any> {
+    const limit = Number.isFinite(maxInstances) && maxInstances >= 0 ? Math.floor(maxInstances) : DEFAULT_TEST_MAX_INSTANCES;
+    const out: Record<string, any> = { ...result };
+    const omitted: string[] = [];
+    const cutOutput = (stage: 'discovery' | 'collection') => {
+      const section = out[stage];
+      if (!section || typeof section.output !== 'string') return;
+      const cut = capText(section.output, MAX_TEST_OUTPUT_CHARS);
+      if (cut.omitted > 0) {
+        out[stage] = { ...section, output: cut.text, outputCharsOmitted: cut.omitted };
+        omitted.push(`${stage}.output (${cut.omitted} characters)`);
+      }
+    };
+    cutOutput('discovery');
+    cutOutput('collection');
+
+    const results: any[] = Array.isArray(out.results) ? out.results : [];
+    const instanceCount = Array.isArray(out.discovery?.instances) ? out.discovery.instances.length : results.length;
+    if (results.length > limit) {
+      const missing = results
+        // A "not simulated" note is about the post-processor, not about a missing value.
+        .filter(r => Array.isArray(r.datapoints) && r.datapoints.some((d: any) => d.note !== undefined && !/not simulated/.test(d.note)))
+        .map(r => r.instance);
+      out.results = results.slice(0, limit);
+      out.instancesWithMissingValues = missing;
+      omitted.push(`results for ${results.length - limit} instances`);
+    }
+    if (out.discovery && Array.isArray(out.discovery.instances) && out.discovery.instances.length > limit) {
+      // Names only: each instance's discovered properties are dozens of lines, and verbose:true has them.
+      const names = out.discovery.instances.slice(0, limit).map((i: any) => ({ wildvalue: i.wildvalue, wildalias: i.wildalias, description: i.description }));
+      out.discovery = { ...out.discovery, instances: names, instanceCount };
+    }
+    if (omitted.length > 0) {
+      out.truncated = true;
+      out.truncationNote = `Left out: ${omitted.join('; ')}. ${instanceCount} instance(s) in total. Raise maxInstances, or pass verbose:true for the complete output.`;
+    }
+    return out;
   }
 
   /**
@@ -1054,12 +1105,14 @@ export class LogicMonitorHandlers {
         }
 
         case 'get_datasource': {
+          const nested = planNestedFields(args.fields);
           const dataSource = await this.client.getDataSource(args.dataSourceId, {
-            fields: args.fields ?? (isTrue(args.datapointsOnly) ? 'id,name,dataPoints' : undefined),
+            fields: nested.apiFields ?? (isTrue(args.datapointsOnly) ? 'id,name,dataPoints' : undefined),
           });
-          // An explicit fields selection is returned as asked; the full definition (every script,
-          // alert template and access group) is too large to be a useful default.
-          if (args.fields) return dataSource;
+          // An explicit fields selection is returned as asked (dot paths are projected here, because the API
+          // answers them with {}); the full definition (every script, alert template and access group) is too
+          // large to be a useful default.
+          if (args.fields) return projectResult(dataSource, nested.paths);
           if (isTrue(args.datapointsOnly)) {
             return { id: dataSource?.id, name: dataSource?.name, dataPoints: (dataSource?.dataPoints ?? []).map(compactDataPoint) };
           }
@@ -1203,16 +1256,17 @@ export class LogicMonitorHandlers {
 
         // Dashboards
         case 'list_dashboards': {
+          const nested = planNestedFields(args.fields);
           const result = await this.client.listDashboards({
             size: args.size,
             offset: args.offset,
             filter: args.filter,
-            fields: args.fields,
+            fields: nested.apiFields,
             autoPaginate: args.autoPaginate,
           });
 
           if (args.fields) {
-            return result;
+            return projectResult(result, nested.paths);
           }
 
           return {
@@ -1292,10 +1346,11 @@ export class LogicMonitorHandlers {
           };
         }
 
-        case 'get_widget':
-          return await this.client.getWidget(args.widgetId, {
-            fields: args.fields,
-          });
+        case 'get_widget': {
+          const nested = planNestedFields(args.fields);
+          const widget = await this.client.getWidget(args.widgetId, { fields: nested.apiFields });
+          return projectResult(widget, nested.paths);
+        }
 
         case 'create_widget': {
           const { config, ...widgetFields } = args;
@@ -1343,12 +1398,26 @@ export class LogicMonitorHandlers {
         case 'delete_widget':
           return await this.client.deleteWidget(args.widgetId);
 
-        case 'get_widget_data':
-          return await this.client.getWidgetData(args.widgetId, {
+        case 'get_widget_data': {
+          const data = await this.client.getWidgetData(args.widgetId, {
             start: toEpochSeconds(args.start),
             end: toEpochSeconds(args.end),
             format: args.format,
           });
+          if (typeof data !== 'object' || data === null) return data;
+          // With no maxRows, keep as many rows as fit the list-response limit (a table row can be 2,000 characters).
+          const maxRows = args.maxRows === undefined ? undefined : Number(args.maxRows);
+          if (maxRows !== undefined && (!Number.isFinite(maxRows) || maxRows < 0)) return data;
+          const capped = maxRows === undefined
+            ? capRowsToSize(data, MAX_LIST_RESPONSE_CHARS)
+            : capRows(data, Math.floor(maxRows));
+          if (!capped.truncated) return data;
+          return {
+            ...(Array.isArray(capped.value) ? { data: capped.value } : capped.value),
+            truncated: true,
+            truncationNote: `Only the first ${capped.truncated.returned} of ${capped.truncated.total} entries of "${capped.truncated.path}" are shown. Raise maxRows (a large value returns everything) to see more.`,
+          };
+        }
 
         case 'generate_dashboard_link':
           return await this.client.generateDashboardLink(args.dashboardId);
@@ -1689,9 +1758,12 @@ export class LogicMonitorHandlers {
 
           return {
             ...result,
-            items: result.items.map((user: any) =>
-              filterFields(user, DEFAULT_USER_FIELDS),
-            ),
+            items: result.items.map((user: any) => {
+              const curated: any = filterFields(user, DEFAULT_USER_FIELDS);
+              // Each role object carries its whole privilege list; the id and name are what a user listing needs.
+              if ('roles' in curated) curated.roles = compactRoles(curated.roles);
+              return curated;
+            }),
           };
         }
 

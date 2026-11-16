@@ -1217,6 +1217,13 @@ describe('LogicMonitorHandlers', () => {
         expect(result).toEqual(mockDataSource);
       });
 
+      it('reads dot paths in fields by requesting the parent field and projecting locally', async () => {
+        mockClient.getDataSource.mockResolvedValue({ id: 3, dataPoints: [{ id: 5, name: 'dp', alertBody: 'long' }] } as any);
+        const result = await handlers.handleToolCall('get_datasource', { dataSourceId: 3, fields: 'dataPoints.id,dataPoints.name' });
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(3, { fields: 'dataPoints' });
+        expect(result).toEqual({ dataPoints: [{ id: 5, name: 'dp' }] });
+      });
+
       it('should return a compact view by default (scripts replaced, datapoints summarized)', async () => {
         mockClient.getDataSource.mockResolvedValue({
           id: 2,
@@ -1709,6 +1716,44 @@ describe('LogicMonitorHandlers', () => {
           { instance: 'a', datapoints: [{ name: 'load', value: 1 }] },
           { instance: 'b', datapoints: [{ name: 'load', value: 2 }] },
         ]);
+      });
+
+      describe('many instances', () => {
+        const names = Array.from({ length: 46 }, (_, i) => `inst${i}`);
+        beforeEach(() => {
+          mockClient.getDataSource.mockResolvedValue({
+            ...batchDs,
+            dataPoints: [...batchDs.dataPoints, { name: 'calc', postProcessorMethod: 'expression', postProcessorParam: 'load*2' }],
+          } as any);
+          mockClient.executeDebugCommand.mockImplementation(async (cmd: string) => ({
+            output: cmd.includes('discover')
+              ? 'returns 0\n' + names.map(n => `${n}##${n}##d####`).join('\n') + '\n'
+              : 'returns 0\n' + names.filter(n => n !== 'inst30').map(n => `${n}.load=1`).join('\n') + '\n' + 'x'.repeat(5000),
+          }) as any);
+        });
+
+        it('returns the first 5 instances, names the ones missing values and stays small', async () => {
+          const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+          expect(result.results).toHaveLength(5);
+          expect(result.discovery.instances).toHaveLength(5);
+          expect(result.discovery.instances[0].properties).toBeUndefined();
+          expect(result.discovery.instanceCount).toBe(46);
+          expect(result.instancesWithMissingValues).toEqual(['inst30']);
+          // a post-processor that is not simulated is not a missing value
+          expect(result.instancesWithMissingValues).not.toContain('inst1');
+          expect(result.truncated).toBe(true);
+          expect(result.truncationNote).toMatch(/46 instance/);
+          expect(result.collection.outputCharsOmitted).toBeGreaterThan(0);
+          expect(JSON.stringify(result, null, 2).length).toBeLessThan(20000);
+        });
+
+        it('honours maxInstances and verbose', async () => {
+          const some: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9, maxInstances: 3 });
+          expect(some.results).toHaveLength(3);
+          const full: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9, verbose: 'true' });
+          expect(full.results).toHaveLength(46);
+          expect(full.truncated).toBeUndefined();
+        });
       });
 
       it('warns about datapoints saved without a rawDataFieldName', async () => {
@@ -2355,6 +2400,13 @@ describe('LogicMonitorHandlers', () => {
 
         expect(result).toEqual(mockWidget);
       });
+
+      it('requests the top-level field of a dot path and keeps only the nested keys', async () => {
+        mockClient.getWidget.mockResolvedValue({ id: 1, dataPoints: [{ id: 5, name: 'a', x: 1 }] } as any);
+        const result = await handlers.handleToolCall('get_widget', { widgetId: 1, fields: 'dataPoints.name' });
+        expect(mockClient.getWidget).toHaveBeenCalledWith(1, { fields: 'dataPoints' });
+        expect(result).toEqual({ dataPoints: [{ name: 'a' }] });
+      });
     });
 
     describe('create_widget', () => {
@@ -2526,6 +2578,25 @@ describe('LogicMonitorHandlers', () => {
         });
 
         expect(result).toEqual(mockData);
+      });
+
+      it('caps a long table to what fits by default, or to maxRows, and says how many there were', async () => {
+        const rows = Array.from({ length: 438 }, (_, i) => ({ i, cell: 'x'.repeat(200) }));
+        mockClient.getWidgetData.mockResolvedValue({ data: { columns: ['i'], rows } } as any);
+
+        const byDefault: any = await handlers.handleToolCall('get_widget_data', { widgetId: 1 });
+        expect(byDefault.data.rows.length).toBeGreaterThan(50);
+        expect(byDefault.data.rows.length).toBeLessThan(438);
+        expect(JSON.stringify(byDefault, null, 2).length).toBeLessThan(41000);
+        expect(byDefault.truncated).toBe(true);
+        expect(byDefault.truncationNote).toMatch(/of 438/);
+
+        const few: any = await handlers.handleToolCall('get_widget_data', { widgetId: 1, maxRows: '5' });
+        expect(few.data.rows).toHaveLength(5);
+
+        const all: any = await handlers.handleToolCall('get_widget_data', { widgetId: 1, maxRows: 1000 });
+        expect(all.data.rows).toHaveLength(438);
+        expect(all.truncated).toBeUndefined();
       });
     });
   });
@@ -3104,6 +3175,18 @@ describe('LogicMonitorHandlers', () => {
       const result = await handlers.handleToolCall('list_users', {});
 
       expect(result.items).toHaveLength(1);
+    });
+
+    it('should list users with roles reduced to id and name by default', async () => {
+      mockClient.listUsers.mockResolvedValue({
+        items: [{ id: 1, username: 'u', roles: [{ id: 2, name: 'admin', privileges: [{ objectType: 'x' }] }], apiTokens: [1] }],
+        total: 1,
+      } as any);
+
+      const result: any = await handlers.handleToolCall('list_users', {});
+
+      expect(result.items[0].roles).toEqual([{ id: 2, name: 'admin' }]);
+      expect(result.items[0].apiTokens).toBeUndefined();
     });
 
     it('should get user', async () => {
