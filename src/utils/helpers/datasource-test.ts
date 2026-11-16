@@ -52,14 +52,44 @@ function asValue(text: string): number | string {
   return trimmed !== '' && Number.isFinite(Number(trimmed)) ? Number(trimmed) : trimmed;
 }
 
-/** name=value lines of the output, first occurrence of a name winning. */
+/** Exit code from the debug console's "returns N" header, if the output has one. */
+export function exitCodeOf(output: string): number | undefined {
+  const match = /^\s*returns\s+(-?\d+)/i.exec(output ?? '');
+  return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * What a debug-command result says about how a script run went: its exit code and any error text the
+ * collector returned (stderr, error, errorMessage, exception fields). The collector's answer to
+ * "!groovy" carries only the combined output, so stderr is usually absent; a script that printed
+ * nothing is reported so the caller does not mistake it for a clean run.
+ */
+export function describeScriptRun(run: any): { exitCode?: number; error?: string; empty: boolean } {
+  const output = String(run?.output ?? '');
+  const exitCode = exitCodeOf(output);
+  const errors = ['stderr', 'error', 'errorMessage', 'exception']
+    .map(field => run?.[field])
+    .filter((v: unknown) => typeof v === 'string' && v.trim() !== '' && !/^0$/.test(v.trim()));
+  return {
+    ...(exitCode !== undefined ? { exitCode } : {}),
+    ...(errors.length > 0 ? { error: errors.join('\n') } : {}),
+    // The console labels the script's output with "output:"; that label alone means nothing was printed.
+    empty: stripReturnHeader(output).replace(/^\s*output:/i, '').trim() === '',
+  };
+}
+
+/**
+ * name=value or name: value lines of the output, first occurrence of a name winning. LogicMonitor's
+ * namevalue parser accepts either separator, so the earlier of "=" and ":" splits the line.
+ */
 function nameValueLines(output: string): Map<string, string> {
   const values = new Map<string, string>();
   for (const line of stripReturnHeader(output).split(/\r?\n/)) {
-    const eq = line.indexOf('=');
-    if (eq <= 0) continue;
-    const key = line.slice(0, eq).trim();
-    if (!values.has(key)) values.set(key, line.slice(eq + 1));
+    const positions = [line.indexOf('='), line.indexOf(':')].filter(i => i > 0);
+    if (positions.length === 0) continue;
+    const sep = Math.min(...positions);
+    const key = line.slice(0, sep).trim();
+    if (!values.has(key)) values.set(key, line.slice(sep + 1));
   }
   return values;
 }
@@ -78,7 +108,7 @@ export function evaluateDatapoints(dataPoints: any[], output: string, wildvalue?
       const key = wildvalue === undefined ? param : param.split('##WILDVALUE##').join(wildvalue);
       return lines.has(key)
         ? { name, value: asValue(lines.get(key)!) }
-        : { name, note: `no line "${key}=..." in the output (NaN/no data)` };
+        : { name, note: `no "${key}=value" or "${key}: value" line in the output (NaN/no data)` };
     }
     if (method === 'none' || method === '') {
       const whole = stripReturnHeader(output).trim();

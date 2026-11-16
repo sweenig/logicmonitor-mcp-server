@@ -19,7 +19,7 @@ import { extractDataSourceScripts, extractConfigSourceScripts } from '../utils/h
 import { toEpochSeconds, toEpochMillis } from '../utils/helpers/epoch.js';
 import { curateDataSource, compactDataPoint } from '../utils/helpers/datasource-view.js';
 import { normalizeCollectorAttribute, normalizeAutoDiscoveryConfig, mergeAutoDiscoveryConfig, fillDatapointsFromSaved, findDroppedDatapoints, findDroppedConfigChecks } from '../utils/helpers/datasource-payload.js';
-import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings } from '../utils/helpers/datasource-test.js';
+import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointWarnings, describeScriptRun } from '../utils/helpers/datasource-test.js';
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
@@ -495,21 +495,21 @@ export class LogicMonitorHandlers {
       collectorUsed: collector?.description,
     };
     const warnings = datapointWarnings(ds.dataPoints);
-    if (warnings.length > 0) result.warnings = warnings;
 
     let instances: Array<{ wildvalue: string; wildalias?: string; description?: string; properties?: Record<string, string> }> = [];
     const adScript = ds.autoDiscoveryConfig?.method?.groovyScript;
     if (ds.enableAutoDiscovery && typeof adScript === 'string' && adScript !== '') {
       const ad = await run(adScript);
-      if (ad.pending) return { ...result, stage: 'discovery', ...ad };
+      if (ad.pending) return { ...result, ...(warnings.length > 0 ? { warnings } : {}), stage: 'discovery', ...ad };
       instances = parseDiscoveryOutput(String(ad.output ?? ''));
-      result.discovery = { output: stripReturnHeader(String(ad.output ?? '')), instances };
+      result.discovery = { output: stripReturnHeader(String(ad.output ?? '')), instances, ...this.scriptRunDetails(ad, 'Active Discovery script', warnings) };
     }
 
     const collection = await run(attr.groovyScript);
-    if (collection.pending) return { ...result, stage: 'collection', ...collection };
+    if (collection.pending) return { ...result, ...(warnings.length > 0 ? { warnings } : {}), stage: 'collection', ...collection };
     const output = String(collection.output ?? '');
-    result.collection = { output: stripReturnHeader(output) };
+    result.collection = { output: stripReturnHeader(output), ...this.scriptRunDetails(collection, 'Collection script', warnings) };
+    if (warnings.length > 0) result.warnings = warnings;
 
     if (batch) {
       result.results = instances.map(instance => ({
@@ -523,6 +523,22 @@ export class LogicMonitorHandlers {
       result.results = [{ datapoints: evaluateDatapoints(ds.dataPoints, output) }];
     }
     return result;
+  }
+
+  /**
+   * Exit code and error text of a script run for test_datasource, and a warning when it printed
+   * nothing (a silent failure otherwise looks like a clean run).
+   */
+  private scriptRunDetails(run: any, label: string, warnings: string[]): Record<string, any> {
+    const info = describeScriptRun(run);
+    if (info.empty) {
+      const why = [
+        info.exitCode !== undefined ? `exit code ${info.exitCode}` : undefined,
+        info.error ? `error: ${info.error}` : undefined,
+      ].filter(Boolean).join('; ');
+      warnings.push(`${label} printed nothing${why ? ` (${why})` : ''}. The collector returns no stderr for this run, so a failure shows only as empty output; println calls inside nested closures may not reach the output, so try a plain for-loop, and wrap the body in try/catch that prints the exception.`);
+    }
+    return { ...(info.exitCode !== undefined ? { exitCode: info.exitCode } : {}), ...(info.error ? { error: info.error } : {}) };
   }
 
   /** Make sure a fields list asks for hostGroupIds (needed to expand groups); "*" and no list already include it. */
@@ -1994,7 +2010,16 @@ export class LogicMonitorHandlers {
           return await this.client.deleteDeviceProperty(args.deviceId, args.propertyName);
 
         case 'schedule_resource_discovery':
-          return await this.client.scheduleDeviceDiscovery(args.deviceId);
+        {
+          const response = await this.client.scheduleDeviceDiscovery(args.deviceId);
+          return {
+            scheduled: true,
+            deviceId: args.deviceId,
+            scheduledAt: new Date().toISOString(),
+            response,
+            hint: 'Discovery runs asynchronously on the collector and nothing reports when it finishes. Wait a few seconds to a couple of minutes, then re-list with list_resource_instances (or list_resource_datasources) and compare with what was there before.',
+          };
+        }
 
         // Audit Logs
         case 'list_audit_logs': {
