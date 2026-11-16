@@ -525,6 +525,39 @@ export class LogicMonitorHandlers {
     return result;
   }
 
+  /** Make sure a fields list asks for hostGroupIds (needed to expand groups); "*" and no list already include it. */
+  private withHostGroupIds(fields?: string): string | undefined {
+    if (!fields || fields.trim() === '*') return fields;
+    const names = fields.split(',').map(f => f.trim());
+    return names.includes('hostGroupIds') ? fields : `${fields},hostGroupIds`;
+  }
+
+  /**
+   * Add "groups" ([{id, name, fullPath, appliesTo}]) to a resource, resolved from its hostGroupIds.
+   * appliesTo is set only for dynamic groups. Lookups are shared through cache; a group that cannot
+   * be read (deleted, no permission) is reported as {id, error}.
+   */
+  private async addGroupDetails(device: any, cache: Map<number, Promise<any>>): Promise<any> {
+    if (!device || typeof device !== 'object' || device.hostGroupIds === undefined) return device;
+    const ids = String(device.hostGroupIds).split(',').map(id => id.trim()).filter(Boolean).map(Number)
+      .filter(id => Number.isInteger(id));
+    const groups = await Promise.all(ids.map(async (id) => {
+      let lookup = cache.get(id);
+      if (!lookup) {
+        lookup = this.client.getDeviceGroup(id, { fields: 'id,name,fullPath,appliesTo' })
+          .then((g: any) => {
+            const group: any = { id, name: g.name, fullPath: g.fullPath };
+            if (g.appliesTo) group.appliesTo = g.appliesTo;
+            return group;
+          })
+          .catch((e: any) => ({ id, error: e?.message ?? String(e) }));
+        cache.set(id, lookup);
+      }
+      return lookup;
+    }));
+    return { ...device, groups };
+  }
+
   private async runToolCall(
     name: string,
     args: any,
@@ -557,32 +590,42 @@ export class LogicMonitorHandlers {
           // Handle query parameter - convert to filter
           const filter = this.combineQueryAndFilter(args.query, args.filter, SEARCH_FIELDS.devices, name);
 
+          const expandGroups = isTrue(args.expandGroups);
           const result = await this.client.listResources({
             size: args.size,
             offset: args.offset,
             filter: filter,
-            fields: args.fields,
+            fields: expandGroups ? this.withHostGroupIds(args.fields) : args.fields,
             autoPaginate: args.autoPaginate,
           });
 
-          // If user specified fields, return raw data
-          if (args.fields) {
-            return result;
-          }
+          // If user specified fields, return raw data; otherwise curated fields
+          const listed = args.fields
+            ? result
+            : {
+              ...result,
+              items: result.items.map((device: any) =>
+                filterFields(device, DEFAULT_DEVICE_FIELDS),
+              ),
+            };
+          if (!expandGroups) return listed;
 
-          // Otherwise, return curated fields
+          const groupCache = new Map<number, Promise<any>>();
           return {
-            ...result,
-            items: result.items.map((device: any) =>
-              filterFields(device, DEFAULT_DEVICE_FIELDS),
+            ...listed,
+            items: await Promise.all(
+              listed.items.map((device: any) => this.addGroupDetails(device, groupCache)),
             ),
           };
         }
 
-        case 'get_resource':
-          return await this.client.getDevice(args.deviceId, {
-            fields: args.fields,
+        case 'get_resource': {
+          const expandGroups = isTrue(args.expandGroups);
+          const device = await this.client.getDevice(args.deviceId, {
+            fields: expandGroups ? this.withHostGroupIds(args.fields) : args.fields,
           });
+          return expandGroups ? await this.addGroupDetails(device, new Map()) : device;
+        }
 
         case 'create_resource': {
           // Check if this is a batch operation
@@ -749,6 +792,44 @@ export class LogicMonitorHandlers {
               filterFields(group, DEFAULT_DEVICE_GROUP_FIELDS),
             ),
           };
+        }
+
+        case 'get_resource_group_membership': {
+          const device = await this.client.getDevice(args.deviceId, {
+            fields: 'id,displayName,hostGroupIds,customProperties,autoProperties,systemProperties,inheritedProperties',
+          });
+          const expanded = await this.addGroupDetails(device, new Map());
+          const properties = new Map<string, any>();
+          for (const list of [device.inheritedProperties, device.systemProperties, device.autoProperties, device.customProperties]) {
+            if (Array.isArray(list)) for (const p of list) if (p?.name) properties.set(p.name, p.value);
+          }
+          const groups = (expanded.groups ?? []).map((group: any) => {
+            if (!group.appliesTo) return { ...group, dynamic: false };
+            // Which of the device's properties the rule mentions, with their values: the "why".
+            const mentioned: Record<string, any> = {};
+            for (const [propName, value] of properties) {
+              if (group.appliesTo.includes(propName)) mentioned[propName] = value;
+            }
+            return { ...group, dynamic: true, referencedProperties: mentioned };
+          });
+          return {
+            id: device.id,
+            displayName: device.displayName,
+            groups,
+            note: 'Groups are the resource\'s direct memberships (static and dynamic); every parent of a group in its fullPath contains the resource too. For dynamic groups, referencedProperties lists the resource\'s own properties named in the appliesTo rule; the rule itself is not evaluated here.',
+          };
+        }
+
+        case 'find_resource_groups_by_applies_to': {
+          const needle = String(args.text ?? '').trim().toLowerCase();
+          const all = await this.client.listDeviceGroups({
+            fields: 'id,name,fullPath,appliesTo',
+            filter: args.filter,
+            autoPaginate: true,
+          });
+          const items = (all.items ?? []).filter((g: any) =>
+            typeof g?.appliesTo === 'string' && g.appliesTo.toLowerCase().includes(needle));
+          return { items, total: items.length };
         }
 
         case 'get_resource_group':

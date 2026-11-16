@@ -352,6 +352,98 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('expandGroups', () => {
+      const groups: Record<number, any> = {
+        5: { id: 5, name: 'TXDC', fullPath: 'Locations/TXDC', appliesTo: 'auto.location == "TXDC"' },
+        7: { id: 7, name: 'Servers', fullPath: 'Servers' },
+      };
+
+      beforeEach(() => {
+        mockClient.getDeviceGroup.mockImplementation(async (id: number) => {
+          if (!groups[id]) throw new Error('not found');
+          return groups[id];
+        });
+      });
+
+      it('resolves hostGroupIds on list_resources, looking each group up once', async () => {
+        mockClient.listResources.mockResolvedValue({
+          items: [
+            { id: 1, displayName: 'a', hostGroupIds: '5,7' },
+            { id: 2, displayName: 'b', hostGroupIds: '7,99' },
+          ],
+          total: 2,
+        });
+
+        const result = await handlers.handleToolCall('list_resources', { expandGroups: 'true' });
+
+        expect(result.items[0].groups).toEqual([
+          { id: 5, name: 'TXDC', fullPath: 'Locations/TXDC', appliesTo: 'auto.location == "TXDC"' },
+          { id: 7, name: 'Servers', fullPath: 'Servers' },
+        ]);
+        expect(result.items[1].groups[1]).toEqual({ id: 99, error: 'not found' });
+        expect(mockClient.getDeviceGroup).toHaveBeenCalledTimes(3);
+        expect(mockClient.listResources).toHaveBeenCalledWith(expect.not.objectContaining({ expandGroups: expect.anything() }));
+      });
+
+      it('adds hostGroupIds to a fields list that lacks it', async () => {
+        mockClient.getDevice.mockResolvedValue({ id: 1, displayName: 'a', hostGroupIds: '7' });
+
+        const result = await handlers.handleToolCall('get_resource', { deviceId: 1, fields: 'id,displayName', expandGroups: true });
+
+        expect(mockClient.getDevice).toHaveBeenCalledWith(1, { fields: 'id,displayName,hostGroupIds' });
+        expect(result.groups).toEqual([{ id: 7, name: 'Servers', fullPath: 'Servers' }]);
+      });
+
+      it('leaves resources alone when expandGroups is not set', async () => {
+        mockClient.getDevice.mockResolvedValue({ id: 1, hostGroupIds: '7' });
+
+        const result = await handlers.handleToolCall('get_resource', { deviceId: 1 });
+
+        expect(result).toEqual({ id: 1, hostGroupIds: '7' });
+        expect(mockClient.getDeviceGroup).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('group membership tools', () => {
+      it('get_resource_group_membership flags dynamic groups and shows the properties the rule names', async () => {
+        mockClient.getDevice.mockResolvedValue({
+          id: 1,
+          displayName: 'a',
+          hostGroupIds: '5,7',
+          autoProperties: [{ name: 'auto.location.snow.sysid', value: 'abc123' }, { name: 'auto.other', value: 'x' }],
+          customProperties: [],
+        });
+        mockClient.getDeviceGroup.mockImplementation(async (id: number) => id === 5
+          ? { id: 5, name: 'TXDC', fullPath: 'Locations/TXDC', appliesTo: 'auto.location.snow.sysid == "abc123"' }
+          : { id: 7, name: 'Servers', fullPath: 'Servers' });
+
+        const result = await handlers.handleToolCall('get_resource_group_membership', { resourceId: 1 });
+
+        expect(mockClient.getDevice).toHaveBeenCalledWith(1, expect.objectContaining({ fields: expect.stringContaining('autoProperties') }));
+        expect(result.groups).toEqual([
+          { id: 5, name: 'TXDC', fullPath: 'Locations/TXDC', appliesTo: 'auto.location.snow.sysid == "abc123"', dynamic: true, referencedProperties: { 'auto.location.snow.sysid': 'abc123' } },
+          { id: 7, name: 'Servers', fullPath: 'Servers', dynamic: false },
+        ]);
+      });
+
+      it('find_resource_groups_by_applies_to keeps only groups whose rule contains the text', async () => {
+        mockClient.listDeviceGroups.mockResolvedValue({
+          items: [
+            { id: 5, name: 'TXDC', fullPath: 'Locations/TXDC', appliesTo: 'auto.location.snow.sysid == "ABC123"' },
+            { id: 6, name: 'VADC', fullPath: 'Locations/VADC', appliesTo: 'auto.location.snow.sysid == "zzz"' },
+            { id: 7, name: 'Servers', fullPath: 'Servers', appliesTo: '' },
+          ],
+          total: 3,
+        });
+
+        const result = await handlers.handleToolCall('find_resource_groups_by_applies_to', { text: 'abc123' });
+
+        expect(mockClient.listDeviceGroups).toHaveBeenCalledWith(expect.objectContaining({ autoPaginate: true }));
+        expect(result.items.map((g: any) => g.id)).toEqual([5]);
+        expect(result.total).toBe(1);
+      });
+    });
+
     describe('get_resource', () => {
       it('should get device by ID', async () => {
         const mockDevice = {
