@@ -1354,7 +1354,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     description: 'Run a SAVED script-based DataSource against a resource, the way the collector would, and show the resulting values per instance. Runs the DataSource\'s Active Discovery script (if it has one) and its collection script on a collector with the resource\'s properties bound (hostId), then applies each datapoint\'s post-processor to the output. ' +
       '\n\n**Why:** "execute\\_groovy\\_script" with hostId tests a script you paste in; this tests the DataSource as saved, so the build/test/fix loop ("update\\_datasource", then this tool) needs no hand-copied scripts. ' +
       '\n\n**Collector:** uses collectorId if given, else the resource\'s preferredCollectorId; fails clearly if that collector is down. ' +
-      '\n\n**Returns:** { collectorId, discovery: {output, instances}, collection: {output}, results: [{instance, datapoints: [{name, value | note}]}] }. Output lines may be "id.datapoint=value" or "id.datapoint: value" (the collector accepts both). A datapoint with a note had no matching output line, or uses a post-processor that is not simulated (only namevalue and "none" are). "warnings" lists datapoints saved without a rawDataFieldName: this test still shows their values, but on the collector they are reported as "uses an unknown raw datapoint" and collect nothing. discovery and collection also carry exitCode (from the console\'s "returns N" header) and error when the collector returns any; the collector returns no stderr, so a script that fails silently shows only as empty output, and then "warnings" says that script printed nothing. If a stage is still running the result has pending: true and a sessionId for "get\\_debug\\_command\\_result". ' +
+      '\n\n**Returns:** { collectorId, discovery: {output, instances}, collection: {output}, results: [{instance, datapoints: [{name, value | note}]}] }. Output lines may be "id.datapoint=value" or "id.datapoint: value" (the collector accepts both). **Size:** compact by default (a 46-instance DataSource used to return about 230,000 characters): the first "maxInstances" (default 5) instances in full, a count of the rest, "instancesWithMissingValues", and each script\'s raw output cut to 2,000 characters; truncated:true and truncationNote say what was left out. Pass verbose:true for everything. A datapoint with a note had no matching output line, or uses a post-processor that is not simulated (only namevalue and "none" are). "warnings" lists datapoints saved without a rawDataFieldName: this test still shows their values, but on the collector they are reported as "uses an unknown raw datapoint" and collect nothing. discovery and collection also carry exitCode (from the console\'s "returns N" header) and error when the collector returns any; the collector returns no stderr, so a script that fails silently shows only as empty output, and then "warnings" says that script printed nothing. If a stage is still running the result has pending: true and a sessionId for "get\\_debug\\_command\\_result". ' +
       '\n\n**Supports:** collectMethod "script" (single instance) and "batchscript" with an embedded Groovy script. Other methods are rejected with an explanation. ' +
       '\n\n**⚠️ Safety warning:** runs the DataSource\'s script on the collector with its privileges (same as "execute\\_groovy\\_script"). Nothing is saved to LogicMonitor. ' +
       '\n\n**Related tools:** "get\\_datasource\\_scripts", "update\\_datasource", "execute\\_groovy\\_script". Building a DataSource: MCP resource "lm://knowledge/script-datasource".',
@@ -1369,6 +1369,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         deviceId: { type: 'number', description: 'The ID of the resource/device whose properties the scripts run with (from "list_resources") (resourceId is accepted as an alias)' },
         collectorId: { type: 'number', description: 'Collector to run on. Defaults to the resource\'s preferredCollectorId.' },
         waitSeconds: debugRunSchema.waitSeconds,
+        maxInstances: { type: 'number', description: 'How many instances to return in full (default 5). The rest are counted, and any with a datapoint that had no value are named in instancesWithMissingValues.' },
+        verbose: { type: 'boolean', description: 'Return the complete discovery and collection output and every instance (can be hundreds of thousands of characters for a DataSource with many instances). Default false.' },
       },
       additionalProperties: false,
       required: ['dataSourceId', 'deviceId'],
@@ -1451,7 +1453,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     description: 'Get detailed information about a specific datasource by its ID in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** A compact view by default: name, displayName, description, appliesTo logic, collection method, intervals, discovery settings, and each datapoint with its post-processor and alert threshold. Script bodies are replaced by a size marker, and alert message templates, per-datapoint housekeeping fields and access-group details are left out, because the full definition of a typical datasource is tens of thousands of characters. ' +
       '\n\n**Datapoints only:** pass datapointsOnly:true for just {id, name, dataPoints} with each datapoint trimmed (id, name, type, post-processor and its parameter, alert threshold), a fraction of the full view when you only need the datapoint list. ' +
-      '\n\n**Getting more:** Use "get\\_datasource\\_scripts" for the embedded scripts. Pass the "fields" parameter to receive exactly those fields as the API returns them (fields="*" returns the complete raw definition, which can be very large). ' +
+      '\n\n**Getting more:** Use "get\\_datasource\\_scripts" for the embedded scripts. Pass the "fields" parameter to receive exactly those fields (fields="*" returns the complete raw definition, which can be very large). Dot paths work: fields="id,dataPoints.id,dataPoints.name" returns just those keys of every datapoint. ' +
       '\n\n**When to use:** ' +
       '\n- Understand what datasource monitors' +
       '\n- Review alert thresholds' +
@@ -2062,7 +2064,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- instanceId: From "list\\_resource\\_instances"' +
       '\n- datapoints: Comma-separated metric names (e.g., "CPUBusyPercent,MemoryUsedPercent")' +
       '\n- start/end: Time range in epoch SECONDS (not milliseconds; millisecond values are auto-converted), start time must be before current time. If only start is given, end defaults to now; if only end is given, start defaults to one hour before it' +
-      '\n- autoPaginate: follow the API\'s paging cursor to fetch older samples (capped by maxPages, default 10). Without it only the newest ~500 samples are returned' +
+      '\n- autoPaginate: follow the API\'s paging cursor to fetch older samples (capped by maxPages, default 5). Without it only the newest ~500 samples are returned' +
       '\n- summarize: return per-datapoint stats (samples, min, max, first, last, changes, decreases) instead of raw rows; ideal for long ranges. A "decreases" count above 0 on a counter such as uptime means it reset (e.g. restart)' +
       '\n\n**Example:** Get last hour CPU data: start=Math.floor(Date.now()/1000)-3600, end=Math.floor(Date.now()/1000) ' +
       '\n\n**Time range tips:** If start and end are both omitted, returns about the last hour (one hour ending now). Max range: 1 year. Use shorter ranges for better performance. ' +
@@ -2455,7 +2457,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- Inspect exactly what a widget renders and how (e.g., security-reviewing an "html" widget\'s embedded script)' +
       '\n- Export a widget\'s config before cloning it to another dashboard' +
       '\n- Debug why a widget shows unexpected data' +
-      '\n\n**Note on schema:** LogicMonitor widgets are polymorphic - the response shape varies by "type". This tool returns the raw object as LM sends it; consult LM\'s API docs for the field list of a specific type if needed. ' +
+      '\n\n**Note on schema:** LogicMonitor widgets are polymorphic - the response shape varies by "type". This tool returns the raw object as LM sends it; "fields" accepts dot paths (for example "id,type,dataPoints.name") to read part of a nested value; consult LM\'s API docs for the field list of a specific type if needed. ' +
       '\n\n**Workflow:** Use "list\\_widgets" (optionally with a dashboardId) to find the widgetId, then use this tool for the full definition. ' +
       '\n\n**Related tools:** "list\\_widgets" (find widgetId), "get\\_widget\\_data" (live rendered values), "update\\_widget" (modify).',
     annotations: {
@@ -2652,7 +2654,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n- widgetId: from "list\\_widgets"' +
       '\n- start/end: optional time range (epoch seconds). If both are omitted, uses the widget\'s own default timescale. If only start is given, end defaults to now. An end without a start is rejected (LogicMonitor would ignore it)' +
       '\n- format: optional response format' +
-      '\n\n**Large output:** a big table or NOC widget can return a very large result (a NOC widget for 254 instances returned about 157,000 characters). When the result is saved to a file, summarize it with jq on that file instead of reading it whole. ' +
+      '\n- maxRows: how many entries of the widget\'s largest list (table rows, series points) to return; by default as many as fit in about 40,000 characters. When more exist the result has truncated:true and a truncationNote with the total; pass a larger maxRows to get them' +
+      '\n\n**Large output:** a big table or NOC widget can return a very large result (a dynamic table of 438 rows was about 435,000 characters, and 500 rows of a collectors table about 500,000), which is why rows are capped by default. With a large maxRows, when the result is saved to a file, summarize it with jq on that file instead of reading it whole. ' +
       '\n\n**Related tools:** "get\\_widget" (configuration/definition instead of data), "list\\_widgets" (find widgetId).',
     annotations: {
       title: 'Get widget data',
@@ -2676,6 +2679,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         format: {
           type: 'string',
           description: 'Response format, e.g. "json" or "csv"',
+        },
+        maxRows: {
+          type: 'number',
+          description: 'Entries of the largest list in the data (table rows, series points) to return. Default: as many as fit in about 40,000 characters. A larger value returns more.',
         },
       },
       additionalProperties: false,
@@ -3676,7 +3683,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   {
     name: 'list_users',
     description: 'List all users in LogicMonitor (LM) monitoring. ' +
-      '\n\n**Returns:** Array of users with: id, username, email, roles, status (active/suspended), last login time, created date, API token count. ' +
+      '\n\n**Returns:** Array of users with: id, username, email, roles (id and name only, without privilege lists; get_user has the full objects), status (active/suspended), last login time, created date, API token count. ' +
       '\n\n**When to use:** ' +
       '\n- Audit user access' +
       '\n- Find user IDs for API token management' +
