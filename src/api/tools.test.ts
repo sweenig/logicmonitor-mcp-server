@@ -952,3 +952,15 @@ describe('excludeFields option', () => {
     expect(tools.find(t => t.name === 'list_collectors')?.inputSchema.properties).toHaveProperty('excludeFields');
   });
 });
+
+describe('widget column guidance', () => {
+  const tool = (name: string) => getLogicMonitorTools(false).find(t => t.name === name)!;
+
+  it('documents tableColumns, alert default columns and the row label limitation', () => {
+    expect((tool('update_widget').inputSchema as any).properties.tableColumns).toBeDefined();
+    expect((tool('create_widget').inputSchema as any).properties.columns).toBeDefined();
+    expect(tool('update_widget').description).toMatch(/instanceProperty/);
+    expect(tool('create_widget').description).toMatch(/standard column list/);
+    for (const name of ['create_widget', 'update_widget']) expect(tool(name).description).toMatch(/row label[^.]*not resolve|do(es)? not resolve property tokens|not resolved by LogicMonitor/);
+  });
+});

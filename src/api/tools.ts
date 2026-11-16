@@ -2493,7 +2493,8 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       'is where the HTML/script body goes; for a "bigNumber" widget this is where the datapoint/graphInfo ' +
       'goes). LogicMonitor\'s widget schema is polymorphic per type - build this the same shape LM\'s UI/API ' +
       'would produce for that type, or clone it from an existing widget via "get\\_widget". ' +
-      '\n\n**Dynamic table (type:"dynamicTable"):** config.topX is the row limit: a number from 1 to 25, or -1 for all rows (any other value, such as 50 or 100, is rejected with "invalid top"). Row order, column shape and row identity are in MCP resource "lm://knowledge/dashboards-and-widgets". ' +
+      '\n\n**Alert list (type:"alert"):** LogicMonitor creates an alert list with no columns, so unless config.displaySettings.columns is given this tool starts from the UI\'s standard column list (Severity, Reported At, Resource/Website, Instance, Datapoint and Alert Value shown; the rest hidden). Pass "columns" to adjust it in the same call, in the form "update\\_widget" takes: [{"columnKey":"alert-datapoint","visible":false},{"token":"##ALERTVALUEDISPLAYSTATUSNAME##"},{"token":"##auto.lm.token.owner##","columnSize":200}] (a "token" adds a property or alert token column; instance properties need the auto. prefix). ' +
+      '\n\n**Dynamic table (type:"dynamicTable"):** config.topX is the row limit: a number from 1 to 25, or -1 for all rows (any other value, such as 50 or 100, is rejected with "invalid top"). Row order, column shape and row identity are in MCP resource "lm://knowledge/dashboards-and-widgets". **A row label ("rows[].label") does not resolve property tokens:** ##auto.lm.token.type## prints literally (LogicMonitor behaviour); only ##RESOURCENAME## and ##INSTANCE## work there, so show properties as instance property columns with "update\\_widget" tableColumns. ' +
       '\n\n**Workflow:** Use "get\\_widget" on a similar existing widget to see the exact shape expected for that type, then adapt it here. ' +
       '\n\n**Related tools:** "get\\_widget" (see an example of the target type), "update\\_widget" (modify after creation), "list\\_dashboards" (find dashboardId).',
     annotations: {
@@ -2540,6 +2541,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
             'body for an "html" widget, datapoint/graph config for a "bigNumber"/"gauge"/"*graph" widget, map ' +
             'settings for "gmap", etc). Merged directly onto the widget alongside the common fields above.',
         },
+        columns: {
+          type: 'array',
+          description: 'Alert list widgets only: column changes applied to the standard column list the new widget starts from, each {columnKey | token, visible?, columnLabel?, columnSize?, after?}. Refused when config.displaySettings.columns is given.',
+        },
       },
       additionalProperties: false,
       required: ['dashboardId', 'name', 'type'],
@@ -2577,6 +2582,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**Workflow:** Use "get\\_widget" first to see current values, then send only the fields you want changed. ' +
       '\n\n**Careful:** "config" is sent as given, and a nested object such as "displaySettings" or "filters" should be treated as replacing the existing one (not verified to merge): send all of it, or use "columns" for alert list columns.' +
       '\n\n**Alert list columns:** pass "columns", a list of changes, and the tool applies them to the current column list for you: {columnKey, visible, columnLabel, columnSize, after} changes an existing column (columnKey such as "alert-began", "alert-static-threshold", "alert-value"); {token, ...} adds (or changes) a custom column from a property or alert token, placed after the last visible column unless "after" is given. A custom column\'s label is the token itself (LogicMonitor looks the value up by label), so it cannot be renamed; instance properties need the auto. prefix, as in ##auto.sdt.admin##. Example: [{"columnKey":"alert-static-threshold","visible":false},{"token":"##auto.sdt.admin##","columnSize":200}]. See MCP resource "lm://knowledge/dashboards-and-widgets".' +
+      '\n\n**Dynamic table columns:** pass "tableColumns", a list of changes, and the tool reads the widget and keeps its column lists (columns, displaySettings.columns, columnsV4 and instanceColumns) in step, the way the UI writes them. {instanceProperty:"auto.lm.token.owner", columnName?, columnSize?} adds an instance property column (shown after the datapoint columns; give the property name as the instance has it, with auto. where it has one); add remove:true to drop it. {columnName:"Days Since Last Used", displayType?, minValue?, maxValue?, colorThresholds?, unitLabel?, roundingDecimal?, rpn?, columnSize?} changes an existing datapoint column (colorThresholds is [{relation:">", threshold:30, level:2}], level 2 yellow, 3 orange, 4 red; send all three levels); a columnName that is not on the table with dataPointName and dataPointId adds a datapoint column (10 at most), remove:true drops one. Example: [{"instanceProperty":"auto.lm.token.owner","columnName":"Owner"},{"columnName":"Status","colorThresholds":[{"relation":">","threshold":0,"level":4}]}]. Property tokens in a row label (rows[].label) are not resolved by LogicMonitor and print literally; use an instance property column instead. get\\_widget\\_data returns only datapoint cells, so check property columns in the UI.' +
       '\n\n**Related tools:** "get\\_widget" (see current definition), "list\\_widgets" (find widgetId), "delete\\_widget" (remove instead).',
     annotations: {
       title: 'Update widget',
@@ -2616,6 +2622,10 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         columns: {
           type: 'array',
           description: 'Alert list widgets: column changes applied to the current column list, each {columnKey | token, visible?, columnLabel?, columnSize?, after?}. columnKey changes an existing column; token (such as ##auto.sdt.admin## or ##ALERTVALUEDISPLAYSTATUSNAME##) adds a custom column.',
+        },
+        tableColumns: {
+          type: 'array',
+          description: 'Dynamic table widgets: column changes, each {instanceProperty | columnName, columnSize?, remove?} plus, for a datapoint column, {displayType?, minValue?, maxValue?, colorThresholds?, unitLabel?, roundingDecimal?, rpn?, dataPointName?, dataPointId?}. instanceProperty adds an instance property column; columnName changes (or, with dataPointName and dataPointId, adds) a datapoint column.',
         },
       },
       additionalProperties: false,

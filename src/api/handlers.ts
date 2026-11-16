@@ -7,7 +7,7 @@
 import { LogicMonitorClient } from './client.js';
 import { batchProcessor, smartBatchProcessor as _smartBatchProcessor } from '../utils/helpers/batch-processor.js';
 import { isTrue, parseJsonArray, parseJsonObject } from '../utils/helpers/coerce.js';
-import { applyColumnChanges, ColumnChange } from '../utils/helpers/widget-columns.js';
+import { applyColumnChanges, applyTableColumnChanges, ColumnChange, defaultAlertColumns, TableColumnChange } from '../utils/helpers/widget-columns.js';
 import { isAcceptedTopX, topXErrorMessage } from '../utils/helpers/widget-top-x.js';
 import { findWidgetReferences, WIDGET_REFERENCE_FIELDS } from '../utils/helpers/widget-references.js';
 import { buildNetscanCreate, buildNetscanUpdate, updateNeedsMethod } from '../utils/helpers/netscan-payload.js';
@@ -1353,17 +1353,39 @@ export class LogicMonitorHandlers {
         }
 
         case 'create_widget': {
-          const { config, ...widgetFields } = args;
+          const { config, columns, ...widgetFields } = args;
           const widget: any = { ...widgetFields };
           if (config) Object.assign(widget, config);
+          if (widget.type === 'alert' && !Array.isArray(widget.displaySettings?.columns)) {
+            // LogicMonitor creates an alert list with no columns unless it is sent some: start from the UI's standard set
+            const changes = columns === undefined ? [] : parseJsonArray(columns);
+            if (!Array.isArray(changes)) throw new InvalidArgumentError('columns must be a list of column changes.');
+            widget.displaySettings = { ...widget.displaySettings, columns: applyColumnChanges(defaultAlertColumns(), changes as ColumnChange[]) };
+          } else if (columns !== undefined) {
+            throw new InvalidArgumentError('columns only applies to a new alert list widget that has no displaySettings.columns of its own.');
+          }
           if (widget.type === 'dynamicTable' && !isAcceptedTopX(widget.topX)) throw new InvalidArgumentError(topXErrorMessage(widget.topX));
           return await this.client.createWidget(widget);
         }
 
         case 'update_widget': {
-          const { widgetId, config, columns, ...widgetFields } = args;
+          const { widgetId, config, columns, tableColumns, ...widgetFields } = args;
           const widget: any = { ...widgetFields };
           if (config) Object.assign(widget, config);
+          if (tableColumns !== undefined) {
+            const changes = parseJsonArray(tableColumns);
+            if (!Array.isArray(changes)) throw new InvalidArgumentError('tableColumns must be a list of column changes.');
+            const current: any = await this.client.getWidget(widgetId, { fields: 'type,displaySettings,columns' });
+            if (current?.type !== 'dynamicTable') {
+              throw new InvalidArgumentError(`Widget ${widgetId} is a ${current?.type ?? 'unknown'} widget; tableColumns only applies to dynamicTable widgets.`);
+            }
+            const updated = applyTableColumnChanges(
+              { displaySettings: widget.displaySettings ?? current.displaySettings, columns: widget.columns ?? current.columns },
+              changes as TableColumnChange[]
+            );
+            widget.displaySettings = updated.displaySettings;
+            widget.columns = updated.columns;
+          }
           if (columns !== undefined) {
             // LogicMonitor replaces displaySettings as a whole, so send the current one with the new column list
             const changes = parseJsonArray(columns);
