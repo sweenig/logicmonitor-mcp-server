@@ -219,3 +219,16 @@ describe('property-driven discovery knowledge resource', () => {
     }
   });
 });
+
+describe('dynamic groups and auto properties knowledge resource', () => {
+  it('is listed and covers the lag and the verification order', async () => {
+    const resource = listLMResources().find(r => r.uri === 'lm://knowledge/dynamic-groups-and-auto-properties');
+    expect(resource).toBeDefined();
+
+    const content = await readLMResource('lm://knowledge/dynamic-groups-and-auto-properties');
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    for (const term of ['PropertySource', 'auto.', 'appliesTo', 'list_resource_properties', 'get_resource_group_membership', 'schedule_resource_discovery']) {
+      expect(text).toContain(term);
+    }
+  });
+});
