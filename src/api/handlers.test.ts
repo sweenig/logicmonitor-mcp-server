@@ -1735,6 +1735,28 @@ describe('LogicMonitorHandlers', () => {
         expect(result.results).toEqual([{ datapoints: [{ name: 'm', value: 5 }] }]);
       });
 
+      it('reads "name: value" lines as well as "name=value"', async () => {
+        mockClient.getDataSource.mockResolvedValue({
+          collectMethod: 'script', collectorAttribute: { groovyScript: 'collect' },
+          dataPoints: [{ name: 'd', postProcessorMethod: 'namevalue', postProcessorParam: '11.daysSinceLastUsedOn' }],
+        });
+        mockClient.executeDebugCommand.mockResolvedValue({ output: 'returns 0\n11.daysSinceLastUsedOn: 87\n' } as any);
+        const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+        expect(result.results).toEqual([{ datapoints: [{ name: 'd', value: 87 }] }]);
+        expect(result.collection.exitCode).toBe(0);
+      });
+
+      it('says so when a script prints nothing, with exit code and error text', async () => {
+        mockClient.getDataSource.mockResolvedValue({ ...batchDs, dataPoints: [{ ...batchDs.dataPoints[0], rawDataFieldName: 'output' }] });
+        mockClient.executeDebugCommand.mockImplementation(async (cmd: string) =>
+          (cmd.includes('discover') ? { output: 'returns 1\noutput:\n', stderr: 'boom' } : { output: 'returns 0\noutput:\n' }) as any);
+        const result: any = await handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 });
+        expect(result.discovery).toMatchObject({ exitCode: 1, error: 'boom' });
+        expect(result.warnings).toHaveLength(2);
+        expect(result.warnings[0]).toMatch(/Active Discovery script printed nothing \(exit code 1; error: boom\)/);
+        expect(result.warnings[1]).toMatch(/Collection script printed nothing/);
+      });
+
       it('refuses a collector that is down and a resource without one', async () => {
         mockClient.getCollector.mockResolvedValue({ id: 3, isDown: true } as any);
         await expect(handlers.handleToolCall('test_datasource', { dataSourceId: 1, deviceId: 9 })).rejects.toThrow(/is down/);
@@ -3654,7 +3676,8 @@ describe('LogicMonitorHandlers', () => {
         deviceId: 6415,
       });
 
-      expect(result).toEqual({});
+      expect(result).toMatchObject({ scheduled: true, deviceId: 6415, response: {} });
+      expect(result.hint).toContain('list_resource_instances');
       expect(mockClient.scheduleDeviceDiscovery).toHaveBeenCalledWith(6415);
     });
   });
