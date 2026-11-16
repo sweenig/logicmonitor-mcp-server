@@ -2556,6 +2556,63 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
+    describe('widget columns for new alert lists and dynamic tables', () => {
+      it('create_widget gives an alert list the standard columns and applies columns on top', async () => {
+        mockClient.createWidget.mockResolvedValue({ id: 1 });
+        await handlers.handleToolCall('create_widget', {
+          dashboardId: 5, name: 'a', type: 'alert', config: { filters: { cleared: 'no' } },
+          columns: [{ columnKey: 'alert-datapoint', visible: false }, { token: '##auto.lm.token.owner##' }],
+        });
+        const sent: any = mockClient.createWidget.mock.calls[mockClient.createWidget.mock.calls.length - 1][0];
+        expect(sent.filters).toEqual({ cleared: 'no' });
+        expect(sent.displaySettings.columns.find((c: any) => c.columnKey === 'alert-severity').visible).toBe(true);
+        expect(sent.displaySettings.columns.find((c: any) => c.columnKey === 'alert-datapoint').visible).toBe(false);
+        expect(sent.displaySettings.columns.some((c: any) => c.columnLabel === '##auto.lm.token.owner##')).toBe(true);
+        expect(sent.columns).toBeUndefined();
+      });
+
+      it('create_widget leaves an alert list with its own columns alone and refuses columns on top of them', async () => {
+        mockClient.createWidget.mockResolvedValue({ id: 1 });
+        const own = [{ columnKey: 'alert-value', visible: true }];
+        await handlers.handleToolCall('create_widget', { dashboardId: 5, name: 'a', type: 'alert', config: { displaySettings: { columns: own } } });
+        expect((mockClient.createWidget.mock.calls[mockClient.createWidget.mock.calls.length - 1][0] as any).displaySettings.columns).toEqual(own);
+        await expect(handlers.handleToolCall('create_widget', { dashboardId: 5, name: 'a', type: 'alert', config: { displaySettings: { columns: own } }, columns: [{ columnKey: 'alert-value', visible: false }] }))
+          .rejects.toThrow(/columns only applies/);
+        await expect(handlers.handleToolCall('create_widget', { dashboardId: 5, name: 'h', type: 'html', columns: [] })).rejects.toThrow(/columns only applies/);
+      });
+
+      const table = () => ({
+        type: 'dynamicTable',
+        columns: [{ columnName: 'Days', dataPointId: 2, dataPointName: 'days', displayType: 'raw', colorThresholds: [] }],
+        displaySettings: { pageSize: '50', columns: [{ columnLabel: 'Name', columnKey: 'name' }, { columnLabel: 'Days', columnKey: 'Days' }], instanceColumns: [], columnsV4: [{ index: 0, columnName: 'Days', dataPointName: 'days' }] },
+      });
+
+      it('update_widget tableColumns adds an instance property column in one call', async () => {
+        mockClient.getWidget.mockResolvedValue(table() as any);
+        mockClient.updateWidget.mockResolvedValue({ id: 8 });
+        await handlers.handleToolCall('update_widget', { widgetId: 8, tableColumns: [{ instanceProperty: 'auto.lm.token.owner', columnName: 'Owner' }] });
+        const sent: any = mockClient.updateWidget.mock.calls[mockClient.updateWidget.mock.calls.length - 1];
+        expect(sent[0]).toBe(8);
+        expect(sent[1].displaySettings.instanceColumns).toEqual([{ 'auto.lm.token.owner': { index: 1, columnName: 'Owner' } }]);
+        expect(sent[1].displaySettings.pageSize).toBe('50');
+        expect(sent[1].columns).toHaveLength(1);
+      });
+
+      it('update_widget tableColumns sets thresholds from a JSON string without resending displaySettings', async () => {
+        mockClient.getWidget.mockResolvedValue(table() as any);
+        mockClient.updateWidget.mockResolvedValue({ id: 8 });
+        await handlers.handleToolCall('update_widget', { widgetId: 8, tableColumns: '[{"columnName":"Days","colorThresholds":[{"relation":">","threshold":30,"level":2}]}]' });
+        const sent: any = mockClient.updateWidget.mock.calls[mockClient.updateWidget.mock.calls.length - 1][1];
+        expect(sent.columns[0].colorThresholds).toEqual([{ relation: '>', threshold: 30, level: 2 }]);
+        expect(sent.displaySettings.columnsV4[0].colorThresholds).toEqual([{ relation: '>', threshold: 30, level: 2 }]);
+      });
+
+      it('update_widget tableColumns refuses a widget that is not a dynamic table', async () => {
+        mockClient.getWidget.mockResolvedValue({ type: 'alert', displaySettings: {} } as any);
+        await expect(handlers.handleToolCall('update_widget', { widgetId: 8, tableColumns: [{ instanceProperty: 'x' }] })).rejects.toThrow(/only applies to dynamicTable/);
+      });
+    });
+
     describe('delete_widget', () => {
       it('should delete widget', async () => {
         mockClient.deleteWidget.mockResolvedValue({});
