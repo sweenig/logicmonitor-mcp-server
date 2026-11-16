@@ -757,7 +757,8 @@ describe('getLogicMonitorTools', () => {
             tool.name !== 'get_website_checkpoint_data' &&
             tool.name !== 'get_datasource_scripts' &&
             tool.name !== 'get_configsource_scripts' &&
-            tool.name !== 'get_resource_group_datasource_thresholds') {
+            tool.name !== 'get_resource_group_datasource_thresholds' &&
+            tool.name !== 'get_resource_group_membership') {
           expect(properties).toHaveProperty('fields');
         }
       });

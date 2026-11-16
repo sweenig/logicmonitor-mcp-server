@@ -62,6 +62,13 @@ const debugRunSchema = {
   },
 };
 
+const expandGroupsSchema = {
+  expandGroups: {
+    type: 'boolean',
+    description: 'Resolve hostGroupIds into a "groups" array of {id, name, fullPath, appliesTo} on each resource (appliesTo only for dynamic groups, showing the rule that put the resource there). Costs one get_resource_group call per distinct group in the result, so use it on a narrow filter. Default false.',
+  },
+};
+
 const ALL_LOGICMONITOR_TOOLS: Tool[] = [
   // Device Management Tools
   {
@@ -91,7 +98,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       '\n\n**SDT status (sdtStatus field):** Format is three dash-separated terms, "group-device-instance" (e.g. "none-SDT-none"), each either "SDT" or "none". First term = an SDT set on a group this resource belongs to (covers the whole resource). Second term = an SDT set directly on this resource (covers the whole resource). Third term = an SDT set on a specific datasource/instance only - it does NOT cover the whole resource. A resource is entirely in SDT if the first OR second term is "SDT"; "none-none-SDT" alone means only part of the resource is suppressed. ' +
       '\n\n**Alerting-disabled status (alertDisableStatus field):** Same three-part "group-device-instance" format and meaning as sdtStatus above, but for whether alerting is disabled rather than whether SDT is active. Do not confuse this with the separate disableAlerting field, which is a plain boolean for the resource itself only and does not reflect group- or instance-level disabling. ' +
       '\n\n**Alert status (alertStatus field):** Encodes both severity and acknowledgement in one string, e.g. "critical-unconfirmed" or "warn-confirmed"; "none" means no active alert. Severity is one of warn/error/critical; acknowledgement is confirmed/unconfirmed. ' +
-      '\n\n**hostGroupIds gotcha:** This is a single comma-separated string of group IDs (e.g. "14,26,116"), not a list field, so filter:"hostGroupIds~27" will also match "127", "270", etc. (substring match, not exact membership). To find resources in a specific group reliably, prefer filtering on systemProperties (e.g. filter:"systemProperties.name:system.groups,systemProperties.value~*Exact/Group/Path*" using the group\'s distinctive full path) or cross-check candidate matches against "list\\_resource\\_groups"/"get\\_resource\\_group" rather than trusting a bare hostGroupIds substring match. ' +
+      '\n\n**hostGroupIds gotcha:** This is a single comma-separated string of group IDs (e.g. "14,26,116"), not a list field, so filter:"hostGroupIds~27" will also match "127", "270", etc. (substring match, not exact membership). To find resources in a specific group reliably, prefer filtering on systemProperties (e.g. filter:"systemProperties.name:system.groups,systemProperties.value~*Exact/Group/Path*" using the group\'s distinctive full path) or cross-check candidate matches against "list\\_resource\\_groups"/"get\\_resource\\_group" rather than trusting a bare hostGroupIds substring match. To see which groups a resource is in (names, paths and the appliesTo rule of dynamic groups), pass expandGroups:true instead of looking each id up. ' +
       '\n\n**Known reliability caveat:** Filtering on computed/rollup fields such as sdtStatus or alertDisableStatus (e.g. filter:"sdtStatus:none-SDT-none" or filter:"sdtStatus~SDT-none-") has been observed to return stale results - both missing resources that do match and including ones that do not - likely due to search-index lag on these fields rather than a filter-syntax problem (plain attribute filters like hostStatus or displayName are not known to have this issue). For an accurate audit of SDT or alerting-disabled state, prefer fetching the field unfiltered (fields:"id,displayName,sdtStatus", autoPaginate:true) and evaluating it client-side rather than trusting filter= on it. ' +
       '\n\n**Response size:** By default each resource carries a curated field set that includes all of its customProperties (about 6 or more each), so a filter that matches many resources can return tens of thousands of characters. Pass fields to ask for only what you need, e.g. fields:"id,displayName,hostGroupIds" or fields:"id,displayName,customProperties,autoProperties,hostGroupIds" (autoProperties come back only when requested by name). A response over 40,000 characters is cut to the first items that fit, with truncated:true and a truncationNote; narrow the filter or use size/offset to see the rest. ' +
       '\n\n**Performance tips:** Use autoPaginate:false for large environments (>1000 resources/devices) and paginate manually to avoid timeouts. ' +
@@ -110,6 +117,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         ...paginationSchema,
         ...filterSchema,
         ...fieldsSchema,
+        ...expandGroupsSchema,
       },
       additionalProperties: false,
     },
@@ -138,6 +146,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
           description: 'The ID of the resource/device to retrieve (resourceId is accepted as an alias)',
         },
         ...fieldsSchema,
+        ...expandGroupsSchema,
       },
       additionalProperties: false,
       required: ['deviceId'],
@@ -485,6 +494,55 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         ...fieldsSchema,
       },
       additionalProperties: false,
+    },
+  },
+  {
+    name: 'get_resource_group_membership',
+    description: 'Show which resource/device groups a resource/device is in, and why, in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** id, displayName and groups: one entry per direct group of the resource with id, name, fullPath and dynamic (true when the group has an appliesTo rule). For a dynamic group it also returns appliesTo and referencedProperties: the resource\'s own properties (custom, auto, system, inherited) that the rule names, with their values. ' +
+      '\n\n**When to use:** "which location/group is this device in, and why?" Parents of each group (see fullPath) contain the resource too. The appliesTo rule is not evaluated here; referencedProperties shows what it would match on. ' +
+      '\n\n**Related tools:** "get\\_resource" with expandGroups:true (same group lookup on a normal resource response), "find\\_resource\\_groups\\_by\\_applies\\_to" (the reverse: which groups reference a value).',
+    annotations: {
+      title: 'Get resource/device group membership',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: {
+          type: 'number',
+          description: 'The ID of the resource/device (resourceId is accepted as an alias)',
+        },
+      },
+      additionalProperties: false,
+      required: ['deviceId'],
+    },
+  },
+  {
+    name: 'find_resource_groups_by_applies_to',
+    description: 'Find resource/device groups whose dynamic-group appliesTo rule contains some text, in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** items (id, name, fullPath, appliesTo) for each matching group, and total. ' +
+      '\n\n**When to use:** locate the dynamic groups that reference a property or value, for example text:"auto.location.snow.sysid" or a sysid, to find the location groups behind it. ' +
+      '\n\n**How it works:** reads every group and matches text case-insensitively as a substring of appliesTo (the LogicMonitor API has no reliable filter on that field), so it reads all groups on each call. Only groups with an appliesTo rule can match. ' +
+      '\n\n**Related tools:** "get\\_resource\\_group\\_membership" (which groups one resource is in), "get\\_resource\\_group" (full details).',
+    annotations: {
+      title: 'Find resource/device groups by appliesTo',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Text to look for inside appliesTo, e.g. a property name or value. Case-insensitive substring match.',
+        },
+        filter: {
+          type: 'string',
+          description: 'Optional LogicMonitor filter to narrow which groups are read, e.g. "fullPath~Locations".',
+        },
+      },
+      additionalProperties: false,
+      required: ['text'],
     },
   },
   {
