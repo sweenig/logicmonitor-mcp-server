@@ -58,6 +58,8 @@ describe('LogicMonitorHandlers', () => {
       deleteDataSource: jest.fn(),
       listDeviceDataSourceInstances: jest.fn(),
       getDeviceDataSourceInstanceData: jest.fn(),
+      listDeviceConfigSourceConfigs: jest.fn(),
+      getDeviceConfigSourceConfig: jest.fn(),
       listDashboards: jest.fn(),
       getDashboard: jest.fn(),
       createDashboard: jest.fn(),
@@ -1987,6 +1989,173 @@ describe('LogicMonitorHandlers', () => {
           filter: undefined,
           fields: undefined,
         });
+      });
+    });
+
+    describe('list_resource_configs', () => {
+      const NOW = 1794930000;
+      let nowSpy: ReturnType<typeof jest.spyOn>;
+      beforeEach(() => {
+        nowSpy = jest.spyOn(Date, 'now').mockReturnValue(NOW * 1000);
+        mockClient.getConfigSource.mockResolvedValue({ collectInterval: 3600 });
+      });
+      afterEach(() => nowSpy.mockRestore());
+
+      const callWithIds = (extra: Record<string, any> = {}) => handlers.handleToolCall('list_resource_configs', {
+        deviceId: 1, deviceDataSourceId: 2, instanceId: 3, ...extra,
+      });
+
+      it('lists config versions with the metadata fields by default and reports a fresh collection as ok', async () => {
+        const versions = { items: [{ id: 'abc', version: 2 }], total: 1 };
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue(versions);
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({
+          items: [{ id: 3, dataSourceId: 9, lastCollectedTime: NOW - 600, lastUpdatedTime: NOW - 99999, alertStatus: 'none' }], total: 1,
+        });
+
+        const result = await callWithIds({ size: 5 });
+
+        expect(result.items).toEqual(versions.items);
+        expect(result.collection).toMatchObject({
+          status: 'ok', secondsSinceCollected: 600, collectIntervalSeconds: 3600, alertStatus: 'none', lastCollectedTime: NOW - 600,
+        });
+        expect(result.collection.summary).toContain('10 minutes ago');
+        expect(mockClient.listDeviceConfigSourceConfigs.mock.calls[0].slice(0, 3)).toEqual([1, 2, 3]);
+        const params = mockClient.listDeviceConfigSourceConfigs.mock.calls[0][3]!;
+        expect(params.size).toBe(5);
+        expect(params.fields!.split(',')).toContain('pollTimestamp');
+        expect(params.fields!.split(',')).not.toContain('config');
+        expect(params.fields!.split(',')).not.toContain('deltaConfig');
+        expect(mockClient.getConfigSource).toHaveBeenCalledWith(9, { fields: 'collectInterval' });
+      });
+
+      it('reports a collection older than twice the interval as overdue', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [], total: 0 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 3, dataSourceId: 9, lastCollectedTime: NOW - 3 * 3600 }], total: 1 });
+
+        const result = await callWithIds();
+
+        expect(result.collection.status).toBe('overdue');
+        expect(result.collection.summary).toContain('3 hours ago');
+      });
+
+      it('reports an instance that never collected as never', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [], total: 0 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 3, dataSourceId: 9, lastCollectedTime: 0 }], total: 1 });
+
+        expect((await callWithIds()).collection.status).toBe('never');
+      });
+
+      it('gives the age without a verdict when the collection interval cannot be read', async () => {
+        mockClient.getConfigSource.mockRejectedValue(new Error('no access'));
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [], total: 0 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 3, dataSourceId: 9, lastCollectedTime: NOW - 60 }], total: 1 });
+
+        const result = await callWithIds();
+
+        expect(result.collection.status).toBe('unknown');
+        expect(result.collection.secondsSinceCollected).toBe(60);
+      });
+
+      it('looks the instance up from configSourceId and reports a resource without one as never', async () => {
+        mockClient.listDeviceDataSources.mockResolvedValue({ items: [], total: 0 });
+
+        const result = await handlers.handleToolCall('list_resource_configs', { deviceId: 1, configSourceId: 2629 });
+
+        expect(mockClient.listDeviceDataSources).toHaveBeenCalledWith(1, expect.objectContaining({ filter: 'dataSourceId:2629' }));
+        expect(result.items).toEqual([]);
+        expect(result.collection.status).toBe('never');
+        expect(result.collection.summary).toContain('no instance');
+        expect(mockClient.listDeviceConfigSourceConfigs).not.toHaveBeenCalled();
+      });
+
+      it('finds the single instance from configSourceId', async () => {
+        mockClient.listDeviceDataSources.mockResolvedValue({ items: [{ id: 77, dataSourceId: 2629 }], total: 1 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 88, dataSourceId: 2629, lastCollectedTime: NOW - 10 }], total: 1 });
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [{ id: 'v1' }], total: 1 });
+
+        const result = await handlers.handleToolCall('list_resource_configs', { deviceId: 1, configSourceId: 2629 });
+
+        expect(mockClient.listDeviceConfigSourceConfigs.mock.calls[0].slice(0, 3)).toEqual([1, 77, 88]);
+        expect(result.collection.status).toBe('ok');
+      });
+
+      it('asks for instanceId when configSourceId matches several instances', async () => {
+        mockClient.listDeviceDataSources.mockResolvedValue({ items: [{ id: 77 }], total: 1 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 1 }, { id: 2 }], total: 2 });
+
+        await expect(handlers.handleToolCall('list_resource_configs', { deviceId: 1, configSourceId: 2629 }))
+          .rejects.toThrow(/pass instanceId/);
+      });
+
+      it('refuses a call with neither configSourceId nor both ids', async () => {
+        await expect(handlers.handleToolCall('list_resource_configs', { deviceId: 1, deviceDataSourceId: 2 }))
+          .rejects.toThrow(/configSourceId/);
+      });
+
+      it('passes the caller\'s fields through', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [], total: 0 });
+        mockClient.listDeviceDataSourceInstances.mockResolvedValue({ items: [{ id: 3, dataSourceId: 9, lastCollectedTime: NOW }], total: 1 });
+
+        await callWithIds({ fields: 'id,config' });
+
+        expect(mockClient.listDeviceConfigSourceConfigs.mock.calls[0][3]!.fields).toBe('id,config');
+      });
+    });
+
+    describe('get_resource_config', () => {
+      it('gets one config version and passes the version id as a string', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({
+          items: [{ id: 'zzz', pollTimestamp: 1 }, { id: 'abc', pollTimestamp: 1794841424624 }], total: 2,
+        });
+        mockClient.getDeviceConfigSourceConfig.mockResolvedValue({ id: 'abc', config: 'hostname x' });
+
+        const result = await handlers.handleToolCall('get_resource_config', {
+          deviceId: 1, deviceDataSourceId: 2, instanceId: 3, configId: 'abc',
+        });
+
+        expect(mockClient.getDeviceConfigSourceConfig).toHaveBeenCalledWith(1, 2, 3, 'abc', {
+          format: undefined, startEpoch: 1794841424, fields: undefined,
+        });
+        expect(result).toEqual({ id: 'abc', config: 'hostname x' });
+      });
+
+      it('uses a caller-supplied startEpoch without looking the version up', async () => {
+        mockClient.getDeviceConfigSourceConfig.mockResolvedValue({ id: 'abc' });
+
+        await handlers.handleToolCall('get_resource_config', {
+          deviceId: 1, deviceDataSourceId: 2, instanceId: 3, configId: 'abc', startEpoch: 1700000000,
+        });
+
+        expect(mockClient.listDeviceConfigSourceConfigs).not.toHaveBeenCalled();
+        expect(mockClient.getDeviceConfigSourceConfig.mock.calls[0][4]).toMatchObject({ startEpoch: 1700000000 });
+      });
+
+      it('refuses an unknown version id and names list_resource_configs', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [{ id: 'zzz', pollTimestamp: 1 }], total: 1 });
+
+        await expect(handlers.handleToolCall('get_resource_config', {
+          deviceId: 1, deviceDataSourceId: 2, instanceId: 3, configId: 'nope',
+        })).rejects.toThrow(/list_resource_configs/);
+        expect(mockClient.getDeviceConfigSourceConfig).not.toHaveBeenCalled();
+      });
+
+      it('cuts a long config and a long diff and says so', async () => {
+        mockClient.listDeviceConfigSourceConfigs.mockResolvedValue({ items: [{ id: 'abc', pollTimestamp: 5 }], total: 1 });
+        mockClient.getDeviceConfigSourceConfig.mockResolvedValue({
+          id: 'abc',
+          config: 'x'.repeat(100),
+          deltaConfig: [1, 2, 3, 4].map(rowNo => ({ rowNo, type: 'add', content: 'y' })),
+        });
+
+        const result = await handlers.handleToolCall('get_resource_config', {
+          deviceId: 1, deviceDataSourceId: 2, instanceId: 3, configId: 'abc', maxChars: 10, maxDiffLines: 2,
+        });
+
+        expect(result.config).toHaveLength(10);
+        expect(result.deltaConfig).toHaveLength(2);
+        expect(result.truncated).toBe(true);
+        expect(result.truncationNote).toContain('90 of 100 characters');
+        expect(result.truncationNote).toContain('2 of 4 "deltaConfig" lines');
       });
     });
 

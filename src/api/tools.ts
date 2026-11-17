@@ -2051,6 +2051,107 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
     },
   },
   {
+    name: 'list_resource_configs',
+    description: 'List the collected config versions (history) of a ConfigSource instance on a resource/device in LogicMonitor (LM) monitoring. ' +
+      '\n\n**Returns:** {items, total, collection}. "collection" answers "how long since this resource collected the config?": status "never" (no instance, or an instance that never collected), "ok", or "overdue" (no collection for more than twice the ConfigSource\'s collection interval), with lastCollectedTime (epoch seconds), lastCollectedAt, secondsSinceCollected, collectIntervalSeconds, alertStatus and a plain-language summary. "items" is one entry per collected version, newest first: id (pass it to "get\\_resource\\_config"), version, pollTimestamp, configStatus, changeStatus, comparedWith (the version it differs from), configErrMsg. The config text and diff are NOT included by default (they are large); name them in "fields" or fetch one version with "get\\_resource\\_config". ' +
+      '\n\n**When to use:** ' +
+      '\n- See when a config last changed and how many versions exist' +
+      '\n- Find the previous version to compare with the current one' +
+      '\n- Check whether a ConfigSource is collecting: read "collection.status". A version\'s pollTimestamp is only when the config last CHANGED (versions are stored on change), so a long-unchanged config is normal; only "collection" shows whether collection has stopped' +
+      '\n\n**Workflow:** easiest is deviceId + configSourceId (the ConfigSource\'s id from "list\\_configsources"): the instance is looked up for you, and a resource with no instance comes back as status "never" with items [] instead of an error. Or pass deviceId + deviceDataSourceId + instanceId (from "list\\_resource\\_datasources" and "list\\_resource\\_instances"). Then "get\\_resource\\_config" for the text of one version. ' +
+      '\n\n**Important:** LogicMonitor ignores "filter" on this list (it returns every version), so page with size/offset or autoPaginate: true instead of filtering. It may also return a negative "total" value; check the length of the "items" array instead. ' +
+      '\n\n**Related tools:** "get\\_resource\\_config" (one version with its text and diff), "list\\_resource\\_instances", "get\\_configsource".',
+    annotations: {
+      title: 'List ConfigSource config versions',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: {
+          type: 'number',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
+        },
+        configSourceId: {
+          type: 'number',
+          description: 'The ConfigSource\'s own id (the "id" from list_configsources). Use this instead of deviceDataSourceId and instanceId: the resource\'s instance is looked up (pass instanceId too if the ConfigSource has several instances on the resource). A resource with no instance returns collection.status "never".',
+        },
+        deviceDataSourceId: {
+          type: 'number',
+          description: 'The resource/device ConfigSource ID (the "id" from list_resource_datasources, filter dataSourceId:<ConfigSource id>), NOT the ConfigSource id itself. Needed with instanceId when configSourceId is not given',
+        },
+        instanceId: {
+          type: 'number',
+          description: 'The ConfigSource instance ID (the "id" from list_resource_instances, or the instance id list_datasource_resources shows for a ConfigSource). Needed with deviceDataSourceId when configSourceId is not given',
+        },
+        ...paginationSchema,
+        ...filterSchema,
+        fields: {
+          type: 'string',
+          description: 'Comma-separated fields to return. Default: id,version,pollTimestamp,configStatus,changeStatus,comparedWith,configErrMsg,instanceName,dataSourceName,deviceDisplayName. Add "config" and/or "deltaConfig" to include the text or the diff of every version (can be very large; a list over 40,000 characters is cut to the first items that fit, with truncated:true).',
+        },
+      },
+      additionalProperties: false,
+      required: ['deviceId'],
+    },
+  },
+  {
+    name: 'get_resource_config',
+    description: 'Get one collected config version of a ConfigSource instance on a resource/device in LogicMonitor (LM) monitoring, with its config text and the diff against the version it was compared with. ' +
+      '\n\n**Returns:** id, version, pollTimestamp, configStatus, changeStatus, comparedWith, config (the full text), deltaConfig (changed lines: {rowNo, type, content}), configErrMsg. ' +
+      '\n\n**When to use:** read the current or an earlier version of a device config, see what changed in a version, or read a version that has since been overwritten on the device. ' +
+      '\n\n**Size caps:** "config" is cut to maxChars (default 40,000) and "deltaConfig" to maxDiffLines (default 500); the result then has truncated:true and a truncationNote saying what was left out. Raise the limit to read more. ' +
+      '\n\n**Workflow:** get the version id from "list\\_resource\\_configs" (the newest is first; the second is the previous version). ' +
+      '\n\n**Related tools:** "list\\_resource\\_configs" (find the version id).',
+    annotations: {
+      title: 'Get ConfigSource config version',
+      readOnlyHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deviceId: {
+          type: 'number',
+          description: 'The resource/device ID (resourceId is accepted as an alias)',
+        },
+        deviceDataSourceId: {
+          type: 'number',
+          description: 'The resource/device ConfigSource ID (the "id" from list_resource_datasources, filter dataSourceId:<ConfigSource id>), NOT the ConfigSource id itself',
+        },
+        instanceId: {
+          type: 'number',
+          description: 'The ConfigSource instance ID (the "id" from list_resource_instances, or the instance id list_datasource_resources shows for a ConfigSource)',
+        },
+        configId: {
+          type: 'string',
+          description: 'The config version id (the "id" from list_resource_configs)',
+        },
+        format: {
+          type: 'string',
+          description: 'Optional LogicMonitor "format" for the config text; leave unset unless you need a specific one',
+        },
+        startEpoch: {
+          type: 'number',
+          description: 'Optional epoch seconds (or milliseconds) LogicMonitor requires for this call; leave unset and the version\'s own pollTimestamp is looked up for you',
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated fields to return, for example "id,version,pollTimestamp,config" to leave out the diff',
+        },
+        maxChars: {
+          type: 'number',
+          description: 'Cut the config text to this many characters (default 40000)',
+        },
+        maxDiffLines: {
+          type: 'number',
+          description: 'Return at most this many deltaConfig lines (default 500)',
+        },
+      },
+      additionalProperties: false,
+      required: ['deviceId', 'deviceDataSourceId', 'instanceId', 'configId'],
+    },
+  },
+  {
     name: 'get_resource_instance_data',
     description: 'Get time-series metrics/datapoints data (e.g., CPU/memory/network utilization) for a specific resource/device datasource instance in LogicMonitor (LM) monitoring. ' +
       '\n\n**Returns:** Time-series data with timestamps and values for requested datapoints. Format: {timestamps: [epoch1, epoch2], values: {datapoint1: [val1, val2], datapoint2: [val1, val2]}}. ' +
