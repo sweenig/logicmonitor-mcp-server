@@ -43,6 +43,14 @@ describe('LogicMonitor Resources', () => {
       expect(resource?.mimeType).toBe('text/markdown');
     });
 
+    it('should include the active discovery status knowledge resource', () => {
+      const resource = listLMResources().find(r => r.uri === 'lm://knowledge/active-discovery-status');
+
+      expect(resource).toBeDefined();
+      expect(resource?.description).toContain('!adlist');
+      expect(resource?.mimeType).toBe('text/markdown');
+    });
+
     it('should have valid resource structure', () => {
       const resources = listLMResources();
 
@@ -60,6 +68,14 @@ describe('LogicMonitor Resources', () => {
 
       expect(result.contents[0].uri).toBe('lm://knowledge/collector-script-cache');
       expect(result.contents[0].text).toContain('ScriptCache.getCache()');
+    });
+
+    it('should read the active discovery status knowledge doc', async () => {
+      const result = await readLMResource('lm://knowledge/active-discovery-status');
+
+      expect(result.contents[0].uri).toBe('lm://knowledge/active-discovery-status');
+      expect(result.contents[0].text).toContain('!adlist');
+      expect(result.contents[0].text).toContain('!adetail');
     });
 
     it('should throw error for non-existent resource', async () => {
