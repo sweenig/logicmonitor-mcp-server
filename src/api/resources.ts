@@ -109,6 +109,14 @@ export const LM_RESOURCES: LMResource[] = [
     mimeType: 'text/markdown',
   },
   {
+    uri: 'lm://knowledge/active-discovery-status',
+    name: 'Checking the status of an Active Discovery run (queued, running, done, empty, failed)',
+    description: 'How to tell whether an Active Discovery run started, finished, found nothing or failed after "schedule_resource_discovery", which returns an empty acknowledgement: use the collector debug commands "!adlist h=<host> ds=<DataSource>" (status WAITING, EXECUTING, DONE, FAILED or EMPTY, last update time, error message) and "!adetail <task id>" through "execute_debug_command". ' +
+      'Includes a table mapping what you see to what it means (no row newer than scheduledAt, EMPTY vs FAILED, no row at all), a live example, and the schedule -> check -> "list_resource_instances" workflow. ' +
+      'Read this when an instance list is empty after scheduling discovery, or before telling the user a discovery run worked or failed.',
+    mimeType: 'text/markdown',
+  },
+  {
     uri: 'lm://knowledge/alert-thresholds',
     name: 'Alert thresholds: trigger and clear intervals are poll cycles (interval x poll rate)',
     description: 'What alertTransitionInterval and alertClearTransitionInterval mean: they count poll CYCLES after the first poll, so 0 = alert at the first violating poll and N = N+1 consecutive polls spanning N x the collection interval. ' +
@@ -146,6 +154,7 @@ const FILE_RESOURCES: Record<string, string> = {
   'lm://knowledge/property-driven-discovery': 'knowledge/property-driven-discovery.md',
   'lm://knowledge/dynamic-groups-and-auto-properties': 'knowledge/dynamic-groups-and-auto-properties.md',
   'lm://knowledge/dashboards-and-widgets': 'knowledge/dashboards-and-widgets.md',
+  'lm://knowledge/active-discovery-status': 'knowledge/active-discovery-status.md',
   'lm://knowledge/alert-thresholds': 'knowledge/alert-thresholds.md',
   'lm://knowledge/websites': 'knowledge/websites.md',
   'lm://knowledge/netscans': 'knowledge/netscans.md',
