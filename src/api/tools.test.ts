@@ -466,6 +466,18 @@ describe('getLogicMonitorTools', () => {
         expect(toolNames).toContain('get_resource_instance_data');
       });
 
+      it('should include read-only config version tools with their required ids', () => {
+        const tools = getLogicMonitorTools(false);
+        const list = tools.find(t => t.name === 'list_resource_configs');
+        const get = tools.find(t => t.name === 'get_resource_config');
+
+        expect(list?.annotations?.readOnlyHint).toBe(true);
+        expect(get?.annotations?.readOnlyHint).toBe(true);
+        expect(list?.inputSchema.required).toEqual(['deviceId']);
+        expect(Object.keys((list?.inputSchema as any).properties)).toContain('configSourceId');
+        expect(get?.inputSchema.required).toEqual(['deviceId', 'deviceDataSourceId', 'instanceId', 'configId']);
+      });
+
       it('should mark datasource query tools as read-only', () => {
         const tools = getLogicMonitorTools(false);
 

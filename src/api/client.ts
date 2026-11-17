@@ -688,6 +688,44 @@ export class LogicMonitorClient {
     );
   }
 
+  // ConfigSource instance config versions (one entry per collected change of a config)
+  async listDeviceConfigSourceConfigs(
+    deviceId: number,
+    deviceDataSourceId: number,
+    instanceId: number,
+    params?: {
+      size?: number;
+      offset?: number;
+      filter?: string;
+      fields?: string;
+      autoPaginate?: boolean;
+    },
+  ) {
+    const { autoPaginate = false, ...otherParams } = params || {};
+    const cleanedParams = this.cleanParams(otherParams);
+    const path = `/device/devices/${deviceId}/devicedatasources/${deviceDataSourceId}/instances/${instanceId}/config`;
+
+    if (autoPaginate) {
+      return this.paginateAll<any>(path, cleanedParams);
+    }
+    return this.request<LMListResponse<any>>('GET', path, undefined, cleanedParams);
+  }
+
+  async getDeviceConfigSourceConfig(
+    deviceId: number,
+    deviceDataSourceId: number,
+    instanceId: number,
+    configId: string,
+    params?: { format?: string; startEpoch?: number; fields?: string },
+  ) {
+    return this.request<any>(
+      'GET',
+      `/device/devices/${deviceId}/devicedatasources/${deviceDataSourceId}/instances/${instanceId}/config/${encodeURIComponent(configId)}`,
+      undefined,
+      this.cleanParams(params || {}),
+    );
+  }
+
   async getDeviceDataSourceInstanceData(
     deviceId: number,
     deviceDataSourceId: number,

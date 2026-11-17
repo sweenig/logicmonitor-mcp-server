@@ -161,6 +161,81 @@ const DEFAULT_TEST_MAX_INSTANCES = 5;
 /** test_datasource cuts each script's raw output to this many characters unless verbose. */
 const MAX_TEST_OUTPUT_CHARS = 2000;
 
+/** Fields of a config version returned by list_resource_configs unless the caller asks for others (no config text or diff). */
+const DEFAULT_CONFIG_VERSION_FIELDS = 'id,version,pollTimestamp,configStatus,changeStatus,comparedWith,configErrMsg,instanceName,dataSourceName,deviceDisplayName';
+
+/** get_resource_config cuts the config text to this many characters unless maxChars says otherwise. */
+const MAX_CONFIG_CHARS = 40000;
+
+/** get_resource_config returns at most this many diff lines unless maxDiffLines says otherwise. */
+const MAX_CONFIG_DIFF_LINES = 500;
+
+/** Cut a config version's text and diff so one big config cannot overflow the client, and say what was left out. */
+export function capConfigVersion(config: any, maxChars: number, maxDiffLines: number): any {
+  if (!config || typeof config !== 'object') return config;
+  const out: Record<string, any> = { ...config };
+  const omitted: string[] = [];
+  if (typeof out.config === 'string') {
+    const cut = capText(out.config, Math.max(0, maxChars));
+    if (cut.omitted > 0) {
+      out.config = cut.text;
+      omitted.push(`${cut.omitted} of ${cut.omitted + cut.text.length} characters of "config" (raise maxChars)`);
+    }
+  }
+  if (Array.isArray(out.deltaConfig) && out.deltaConfig.length > maxDiffLines) {
+    omitted.push(`${out.deltaConfig.length - Math.max(0, maxDiffLines)} of ${out.deltaConfig.length} "deltaConfig" lines (raise maxDiffLines)`);
+    out.deltaConfig = out.deltaConfig.slice(0, Math.max(0, maxDiffLines));
+  }
+  if (omitted.length > 0) {
+    out.truncated = true;
+    out.truncationNote = `Left out: ${omitted.join('; ')}.`;
+  }
+  return out;
+}
+
+/** A config instance is "overdue" when it has not collected for this many collection intervals. */
+const CONFIG_OVERDUE_INTERVALS = 2;
+
+function formatAge(seconds: number): string {
+  if (seconds < 90) return `${seconds} seconds`;
+  if (seconds < 90 * 60) return `${Math.round(seconds / 60)} minutes`;
+  if (seconds < 36 * 3600) return `${Math.round(seconds / 3600 * 10) / 10} hours`;
+  return `${Math.round(seconds / 86400 * 10) / 10} days`;
+}
+
+/**
+ * How long since a ConfigSource instance last collected its config. A version's pollTimestamp is only when the
+ * config last CHANGED (a version is stored on change), so collection health comes from the instance's
+ * lastCollectedTime. Status is "never" (no collection recorded), "ok", or "overdue" (older than
+ * CONFIG_OVERDUE_INTERVALS x the ConfigSource's collection interval; without an interval only the age is given).
+ */
+export function describeConfigCollection(instance: any, collectIntervalSeconds: number | undefined, nowSeconds: number): Record<string, any> {
+  const last = instance?.lastCollectedTime;
+  const base: Record<string, any> = { alertStatus: instance?.alertStatus, lastConfigChangeTime: instance?.lastUpdatedTime };
+  if (typeof last !== 'number' || last <= 0) {
+    return { ...base, status: 'never', lastCollectedTime: null, summary: 'The instance exists but has never collected a config.' };
+  }
+  const secondsSinceCollected = Math.max(0, nowSeconds - last);
+  const out: Record<string, any> = {
+    ...base,
+    lastCollectedTime: last,
+    lastCollectedAt: new Date(last * 1000).toISOString(),
+    secondsSinceCollected,
+  };
+  if (collectIntervalSeconds === undefined) {
+    return { ...out, status: 'unknown', summary: `Last collected ${formatAge(secondsSinceCollected)} ago; the ConfigSource's collection interval could not be read, so no verdict.` };
+  }
+  const overdue = secondsSinceCollected > collectIntervalSeconds * CONFIG_OVERDUE_INTERVALS;
+  return {
+    ...out,
+    collectIntervalSeconds,
+    status: overdue ? 'overdue' : 'ok',
+    summary: overdue
+      ? `Last collected ${formatAge(secondsSinceCollected)} ago, more than ${CONFIG_OVERDUE_INTERVALS}x its ${formatAge(collectIntervalSeconds)} collection interval: it has stopped collecting.`
+      : `Last collected ${formatAge(secondsSinceCollected)} ago (collection interval ${formatAge(collectIntervalSeconds)}): collecting normally.`,
+  };
+}
+
 /** Largest list_* response (characters as sent, pretty-printed) returned whole; bigger ones are cut to the first items that fit. */
 export const MAX_LIST_RESPONSE_CHARS = 40000;
 
@@ -323,6 +398,103 @@ export class LogicMonitorHandlers {
     // Create/update responses can be very large (a whole DataSource, a whole resource); shorten them
     // unless the caller asked for everything.
     return !returnFull && isConciseResultTool(name) ? compactWriteResult(result) : result;
+  }
+
+  /**
+   * Find the ConfigSource instance a version list is for and say how long ago it last collected. Callers pass
+   * either deviceDataSourceId + instanceId, or just configSourceId (the ConfigSource's id), in which case the
+   * resource's instance is looked up, and a resource without one is reported as "never" instead of an error.
+   */
+  private async resolveConfigInstance(args: Record<string, any>): Promise<{
+    deviceDataSourceId: number;
+    instanceId: number;
+    collection?: Record<string, any>;
+    never?: Record<string, any>;
+  }> {
+    const { deviceId } = args;
+    let deviceDataSourceId: number | undefined = args.deviceDataSourceId;
+    let instanceId: number | undefined = args.instanceId;
+    const configSourceId: number | undefined = args.configSourceId;
+
+    if (deviceDataSourceId === undefined || instanceId === undefined) {
+      if (configSourceId === undefined) {
+        throw new InvalidArgumentError('Pass either configSourceId (the ConfigSource id), or both deviceDataSourceId and instanceId (from list_resource_datasources and list_resource_instances)');
+      }
+      if (deviceDataSourceId === undefined) {
+        const applied: any = await this.client.listDeviceDataSources(deviceId, {
+          filter: `dataSourceId:${configSourceId}`, fields: 'id,dataSourceId', size: 1,
+        });
+        if (!applied?.items?.length) {
+          return {
+            deviceDataSourceId: 0,
+            instanceId: 0,
+            never: {
+              status: 'never',
+              summary: `ConfigSource ${configSourceId} has no instance on resource ${deviceId}, so it has never collected a config. It does not apply to this resource (check its appliesTo against the resource's properties) or discovery has not created the instance yet (schedule_resource_discovery).`,
+            },
+          };
+        }
+        deviceDataSourceId = applied.items[0].id;
+      }
+      if (instanceId === undefined) {
+        const all: any = await this.client.listDeviceDataSourceInstances(deviceId, deviceDataSourceId!, { fields: 'id', size: 1000 });
+        const ids: number[] = (all?.items ?? []).map((i: any) => i.id);
+        if (ids.length === 0) {
+          return {
+            deviceDataSourceId: deviceDataSourceId!,
+            instanceId: 0,
+            never: { status: 'never', summary: `ConfigSource ${configSourceId} is applied to resource ${deviceId} but has no instance, so it has never collected a config (schedule_resource_discovery).` },
+          };
+        }
+        if (ids.length > 1) {
+          throw new InvalidArgumentError(`ConfigSource ${configSourceId} has ${ids.length} instances on resource ${deviceId} (${ids.join(', ')}); pass instanceId to choose one`);
+        }
+        instanceId = ids[0];
+      }
+    }
+
+    const instances: any = await this.client.listDeviceDataSourceInstances(deviceId, deviceDataSourceId!, {
+      fields: 'id,dataSourceId,lastCollectedTime,lastUpdatedTime,alertStatus', size: 1000,
+    });
+    const instance = (instances?.items ?? []).find((i: any) => i.id === instanceId);
+    if (!instance) {
+      throw new InvalidArgumentError(`No instance ${instanceId} found under deviceDataSourceId ${deviceDataSourceId} on resource ${deviceId}; get both ids from list_resource_datasources and list_resource_instances`);
+    }
+
+    let collectIntervalSeconds: number | undefined;
+    try {
+      const source: any = await this.client.getConfigSource(configSourceId ?? instance.dataSourceId, { fields: 'collectInterval' });
+      if (typeof source?.collectInterval === 'number' && source.collectInterval > 0) collectIntervalSeconds = source.collectInterval;
+    } catch {
+      // The interval only sharpens the verdict; without it the age is still reported.
+    }
+
+    return {
+      deviceDataSourceId: deviceDataSourceId!,
+      instanceId: instanceId!,
+      collection: describeConfigCollection(instance, collectIntervalSeconds, Math.floor(Date.now() / 1000)),
+    };
+  }
+
+  /**
+   * The pollTimestamp of one config version. LogicMonitor ignores filters on the version list, so this pages
+   * through ids and timestamps (newest first) until it finds the version.
+   */
+  private async findConfigPollTimestamp(deviceId: number, deviceDataSourceId: number, instanceId: number, configId: string): Promise<number> {
+    const pageSize = 1000;
+    for (let offset = 0; ; offset += pageSize) {
+      const page: any = await this.client.listDeviceConfigSourceConfigs(deviceId, deviceDataSourceId, instanceId, {
+        size: pageSize, offset, fields: 'id,pollTimestamp',
+      });
+      const items: any[] = page?.items ?? [];
+      const found = items.find(item => item?.id === configId);
+      if (found) return found.pollTimestamp;
+      if (items.length < pageSize) {
+        throw new InvalidArgumentError(
+          `No config version "${configId}" found for instance ${instanceId}; get the id from list_resource_configs`,
+        );
+      }
+    }
   }
 
   /** The fields of a website group request body (create or update) that were given. */
@@ -1276,6 +1448,43 @@ export class LogicMonitorHandlers {
               fields: args.fields,
             },
           );
+
+        case 'list_resource_configs': {
+          const target = await this.resolveConfigInstance(args);
+          if (target.never) {
+            return { items: [], total: 0, collection: target.never };
+          }
+          const versions: any = await this.client.listDeviceConfigSourceConfigs(
+            args.deviceId,
+            target.deviceDataSourceId,
+            target.instanceId,
+            {
+              size: args.size,
+              offset: args.offset,
+              filter: args.filter,
+              // The config text and diff are heavy; the version list defaults to the metadata.
+              fields: args.fields ?? DEFAULT_CONFIG_VERSION_FIELDS,
+              autoPaginate: args.autoPaginate,
+            },
+          );
+          return { ...versions, collection: target.collection };
+        }
+
+        case 'get_resource_config': {
+          // LogicMonitor answers 400 "Missing essential query parameter 'startEpoch'" without it; the value
+          // that works is the version's own pollTimestamp, so look it up when the caller did not give one.
+          const startEpoch = args.startEpoch ?? await this.findConfigPollTimestamp(
+            args.deviceId, args.deviceDataSourceId, args.instanceId, String(args.configId),
+          );
+          const config = await this.client.getDeviceConfigSourceConfig(
+            args.deviceId,
+            args.deviceDataSourceId,
+            args.instanceId,
+            String(args.configId),
+            { format: args.format, startEpoch: toEpochSeconds(startEpoch), fields: args.fields },
+          );
+          return capConfigVersion(config, args.maxChars ?? MAX_CONFIG_CHARS, args.maxDiffLines ?? MAX_CONFIG_DIFF_LINES);
+        }
 
         case 'get_resource_instance_data':
           return await this.client.getDeviceDataSourceInstanceData(

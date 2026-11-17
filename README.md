@@ -580,6 +580,8 @@ The server provides 158 tools for comprehensive LogicMonitor operations. Tools a
 - `get_resource_datasource` - Get device datasource details
 - `list_resource_instances` - List datasource instances (disks, interfaces, etc.)
 - `get_resource_instance_data` - Get time-series metrics data
+- `list_resource_configs` - List a ConfigSource instance's config versions, with `collection` (never / ok / overdue, and how long since it last collected)
+- `get_resource_config` - Get one config version with its text and diff
 - `list_eventsources` - List all eventsources
 - `get_eventsource` - Get eventsource details
 - `list_configsources` - List configuration sources
