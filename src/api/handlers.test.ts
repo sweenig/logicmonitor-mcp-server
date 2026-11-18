@@ -1907,8 +1907,22 @@ describe('LogicMonitorHandlers', () => {
 
       it('name the unrecognized arguments and the accepted parameters', async () => {
         await expect(handlers.handleToolCall('get_datasource', { name: 'x' })).rejects.toThrow(/unrecognized argument received: name/);
-        await expect(handlers.handleToolCall('update_resource_property', { hostId: 1, propertyName: 'a', value: 'b' }))
-          .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: hostId\)/);
+        await expect(handlers.handleToolCall('update_resource_property', { resourceName: 1, propertyName: 'a', value: 'b' }))
+          .rejects.toThrow(/Missing required argument for update_resource_property: deviceId \(unrecognized argument received: resourceName\)/);
+      });
+
+      it('accepts the verified aliases hostId, datasourceId and group_id', async () => {
+        mockClient.updateDeviceProperty.mockResolvedValue({});
+        await handlers.handleToolCall('update_resource_property', { hostId: 1, propertyName: 'a', value: 'b' });
+        expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'a', 'b');
+
+        mockClient.getDataSource.mockResolvedValue({ id: 5, name: 'DS', dataPoints: [] } as any);
+        await handlers.handleToolCall('get_datasource', { datasourceId: 5 });
+        expect(mockClient.getDataSource).toHaveBeenCalledWith(5, { fields: undefined });
+
+        mockClient.listDeviceGroupProperties.mockResolvedValue({ items: [] } as any);
+        await handlers.handleToolCall('list_resource_group_properties', { group_id: 8 });
+        expect(mockClient.listDeviceGroupProperties).toHaveBeenCalledWith(8, expect.anything());
       });
     });
 

@@ -55,11 +55,22 @@ export function applyIdAlias<T>(tool: (ToolSchemaLike & { inputSchema?: { proper
   return { ...rest, [required[0]]: id } as T;
 }
 
-/** Argument aliases: tools say "resource" in their names but take LogicMonitor's older "device" parameters. */
-const PARAMETER_ALIASES: Record<string, string> = { resourceId: 'deviceId', resourceIds: 'deviceIds' };
+/**
+ * Argument aliases. Each one is backed by evidence, not a guess: resourceId(s) because tools say
+ * "resource" but take LogicMonitor's older "device" names; hostId, datasourceId and group_id
+ * because clients were seen sending exactly those names and getting "missing required".
+ * Ambiguous names (id on multi-ID tools, name, dataSourceId vs deviceDataSourceId) are left out.
+ */
+const PARAMETER_ALIASES: Record<string, string> = {
+  resourceId: 'deviceId',
+  resourceIds: 'deviceIds',
+  hostId: 'deviceId',
+  datasourceId: 'dataSourceId',
+  group_id: 'groupId',
+};
 
 /**
- * Accept resourceId/resourceIds where a tool declares deviceId/deviceIds. The canonical name
+ * Accept the aliases above where a tool declares the canonical name. The canonical name
  * wins when both are given, and a tool that declares the alias itself is left alone.
  */
 export function applyParameterAliases<T>(tool: { inputSchema?: { properties?: Record<string, unknown> } } | undefined, args: T): T {
