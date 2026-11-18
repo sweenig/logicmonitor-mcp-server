@@ -55,6 +55,19 @@ describe('applyParameterAliases', () => {
     expect(applyParameterAliases(tool, { resourceId: 5 })).toEqual({ deviceId: 5 });
     expect(applyParameterAliases(tool, { resourceIds: [1] })).toEqual({ deviceIds: [1] });
   });
+  it('maps hostId, datasourceId and group_id to deviceId, dataSourceId and groupId', () => {
+    expect(applyParameterAliases(tool, { hostId: 7 })).toEqual({ deviceId: 7 });
+    const ds = { inputSchema: { properties: { dataSourceId: {} } } };
+    expect(applyParameterAliases(ds, { datasourceId: 3 })).toEqual({ dataSourceId: 3 });
+    const grp = { inputSchema: { properties: { groupId: {} } } };
+    expect(applyParameterAliases(grp, { group_id: 9 })).toEqual({ groupId: 9 });
+    expect(applyParameterAliases(grp, { groupId: 1, group_id: 9 })).toEqual({ groupId: 1 });
+  });
+  it('leaves tools that declare hostId alone, and does not map across unrelated tools', () => {
+    const host = { inputSchema: { properties: { hostId: {} } } };
+    expect(applyParameterAliases(host, { hostId: 7 })).toEqual({ hostId: 7 });
+    expect(applyParameterAliases(tool, { datasourceId: 3 })).toEqual({ datasourceId: 3 });
+  });
   it('keeps the canonical name when both are given, and leaves tools that declare the alias alone', () => {
     expect(applyParameterAliases(tool, { deviceId: 1, resourceId: 2 })).toEqual({ deviceId: 1 });
     const own = { inputSchema: { properties: { deviceId: {}, resourceId: {} } } };
