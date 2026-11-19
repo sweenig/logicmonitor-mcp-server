@@ -23,7 +23,7 @@ import { parseDiscoveryOutput, evaluateDatapoints, stripReturnHeader, datapointW
 import { buildGraphBody } from '../utils/helpers/datasource-graph.js';
 import { runDebugCommand, fetchDebugResult, normalizeWaitSeconds } from '../utils/helpers/debug-command.js';
 import { compactWriteResult, isConciseResultTool } from '../utils/helpers/write-result.js';
-import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from '../utils/helpers/validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases, suggestParameterName } from '../utils/helpers/validate-args.js';
 import { getLogicMonitorTools } from './tools.js';
 import { applyAlertThresholds, withParsedThreshold } from '../utils/helpers/alert-thresholds.js';
 import { describeAlertIntervals, datapointIntervalWarnings, anyOccurrenceWarning } from '../utils/helpers/alert-intervals.js';
@@ -839,13 +839,15 @@ export class LogicMonitorHandlers {
       const missing = findMissingRequired(tool, args);
       if (missing.length) {
         const unknown = findUnknownArguments(tool, args);
+        const didYouMean = suggestParameterName(missing, unknown);
         throw new MCPError(
           `Missing required argument${missing.length > 1 ? 's' : ''} for ${name}: ${missing.join(', ')}`
-            + (unknown.length ? ` (unrecognized argument${unknown.length > 1 ? 's' : ''} received: ${unknown.join(', ')})` : ''),
+            + (unknown.length ? ` (unrecognized argument${unknown.length > 1 ? 's' : ''} received: ${unknown.join(', ')})` : '')
+            + (didYouMean ? ` - ${didYouMean}` : ''),
           ErrorCodes.MISSING_REQUIRED_FIELD,
           { toolName: name, missing, unrecognized: unknown },
           [
-            `Provide: ${missing.join(', ')}`,
+            didYouMean ? `Send "${missing[0]}" instead of "${unknown[0]}"` : `Provide: ${missing.join(', ')}`,
             `Accepted parameters for ${name}: ${acceptedParameterNames(tool).join(', ')}`,
           ],
         );

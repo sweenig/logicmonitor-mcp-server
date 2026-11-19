@@ -1912,6 +1912,16 @@ describe('LogicMonitorHandlers', () => {
         await expect(handlers.handleToolCall('get_datasource_graph', { id: 5, graphId: 1 })).rejects.toThrow(/Missing required argument for get_datasource_graph: dataSourceId/);
       });
 
+      it('suggests the missing parameter when exactly one is missing and one was unrecognized', async () => {
+        await expect(handlers.handleToolCall('update_resource_property', { resourceName: 1, propertyName: 'a', value: 'b' }))
+          .rejects.toThrow(/\(unrecognized argument received: resourceName\) - did you mean "deviceId" instead of "resourceName"\?/);
+      });
+
+      it('does not suggest anything when two arguments were unrecognized', async () => {
+        await expect(handlers.handleToolCall('update_resource_property', { foo: 1, bar: 2, propertyName: 'a', value: 'b' }))
+          .rejects.not.toThrow(/did you mean/);
+      });
+
       it('name the unrecognized arguments and the accepted parameters', async () => {
         await expect(handlers.handleToolCall('get_datasource', { name: 'x' })).rejects.toThrow(/unrecognized argument received: name/);
         await expect(handlers.handleToolCall('update_resource_property', { resourceName: 1, propertyName: 'a', value: 'b' }))
