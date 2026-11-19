@@ -32,6 +32,15 @@ export function findUnknownArguments(tool: { inputSchema?: { properties?: Record
   return Object.keys((args ?? {}) as Record<string, unknown>).filter(key => !(key in properties));
 }
 
+/**
+ * "did you mean X?" hint for a guessed parameter name. Only when the pairing is unambiguous:
+ * exactly one required parameter is missing and exactly one argument was not recognized.
+ */
+export function suggestParameterName(missing: string[], unknown: string[]): string | undefined {
+  if (missing.length !== 1 || unknown.length !== 1) return undefined;
+  return `did you mean "${missing[0]}" instead of "${unknown[0]}"?`;
+}
+
 /** Names of all parameters the tool declares, required ones first. */
 export function acceptedParameterNames(tool: ToolSchemaLike & { inputSchema?: { properties?: Record<string, unknown> } } | undefined): string[] {
   const names = Object.keys(tool?.inputSchema?.properties ?? {});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases } from './validate-args.js';
+import { findMissingRequired, findUnknownArguments, acceptedParameterNames, applyIdAlias, applyParameterAliases, suggestParameterName } from './validate-args.js';
 
 describe('findMissingRequired', () => {
   const tool = { name: 't', inputSchema: { required: ['id', 'name'] } };
@@ -31,6 +31,19 @@ describe('findUnknownArguments / acceptedParameterNames', () => {
 
   it('lists accepted names, required first', () => {
     expect(acceptedParameterNames(tool)).toEqual(['dataSourceId', 'fields']);
+  });
+});
+
+describe('suggestParameterName', () => {
+  it('pairs one missing required parameter with one unrecognized argument', () => {
+    expect(suggestParameterName(['deviceId'], ['hostId'])).toBe('did you mean "deviceId" instead of "hostId"?');
+  });
+
+  it('gives no suggestion when the pairing is ambiguous or absent', () => {
+    expect(suggestParameterName(['a', 'b'], ['x'])).toBeUndefined();
+    expect(suggestParameterName(['a'], ['x', 'y'])).toBeUndefined();
+    expect(suggestParameterName(['a'], [])).toBeUndefined();
+    expect(suggestParameterName([], ['x'])).toBeUndefined();
   });
 });
 
