@@ -308,7 +308,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         // Single resource/device properties
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to update (for single update) (resourceId is accepted as an alias)',
+          description: 'The ID of the resource/device to update (for single update) (resourceId is accepted as an alias). Do NOT pass the "resourceId" of an alert here: that is the deviceDataSourceId, not a device ID (use the "monitorObjectId" of the alert), and it can match an unrelated device. Check displayName in the result.',
         },
         displayName: {
           type: 'string',
@@ -428,7 +428,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
         // Single resource/device properties
         deviceId: {
           type: 'number',
-          description: 'The ID of the resource/device to delete (for single deletion) (resourceId is accepted as an alias)',
+          description: 'The ID of the resource/device to delete (for single deletion) (resourceId is accepted as an alias). Do NOT pass the "resourceId" of an alert here: that is the deviceDataSourceId, not a device ID (use the "monitorObjectId" of the alert), and it can match an unrelated device. The result shows the target displayName.',
         },
         deleteFromSystem: {
           type: 'boolean',
@@ -4632,7 +4632,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID (resourceId is accepted as an alias)',
+          description: 'The resource/device ID (resourceId is accepted as an alias). Do NOT pass the "resourceId" of an alert here: that is the deviceDataSourceId, not a device ID (use the "monitorObjectId" of the alert), and it can match an unrelated device. The result shows the target displayName.',
         },
         propertyName: {
           type: 'string',
@@ -4711,7 +4711,7 @@ const ALL_LOGICMONITOR_TOOLS: Tool[] = [
       properties: {
         deviceId: {
           type: 'number',
-          description: 'The resource/device ID (from "list\\_resources") (resourceId is accepted as an alias)',
+          description: 'The resource/device ID (from "list\\_resources") (resourceId is accepted as an alias). Do NOT pass the "resourceId" of an alert here: that is the deviceDataSourceId, not a device ID (use the "monitorObjectId" of the alert), and it can match an unrelated device. The result shows the target displayName.',
         },
         propertyName: {
           type: 'string',

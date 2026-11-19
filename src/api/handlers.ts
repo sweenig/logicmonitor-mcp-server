@@ -1006,10 +1006,11 @@ export class LogicMonitorHandlers {
             const result = await batchProcessor.processBatch(
               args.deviceIds,
               async (deviceId: number) => {
+                const displayName = await this.resolveResourceName(deviceId);
                 await this.client.deleteDevice(deviceId, {
                   deleteFromSystem: args.deleteFromSystem,
                 });
-                return { id: deviceId };
+                return { id: deviceId, displayName };
               },
               {
                 maxConcurrent: batchOptions.maxConcurrent || 5,
@@ -1034,9 +1035,14 @@ export class LogicMonitorHandlers {
           }
 
           // Single mode
-          return await this.client.deleteDevice(args.deviceId, {
-            deleteFromSystem: args.deleteFromSystem,
-          });
+          const deletedName = await this.resolveResourceName(args.deviceId);
+          return this.withResourceTarget(
+            await this.client.deleteDevice(args.deviceId, {
+              deleteFromSystem: args.deleteFromSystem,
+            }),
+            args.deviceId,
+            deletedName,
+          );
         }
 
         // Device Groups
@@ -2287,12 +2293,14 @@ export class LogicMonitorHandlers {
           };
         }
 
-        case 'update_resource_property':
-          return await this.client.updateDeviceProperty(
+        case 'update_resource_property': {
+          const targetName = await this.resolveResourceName(args.deviceId);
+          return this.withResourceTarget(
+            await this.client.updateDeviceProperty(args.deviceId, args.propertyName, args.value),
             args.deviceId,
-            args.propertyName,
-            args.value,
+            targetName,
           );
+        }
 
         case 'set_resource_property_bulk': {
           const MAX_BULK = 100;
@@ -2348,8 +2356,14 @@ export class LogicMonitorHandlers {
           return { dryRun, propertyName: args.propertyName, total: rows.length, results: rows };
         }
 
-        case 'delete_resource_property':
-          return await this.client.deleteDeviceProperty(args.deviceId, args.propertyName);
+        case 'delete_resource_property': {
+          const targetName = await this.resolveResourceName(args.deviceId);
+          return this.withResourceTarget(
+            await this.client.deleteDeviceProperty(args.deviceId, args.propertyName),
+            args.deviceId,
+            targetName,
+          );
+        }
 
         case 'schedule_resource_discovery':
         {
@@ -3110,6 +3124,24 @@ export class LogicMonitorHandlers {
         all: isInternal ? (loc?.all ?? smgIds.length === 0) : false,
       },
     };
+  }
+
+  /**
+   * Best-effort display name of a resource, looked up before a write so the result can show which
+   * resource was hit (an alert's resourceId is a deviceDataSourceId and can match an unrelated device).
+   */
+  private async resolveResourceName(deviceId: number): Promise<string | undefined> {
+    try {
+      const device = await this.client.getDevice(deviceId, { fields: 'id,displayName' });
+      return (device as any)?.displayName;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private withResourceTarget(result: any, deviceId: number, displayName: string | undefined) {
+    const base = result && typeof result === 'object' && !Array.isArray(result) ? result : {};
+    return { ...base, target: { deviceId, displayName } };
   }
 
   private combineQueryAndFilter(

@@ -545,6 +545,12 @@ describe('LogicMonitorHandlers', () => {
     });
 
     describe('update_resource', () => {
+      it('returns the updated device with its displayName', async () => {
+        mockClient.updateDevice.mockResolvedValue({ id: 1, displayName: 'web-01' });
+        const result = await handlers.handleToolCall('update_resource', { deviceId: 1, description: 'x' });
+        expect(result.displayName).toBe('web-01');
+      });
+
       it('should update device with replace opType', async () => {
         const mockDevice = { id: 1, displayName: 'updated-device' };
         mockClient.updateDevice.mockResolvedValue(mockDevice);
@@ -581,14 +587,15 @@ describe('LogicMonitorHandlers', () => {
     });
 
     describe('delete_resource', () => {
-      it('should delete device', async () => {
+      it('should delete device and show which resource was hit', async () => {
+        mockClient.getDevice.mockResolvedValue({ id: 1, displayName: 'web-01' });
         mockClient.deleteDevice.mockResolvedValue({});
 
         const result = await handlers.handleToolCall('delete_resource', {
           deviceId: 1,
         });
 
-        expect(result).toEqual({});
+        expect(result).toEqual({ target: { deviceId: 1, displayName: 'web-01' } });
         expect(mockClient.deleteDevice).toHaveBeenCalledWith(1, {
           deleteFromSystem: undefined,
         });
@@ -4031,7 +4038,8 @@ describe('LogicMonitorHandlers', () => {
     });
 
     it('should update device property', async () => {
-      mockClient.updateDeviceProperty.mockResolvedValue({});
+      mockClient.getDevice.mockResolvedValue({ id: 1, displayName: 'web-01' });
+      mockClient.updateDeviceProperty.mockResolvedValue({ action: 'updated' });
 
       const result = await handlers.handleToolCall('update_resource_property', {
         deviceId: 1,
@@ -4039,7 +4047,7 @@ describe('LogicMonitorHandlers', () => {
         value: 'new-value',
       });
 
-      expect(result).toEqual({});
+      expect(result).toEqual({ action: 'updated', target: { deviceId: 1, displayName: 'web-01' } });
       expect(mockClient.updateDeviceProperty).toHaveBeenCalledWith(1, 'test.prop', 'new-value');
     });
 
@@ -4102,14 +4110,29 @@ describe('LogicMonitorHandlers', () => {
       });
     });
 
-    it('should delete device property', async () => {
+    it('should delete device property and show which resource was hit', async () => {
+      mockClient.getDevice.mockResolvedValue({ id: 1, displayName: 'web-01' });
       mockClient.deleteDeviceProperty.mockResolvedValue({});
 
-      await handlers.handleToolCall('delete_resource_property', {
+      const result = await handlers.handleToolCall('delete_resource_property', {
         deviceId: 1,
         propertyName: 'test.prop',
       });
 
+      expect(result).toEqual({ target: { deviceId: 1, displayName: 'web-01' } });
+      expect(mockClient.deleteDeviceProperty).toHaveBeenCalledWith(1, 'test.prop');
+    });
+
+    it('still writes when the displayName lookup fails', async () => {
+      mockClient.getDevice.mockRejectedValue(new Error('404'));
+      mockClient.deleteDeviceProperty.mockResolvedValue({});
+
+      const result = await handlers.handleToolCall('delete_resource_property', {
+        deviceId: 1,
+        propertyName: 'test.prop',
+      });
+
+      expect(result).toEqual({ target: { deviceId: 1, displayName: undefined } });
       expect(mockClient.deleteDeviceProperty).toHaveBeenCalledWith(1, 'test.prop');
     });
 
